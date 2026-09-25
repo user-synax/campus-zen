@@ -71,8 +71,11 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// text index for future search (PRD §13) — keep lightweight
-userSchema.index({ username: "text", fullName: "text" });
+// text index for PRD §13 — username 10, fullName 5, bio/college/course 2 (weighted)
+userSchema.index(
+  { username: "text", fullName: "text", bio: "text", college: "text", course: "text" },
+  { weights: { username: 10, fullName: 5, bio: 2, college: 2, course: 2 }, name: "user_text_search" }
+);
 
 userSchema.methods.toSafeObject = function () {
   const obj = this.toObject();

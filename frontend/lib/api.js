@@ -83,6 +83,14 @@ export const api = {
     const q = qs.toString();
     return request(`/api/users/${encodeURIComponent(username)}/media${q ? `?${q}` : ""}`, { method: "GET" });
   },
+  search: (params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "") qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(`/api/search${q ? `?${q}` : ""}`, { method: "GET" });
+  },
   followUser: (id) => request(`/api/users/${encodeURIComponent(id)}/follow`, { method: "POST" }),
   unfollowUser: (id) => request(`/api/users/${encodeURIComponent(id)}/follow`, { method: "DELETE" }),
   getFollowers: (id, params = {}) => {
