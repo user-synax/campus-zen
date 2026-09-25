@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { validate } from "../middleware/validate.js";
-import { protect } from "../middleware/auth.js";
+import { protect, optionalAuth } from "../middleware/auth.js";
 import { userController } from "../controllers/userController.js";
 import { avatarUpload } from "../middleware/upload.js";
 import rateLimit from "express-rate-limit";
@@ -50,7 +50,10 @@ const avatarLimiter = rateLimit({
 
 router.post("/me/avatar", avatarLimiter, protect, avatarUpload.single("avatar"), userController.updateAvatar);
 
-router.get("/:username", meLimiter, protect, validate(usernameParam, "params"), userController.getByUsername);
+// list users — public, optional auth to decide guest blur
+router.get("/", meLimiter, optionalAuth, userController.listUsers);
+
+router.get("/:username", meLimiter, optionalAuth, validate(usernameParam, "params"), userController.getByUsername);
 router.patch("/me", meLimiter, protect, validate(updateMeSchema), userController.updateMe);
 
 // also allow PATCH /me with PUT alias

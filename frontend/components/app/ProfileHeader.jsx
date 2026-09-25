@@ -33,11 +33,11 @@ export function ProfileHeader({ user, isOwn, onEdit, onFollow }) {
               <Button variant="secondary" size="sm" onClick={onEdit} className="h-[34px] px-4">
                 Edit profile
               </Button>
-            ) : (
+            ) : onFollow ? (
               <Button variant="primary" size="sm" onClick={onFollow} className="h-[34px] px-5">
                 Follow
               </Button>
-            )}
+            ) : null}
             <button
               aria-label="More"
               className="grid place-items-center h-[34px] w-[34px] rounded-[10px] border border-[var(--cz-border)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,206,173,0.06)] text-[var(--cz-text-secondary)]"

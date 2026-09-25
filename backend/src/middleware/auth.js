@@ -26,6 +26,31 @@ export async function protect(req, res, next) {
   }
 }
 
+// Optional auth — sets req.user if valid token, else null, never throws
+export async function optionalAuth(req, res, next) {
+  try {
+    const token = req.cookies?.accessToken;
+    if (!token) {
+      req.user = null;
+      return next();
+    }
+    let decoded;
+    try {
+      decoded = verifyAccessToken(token);
+    } catch {
+      req.user = null;
+      return next();
+    }
+    const user = await User.findById(decoded.id).select("+refreshTokenHash");
+    req.user = user || null;
+    if (user) req.userId = user._id;
+    next();
+  } catch {
+    req.user = null;
+    next();
+  }
+}
+
 export function authorize(...roles) {
   return (req, res, next) => {
     if (!req.user || !roles.includes(req.user.role)) return next(new AppError("Forbidden.", 403, "FORBIDDEN"));

@@ -2,6 +2,41 @@ import { User } from "../models/User.js";
 import { AppError } from "../utils/AppError.js";
 
 export const userService = {
+  async listUsers({ q, college, course, academicYear, page = 1, limit = 20 }) {
+    const filter = {};
+    // search across username, fullName, college (text index)
+    if (q) {
+      const esc = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const re = new RegExp(esc, "i");
+      filter.$or = [{ username: re }, { fullName: re }, { bio: re }];
+    }
+    if (college) filter.college = new RegExp(`^${college.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
+    if (course) filter.course = new RegExp(`^${course.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
+    if (academicYear) filter.academicYear = academicYear;
+
+    const skip = (Math.max(1, Number(page)) - 1) * Math.max(1, Math.min(50, Number(limit)));
+    const lim = Math.max(1, Math.min(50, Number(limit)));
+
+    const [users, total] = await Promise.all([
+      User.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim).lean(),
+      User.countDocuments(filter),
+    ]);
+
+    // lean returns plain objects, strip sensitive fields
+    const safe = users.map((u) => {
+      const { passwordHash, refreshTokenHash, __v, ...rest } = u;
+      return rest;
+    });
+
+    return {
+      users: safe,
+      total,
+      page: Number(page),
+      limit: lim,
+      hasMore: skip + lim < total,
+    };
+  },
+
   async getByUsername(username) {
     const clean = username.toLowerCase().trim();
     const user = await User.findOne({ username: clean });

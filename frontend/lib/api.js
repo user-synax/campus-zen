@@ -34,6 +34,14 @@ export const api = {
   forgotPassword: (payload) => request("/api/auth/forgot-password", { method: "POST", body: payload }),
   resetPassword: (payload) => request("/api/auth/reset-password", { method: "POST", body: payload }),
   getUser: (username) => request(`/api/users/${encodeURIComponent(username)}`, { method: "GET" }),
+  listUsers: (params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "") qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(`/api/users${q ? `?${q}` : ""}`, { method: "GET" });
+  },
   updateMe: (payload) => request("/api/users/me", { method: "PATCH", body: payload }),
   uploadAvatar: async (file) => {
     const form = new FormData();
