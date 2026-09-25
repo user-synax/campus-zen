@@ -35,4 +35,18 @@ export const api = {
   resetPassword: (payload) => request("/api/auth/reset-password", { method: "POST", body: payload }),
   getUser: (username) => request(`/api/users/${encodeURIComponent(username)}`, { method: "GET" }),
   updateMe: (payload) => request("/api/users/me", { method: "PATCH", body: payload }),
+  uploadAvatar: async (file) => {
+    const form = new FormData();
+    form.append("avatar", file);
+    const res = await fetch(`${BASE}/api/users/me/avatar`, { method: "POST", body: form, credentials: "include" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = data.message || `Upload failed (${res.status})`;
+      const err = new Error(msg);
+      err.status = res.status;
+      err.data = data;
+      throw err;
+    }
+    return data;
+  },
 };

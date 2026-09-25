@@ -1,35 +1,34 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { FileText, MessageCircle, Image as ImageIcon, Heart, Settings } from "lucide-react";
+import { FileText, MessageCircle, Image as ImageIcon, Heart, Settings, Github } from "lucide-react";
 import { ProfileHeader, ProfileTabs } from "@/components/app/ProfileHeader";
 import { EmptyState } from "@/components/app/EmptyState";
+import { EditProfileModal } from "@/components/app/EditProfileModal";
 import { api } from "@/lib/api";
 import { Loader2 } from "lucide-react";
+import { ContributionGraph, ContributionGraphBlock, ContributionGraphCalendar, ContributionGraphFooter, ContributionGraphTotalCount, ContributionGraphLegend } from "@/components/ui/contribution-graph";
 
 export default function OwnProfilePage() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("posts");
   const [error, setError] = useState("");
+  const [editOpen, setEditOpen] = useState(false);
+
+  const fetchMe = async () => {
+    try {
+      const r = await api.me();
+      setUser(r.data?.user);
+    } catch (e) {
+      setError(e.message || "Failed to load profile");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    api
-      .me()
-      .then((r) => {
-        if (!cancelled) setUser(r.data?.user);
-      })
-      .catch((e) => {
-        if (!cancelled) setError(e.message || "Failed to load profile");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+    fetchMe();
   }, []);
 
   if (loading) {
@@ -50,14 +49,7 @@ export default function OwnProfilePage() {
 
   return (
     <div className="mx-auto w-full max-w-[640px] space-y-4">
-      <ProfileHeader
-        user={user}
-        isOwn
-        onEdit={() => {
-          // placeholder — will open edit modal in next step
-          window.dispatchEvent(new CustomEvent("cz:toast", { detail: "Edit profile — coming next" }));
-        }}
-      />
+      <ProfileHeader user={user} isOwn onEdit={() => setEditOpen(true)} />
 
       <ProfileTabs active={tab} onChange={setTab} />
 
@@ -73,12 +65,54 @@ export default function OwnProfilePage() {
         <EmptyState icon={MessageCircle} title="No replies yet" description="Replies you make to other posts will appear here." />
       ) : tab === "media" ? (
         <EmptyState icon={ImageIcon} title="No media yet" description="Media uploads land in V1. Text-only for MVP." />
-      ) : (
+      ) : tab === "likes" ? (
         <EmptyState icon={Heart} title="No likes yet" description="Posts you like will be collected here." />
-      )}
+      ) : tab === "github" ? (
+        user.socialLinks?.github ? (
+          <div className="rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)] p-4 overflow-hidden">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h3 className="text-[13px] font-semibold flex items-center gap-1.5">
+                <Github className="h-4 w-4" /> {user.socialLinks.github}’s contributions
+              </h3>
+              <a
+                href={`https://github.com/${user.socialLinks.github}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] font-medium text-[var(--cz-muted)] hover:text-[#9aa0ff] underline-offset-4 hover:underline"
+              >
+                View on GitHub →
+              </a>
+            </div>
+            <ContributionGraph
+              username={user.socialLinks.github}
+              blockSize={11}
+              blockMargin={3}
+              blockRadius={2}
+              className="w-full [&_svg]:w-full"
+            >
+              <ContributionGraphCalendar>{(props) => <ContributionGraphBlock {...props} />}</ContributionGraphCalendar>
+              <ContributionGraphFooter className="mt-2 flex-col sm:flex-row sm:items-center gap-2">
+                <ContributionGraphTotalCount className="text-[11px] text-[var(--cz-text-secondary)]" />
+                <ContributionGraphLegend className="text-[11px]" />
+              </ContributionGraphFooter>
+            </ContributionGraph>
+            <p className="mt-3 text-[11px] leading-[14px] text-[var(--cz-text-secondary)]/60">Data via github-contributions-api • Last 12 months • Dark bg chips above keep profile clean.</p>
+          </div>
+        ) : (
+          <EmptyState
+            icon={Github}
+            title="No GitHub linked"
+            description="Link your GitHub username to show your contribution graph here. Classmates discover you by code."
+            actionLabel="Add GitHub"
+            onAction={() => setEditOpen(true)}
+          />
+        )
+      ) : null}
+
+      <EditProfileModal open={editOpen} onClose={() => setEditOpen(false)} user={user} onSaved={(u) => setUser(u)} />
 
       <div className="rounded-[12px] border border-dashed border-[var(--cz-border)] p-3 text-center text-[11px] leading-[15px] text-[var(--cz-text-secondary)]/60">
-        Own profile • @{user.username} • Edit will allow `bio, college, course, academicYear, avatarUrl` per PRD §8.
+        @{user.username} • Academic chips dark bg + light icons • Social minimal (github, x, linkedin, instagram)
       </div>
     </div>
   );

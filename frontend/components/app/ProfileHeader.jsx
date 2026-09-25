@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { MapPin, GraduationCap, Calendar, Link2, MoreHorizontal } from "lucide-react";
+import { MapPin, GraduationCap, Calendar, MoreHorizontal, Github, Linkedin, Twitter, Instagram, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function ProfileHeader({ user, isOwn, onEdit, onFollow }) {
@@ -56,26 +56,72 @@ export function ProfileHeader({ user, isOwn, onEdit, onFollow }) {
           <p className="mt-2 text-[13px] leading-[19px] text-[var(--cz-text-secondary)] max-w-[60ch]">{subtitle}</p>
 
           {collegeLine ? (
-            <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] leading-[16px] text-[var(--cz-text-secondary)]">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               {user.college ? (
-                <span className="inline-flex items-center gap-1">
-                  <MapPin className="h-3.5 w-3.5 opacity-70" /> {user.college}
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--cz-surface-strong)] border border-[var(--cz-border)] px-2.5 py-1 text-[12px] leading-none text-[var(--cz-text-secondary)]">
+                  <MapPin className="h-3.5 w-3.5 text-[var(--cz-text-primary)] shrink-0" /> {user.college}
                 </span>
               ) : null}
               {user.course || user.academicYear ? (
-                <span className="inline-flex items-center gap-1">
-                  <GraduationCap className="h-3.5 w-3.5 opacity-70" /> {user.course || "—"} {user.academicYear ? `• ${user.academicYear}` : ""}
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--cz-surface-strong)] border border-[var(--cz-border)] px-2.5 py-1 text-[12px] leading-none text-[var(--cz-text-secondary)]">
+                  <GraduationCap className="h-3.5 w-3.5 text-[var(--cz-text-primary)] shrink-0" /> {user.course || "—"} {user.academicYear ? `• ${user.academicYear}` : ""}
                 </span>
               ) : null}
-              <span className="inline-flex items-center gap-1">
-                <Calendar className="h-3.5 w-3.5 opacity-70" /> Joined {new Date(user.createdAt).toLocaleDateString("en-IN", { month: "short", year: "numeric" })}
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--cz-surface-strong)] border border-[var(--cz-border)] px-2.5 py-1 text-[12px] leading-none text-[var(--cz-text-secondary)]">
+                <Calendar className="h-3.5 w-3.5 text-[var(--cz-text-primary)] shrink-0" /> Joined {new Date(user.createdAt).toLocaleDateString("en-IN", { month: "short", year: "numeric" })}
               </span>
             </div>
           ) : (
-            <div className="mt-2.5 text-[12px] leading-[16px] text-[var(--cz-text-secondary)]/60 inline-flex items-center gap-1.5">
-              <GraduationCap className="h-3.5 w-3.5" /> Add college, course & year to be discovered.
+            <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-[var(--cz-surface-strong)] border border-[var(--cz-border)] px-2.5 py-1 text-[12px] leading-none text-[var(--cz-text-secondary)]/70">
+              <GraduationCap className="h-3.5 w-3.5 text-[var(--cz-text-primary)]" /> Add college, course & year to be discovered.
             </div>
           )}
+
+          {/* social links — dark chips, light icons, minimal */}
+          {user.socialLinks && (user.socialLinks.github || user.socialLinks.twitter || user.socialLinks.linkedin || user.socialLinks.instagram) ? (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {user.socialLinks.github ? (
+                <a
+                  href={`https://github.com/${user.socialLinks.github}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-[var(--cz-bg)] border border-[var(--cz-border)] hover:border-[var(--cz-border-strong)] hover:bg-[var(--cz-surface-strong)] px-2.5 py-1 text-[12px] font-medium text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] transition-colors"
+                >
+                  <Github className="h-3.5 w-3.5 text-[var(--cz-text-primary)]" /> {user.socialLinks.github}
+                </a>
+              ) : null}
+              {user.socialLinks.twitter ? (
+                <a
+                  href={`https://x.com/${user.socialLinks.twitter.replace(/^@/, "")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-[var(--cz-bg)] border border-[var(--cz-border)] hover:border-[var(--cz-border-strong)] hover:bg-[var(--cz-surface-strong)] px-2.5 py-1 text-[12px] font-medium text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] transition-colors"
+                >
+                  <Twitter className="h-3.5 w-3.5 text-[var(--cz-text-primary)]" /> {user.socialLinks.twitter}
+                </a>
+              ) : null}
+              {user.socialLinks.linkedin ? (
+                <a
+                  href={user.socialLinks.linkedin.startsWith("http") ? user.socialLinks.linkedin : `https://linkedin.com/in/${user.socialLinks.linkedin}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-[var(--cz-bg)] border border-[var(--cz-border)] hover:border-[var(--cz-border-strong)] hover:bg-[var(--cz-surface-strong)] px-2.5 py-1 text-[12px] font-medium text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] transition-colors"
+                >
+                  <Linkedin className="h-3.5 w-3.5 text-[var(--cz-text-primary)]" /> LinkedIn
+                </a>
+              ) : null}
+              {user.socialLinks.instagram ? (
+                <a
+                  href={`https://instagram.com/${user.socialLinks.instagram.replace(/^@/, "")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-[var(--cz-bg)] border border-[var(--cz-border)] hover:border-[var(--cz-border-strong)] hover:bg-[var(--cz-surface-strong)] px-2.5 py-1 text-[12px] font-medium text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] transition-colors"
+                >
+                  <Instagram className="h-3.5 w-3.5 text-[var(--cz-text-primary)]" /> {user.socialLinks.instagram}
+                </a>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="mt-3 flex items-center gap-4 text-[13px]">
             <span>
@@ -103,6 +149,7 @@ export function ProfileTabs({ active = "posts", onChange }) {
     { id: "replies", label: "Replies" },
     { id: "media", label: "Media" },
     { id: "likes", label: "Likes" },
+    { id: "github", label: "GitHub" },
   ];
   return (
     <div className="flex items-center gap-1 border-b border-[var(--cz-border)] overflow-x-auto scrollbar-none">

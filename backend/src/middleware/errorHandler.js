@@ -35,6 +35,23 @@ export function errorHandler(err, req, res, _next) {
     message = err.name === "TokenExpiredError" ? "Token expired" : "Invalid token";
   }
 
+  // Multer
+  if (err.code === "LIMIT_FILE_SIZE") {
+    statusCode = 400;
+    code = "FILE_TOO_LARGE";
+    message = "Image must be under 4MB";
+  }
+  if (err.message === "Only image files are allowed") {
+    statusCode = 400;
+    code = "INVALID_FILE_TYPE";
+    message = err.message;
+  }
+  if (err.code === "LIMIT_UNEXPECTED_FILE") {
+    statusCode = 400;
+    code = "INVALID_FILE";
+    message = "Unexpected field";
+  }
+
   // Zod already mapped to AppError, but fallback
   if (err.name === "ZodError") {
     statusCode = 400;

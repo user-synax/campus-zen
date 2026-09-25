@@ -11,4 +11,10 @@ export const userController = {
     const user = await userService.updateMe(req.user._id, req.body);
     res.json({ success: true, message: "Profile updated", data: { user } });
   }),
+
+  updateAvatar: asyncHandler(async (req, res) => {
+    if (!req.file) throw new (await import("../utils/AppError.js")).AppError("No avatar file provided", 400, "NO_FILE");
+    const user = await userService.updateAvatar(req.user._id, req.file);
+    res.json({ success: true, message: "Avatar updated", data: { user } });
+  }),
 };

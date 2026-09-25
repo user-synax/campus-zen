@@ -3,6 +3,7 @@ import { z } from "zod";
 import { validate } from "../middleware/validate.js";
 import { protect } from "../middleware/auth.js";
 import { userController } from "../controllers/userController.js";
+import { avatarUpload } from "../middleware/upload.js";
 import rateLimit from "express-rate-limit";
 
 const router = Router();
@@ -16,6 +17,21 @@ const updateMeSchema = z.object({
   course: z.string().trim().max(100).nullable().optional(),
   academicYear: z.enum(["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year", "Graduated"]).nullable().optional(),
   avatarUrl: z.string().url().nullable().optional().or(z.literal("").transform(() => null)),
+  socialLinks: z
+    .object({
+      github: z
+        .string()
+        .trim()
+        .max(39)
+        .regex(/^[a-zA-Z0-9-]{1,39}$/, "Invalid GitHub username")
+        .nullable()
+        .optional()
+        .or(z.literal("").transform(() => null)),
+      twitter: z.string().trim().max(30).nullable().optional().or(z.literal("").transform(() => null)),
+      linkedin: z.string().trim().max(100).nullable().optional().or(z.literal("").transform(() => null)),
+      instagram: z.string().trim().max(30).nullable().optional().or(z.literal("").transform(() => null)),
+    })
+    .optional(),
 });
 
 const meLimiter = rateLimit({
@@ -24,6 +40,15 @@ const meLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+const avatarLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+router.post("/me/avatar", avatarLimiter, protect, avatarUpload.single("avatar"), userController.updateAvatar);
 
 router.get("/:username", meLimiter, protect, validate(usernameParam, "params"), userController.getByUsername);
 router.patch("/me", meLimiter, protect, validate(updateMeSchema), userController.updateMe);

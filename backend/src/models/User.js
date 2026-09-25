@@ -51,6 +51,13 @@ const userSchema = new mongoose.Schema(
         message: "{VALUE} is not supported",
       },
     },
+    // social links — minimal: github (username only), x/twitter, linkedin, instagram
+    socialLinks: {
+      github: { type: String, default: null, trim: true, maxlength: 39 },
+      twitter: { type: String, default: null, trim: true, maxlength: 30 },
+      linkedin: { type: String, default: null, trim: true, maxlength: 100 },
+      instagram: { type: String, default: null, trim: true, maxlength: 30 },
+    },
     followersCount: { type: Number, default: 0, min: 0 },
     followingCount: { type: Number, default: 0, min: 0 },
     postCount: { type: Number, default: 0, min: 0 },

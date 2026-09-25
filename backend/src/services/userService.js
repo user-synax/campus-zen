@@ -9,6 +9,18 @@ export const userService = {
     return user.toSafeObject();
   },
 
+  async updateAvatar(userId, file) {
+    if (!file) throw new AppError("No file uploaded", 400, "NO_FILE");
+    const { isAppwriteConfigured, uploadToAppwrite } = await import("../config/appwrite.js");
+    if (!isAppwriteConfigured()) {
+      throw new AppError("Avatar upload not configured. Add APPWRITE_* env on backend.", 503, "APPWRITE_NOT_CONFIGURED");
+    }
+    const { viewUrl } = await uploadToAppwrite(file.buffer, file.originalname, file.mimetype);
+    const user = await User.findByIdAndUpdate(userId, { $set: { avatarUrl: viewUrl } }, { new: true, runValidators: true });
+    if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+    return user.toSafeObject();
+  },
+
   async updateMe(userId, data) {
     const allowed = ["fullName", "bio", "college", "course", "academicYear", "avatarUrl"];
     const update = {};
@@ -17,6 +29,30 @@ export const userService = {
     // normalize empty string -> null for optional fields
     for (const k of ["bio", "college", "course", "academicYear", "avatarUrl"]) {
       if (update[k] === "") update[k] = null;
+    }
+    // socialLinks — accept object {github, twitter, linkedin, instagram} as username/handle only
+    if (data.socialLinks && typeof data.socialLinks === "object") {
+      const sl = {};
+      for (const k of ["github", "twitter", "linkedin", "instagram"]) {
+        if (data.socialLinks[k] !== undefined) {
+          let v = String(data.socialLinks[k]).trim();
+          if (v === "") v = null;
+          // strip leading @ for twitter/instagram, strip url prefix for linkedin/github if pasted
+          if (v && (k === "twitter" || k === "instagram")) v = v.replace(/^@/, "");
+          if (v && k === "github") v = v.replace(/^https?:\/\/(www\.)?github\.com\//i, "").replace(/\/$/, "").split("/")[0];
+          if (v && k === "linkedin") {
+            // allow full URL or handle
+            v = v.replace(/^https?:\/\/(www\.)?linkedin\.com\/in\//i, "").replace(/\/$/, "");
+          }
+          sl[k] = v;
+        }
+      }
+      // merge with existing to avoid wiping unspecified fields — fetch current then merge
+      const current = await User.findById(userId).select("socialLinks");
+      const merged = { ...(current?.socialLinks?.toObject?.() || current?.socialLinks || {}), ...sl };
+      // handle nulls explicitly
+      for (const k of Object.keys(sl)) merged[k] = sl[k];
+      update.socialLinks = merged;
     }
 
     if (update.fullName !== undefined) {
