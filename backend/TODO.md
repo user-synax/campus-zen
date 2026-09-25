@@ -2,6 +2,11 @@
 
 ## Skipped for now
 
+- [ ] **Block user (PRD §15)** — Skip for now per 2026-09-25 decision. Implement after follow is stable.
+  - Model `Block { blocker, blocked, unique index }` + `POST /api/users/:id/block` `DELETE /api/users/:id/block` `GET /api/users/:id/blocks`
+  - Prevent follow/message when blocked, hide blocked user's posts, filter out of search/feed.
+  - Add to `followService` check `isBlocked` before follow, and to `postService` feed filter.
+
 - [ ] **Email delivery (PRD §7, §21)** — Currently OTP is logged to console via `utils/otp.js:logOtp` and exposed via `GET /api/auth/debug-otp` in development only.
   - Replace with `nodemailer` + provider (Resend / SendGrid / SMTP).
   - Template: verification vs reset, 6-digit, 10m expiry, brand colors `#ffcead` on `#0c122c`.

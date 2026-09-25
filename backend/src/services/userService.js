@@ -2,9 +2,8 @@ import { User } from "../models/User.js";
 import { AppError } from "../utils/AppError.js";
 
 export const userService = {
-  async listUsers({ q, college, course, academicYear, page = 1, limit = 20 }) {
+  async listUsers({ q, college, course, academicYear, page = 1, limit = 20, viewerId }) {
     const filter = {};
-    // search across username, fullName, college (text index)
     if (q) {
       const esc = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const re = new RegExp(esc, "i");
@@ -22,10 +21,17 @@ export const userService = {
       User.countDocuments(filter),
     ]);
 
-    // lean returns plain objects, strip sensitive fields
+    let followingSet = new Set();
+    if (viewerId && users.length) {
+      const ids = users.map((u) => u._id);
+      const { Follow } = await import("../models/Follow.js");
+      const follows = await Follow.find({ follower: viewerId, following: { $in: ids } }).select("following").lean();
+      followingSet = new Set(follows.map((f) => String(f.following)));
+    }
+
     const safe = users.map((u) => {
       const { passwordHash, refreshTokenHash, __v, ...rest } = u;
-      return rest;
+      return { ...rest, isFollowing: followingSet.has(String(u._id)) };
     });
 
     return {
@@ -37,11 +43,19 @@ export const userService = {
     };
   },
 
-  async getByUsername(username) {
+  async getByUsername(username, viewerId = null) {
     const clean = username.toLowerCase().trim();
     const user = await User.findOne({ username: clean });
     if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
-    return user.toSafeObject();
+    const safe = user.toSafeObject();
+    if (viewerId && String(viewerId) !== String(user._id)) {
+      const { Follow } = await import("../models/Follow.js");
+      const exists = await Follow.exists({ follower: viewerId, following: user._id });
+      safe.isFollowing = Boolean(exists);
+    } else {
+      safe.isFollowing = false;
+    }
+    return safe;
   },
 
   async updateAvatar(userId, file) {

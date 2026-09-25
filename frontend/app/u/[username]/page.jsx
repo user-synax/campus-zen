@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Github, UserX, Loader2 } from "lucide-react";
 import { ProfileHeader, ProfileTabs } from "@/components/app/ProfileHeader";
 import { EmptyState } from "@/components/app/EmptyState";
+import { FollowModal } from "@/components/app/FollowModal";
 import { api } from "@/lib/api";
 import { ContributionGraph, ContributionGraphBlock, ContributionGraphCalendar, ContributionGraphFooter, ContributionGraphTotalCount, ContributionGraphLegend } from "@/components/ui/contribution-graph";
 
@@ -17,31 +18,36 @@ export default function PublicProfilePage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("posts");
   const [error, setError] = useState("");
+  const [followLoading, setFollowLoading] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followModal, setFollowModal] = useState({ open: false, type: "followers" });
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      // check auth without redirect — public page
-      let loggedIn = false;
       try {
-        const r = await api.me();
-        if (!cancelled) {
-          setMe(r.data?.user);
-          loggedIn = true;
+        const [meRes, userRes] = await Promise.allSettled([api.me(), api.getUser(username)]);
+        if (cancelled) return;
+        if (meRes.status === "fulfilled") {
+          const m = meRes.value.data?.user;
+          setMe(m);
           setIsGuest(false);
-        }
-      } catch {
-        if (!cancelled) {
+          if (userRes.status === "fulfilled" && userRes.value.data?.user?.isFollowing !== undefined) {
+            setIsFollowing(Boolean(userRes.value.data?.user.isFollowing));
+          }
+        } else {
           setIsGuest(true);
           setMe(null);
         }
-      }
-      try {
-        const u = await api.getUser(username);
-        if (!cancelled) setUser(u.data?.user);
-      } catch (e) {
-        if (!cancelled) setError(e.data?.message || e.message || "Student not found");
+        if (userRes.status === "fulfilled") {
+          const u = userRes.value.data?.user;
+          setUser(u);
+          if (u?.isFollowing !== undefined) setIsFollowing(Boolean(u.isFollowing));
+        } else {
+          const e = userRes.reason;
+          setError(e?.data?.message || e?.message || "Student not found");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -52,6 +58,23 @@ export default function PublicProfilePage() {
   }, [username]);
 
   const isOwn = me && user && me.username === user.username;
+
+  const handleFollow = async () => {
+    if (!user || isOwn || isGuest) return;
+    setFollowLoading(true);
+    try {
+      if (isFollowing) {
+        await api.unfollowUser(user._id);
+        setIsFollowing(false);
+        setUser((u) => ({ ...u, followersCount: Math.max(0, (u.followersCount ?? 1) - 1) }));
+      } else {
+        await api.followUser(user._id);
+        setIsFollowing(true);
+        setUser((u) => ({ ...u, followersCount: (u.followersCount ?? 0) + 1 }));
+      }
+    } catch {}
+    setFollowLoading(false);
+  };
 
   if (loading) {
     return (
@@ -91,14 +114,12 @@ export default function PublicProfilePage() {
       <ProfileHeader
         user={user}
         isOwn={!!isOwn}
+        isFollowing={isFollowing}
+        followLoading={followLoading}
         onEdit={isOwn ? () => (window.location.href = "/app/profile") : undefined}
-        onFollow={
-          isGuest
-            ? undefined
-            : () => {
-                // static demo — will wire to POST /api/users/:id/follow later
-              }
-        }
+        onFollow={isGuest || isOwn ? undefined : handleFollow}
+        onFollowersClick={() => setFollowModal({ open: true, type: "followers" })}
+        onFollowingClick={() => setFollowModal({ open: true, type: "following" })}
       />
 
       {/* hide actions for guest: ProfileHeader already hides Follow when onFollow undefined */}
@@ -135,6 +156,8 @@ export default function PublicProfilePage() {
       ) : (
         <EmptyState icon={Github} title="Empty tab" description="More tabs coming soon." />
       )}
+
+      <FollowModal open={followModal.open} onClose={() => setFollowModal((s) => ({ ...s, open: false }))} userId={user._id} type={followModal.type} viewerId={me?._id} />
 
       <p className="text-center text-[11px] text-[var(--cz-text-secondary)]/60">
         Public URL: <span className="font-mono text-[var(--cz-text-secondary)]">/u/{user.username}</span> • Also available at <Link href={`/app/profile/${user.username}`} className="underline">/app/profile/{user.username}</Link> when logged in.

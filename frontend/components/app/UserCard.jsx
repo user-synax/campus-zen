@@ -1,10 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { MapPin, GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AnimatedNumber } from "@/components/app/AnimatedNumber";
+import { api } from "@/lib/api";
 
-export function UserCard({ user, isOwn, isGuest, onFollow }) {
+export function UserCard({ user: initialUser, isOwn, isGuest }) {
+  const [user, setUser] = useState(initialUser);
+  const [following, setFollowing] = useState(Boolean(initialUser.isFollowing));
+  const [loading, setLoading] = useState(false);
   const initials = (user.fullName || user.username || "U").trim().slice(0, 1).toUpperCase();
   return (
     <div className="group relative overflow-hidden rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)] p-4 flex flex-col gap-3 hover:border-[var(--cz-border-strong)] hover:bg-[var(--cz-surface-strong)] transition-colors">
@@ -47,10 +53,16 @@ export function UserCard({ user, isOwn, isGuest, onFollow }) {
 
       <div className="flex items-center gap-3 text-[11px] leading-none">
         <span>
-          <b className="font-semibold text-[var(--cz-text-primary)]">{user.followersCount ?? 0}</b> <span className="text-[var(--cz-text-secondary)]">Followers</span>
+          <b className="font-semibold text-[var(--cz-text-primary)]">
+            <AnimatedNumber value={user.followersCount ?? 0} />
+          </b>{" "}
+          <span className="text-[var(--cz-text-secondary)]">Followers</span>
         </span>
         <span>
-          <b className="font-semibold text-[var(--cz-text-primary)]">{user.postCount ?? 0}</b> <span className="text-[var(--cz-text-secondary)]">Posts</span>
+          <b className="font-semibold text-[var(--cz-text-primary)]">
+            <AnimatedNumber value={user.postCount ?? 0} />
+          </b>{" "}
+          <span className="text-[var(--cz-text-secondary)]">Posts</span>
         </span>
       </div>
 
@@ -64,8 +76,37 @@ export function UserCard({ user, isOwn, isGuest, onFollow }) {
             View profile
           </Link>
         ) : (
-          <Button size="sm" onClick={() => onFollow?.(user)} className="w-full h-[36px]">
-            Follow
+          <Button
+            size="sm"
+            variant={following ? "secondary" : "primary"}
+            disabled={loading}
+            onClick={async () => {
+              setLoading(true);
+              try {
+                if (following) {
+                  await api.unfollowUser(user._id);
+                  setFollowing(false);
+                  setUser((u) => ({ ...u, followersCount: Math.max(0, (u.followersCount ?? 1) - 1) }));
+                } else {
+                  await api.followUser(user._id);
+                  setFollowing(true);
+                  setUser((u) => ({ ...u, followersCount: (u.followersCount ?? 0) + 1 }));
+                }
+              } catch {}
+              setLoading(false);
+            }}
+            className="w-full h-[36px] min-w-[84px] group"
+          >
+            {loading ? (
+              <span className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+            ) : following ? (
+              <>
+                <span className="group-hover:hidden">Following</span>
+                <span className="hidden group-hover:inline text-[var(--cz-error)]">Unfollow</span>
+              </>
+            ) : (
+              "Follow"
+            )}
           </Button>
         )}
       </div>

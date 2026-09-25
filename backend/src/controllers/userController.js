@@ -4,14 +4,15 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 export const userController = {
   listUsers: asyncHandler(async (req, res) => {
     const { q, college, course, academicYear, page, limit } = req.query;
-    const result = await userService.listUsers({ q, college, course, academicYear, page, limit });
-    // guest vs logged-in hint for frontend blur
+    const viewerId = req.user?._id || null;
+    const result = await userService.listUsers({ q, college, course, academicYear, page, limit, viewerId });
     const isGuest = !req.user;
     res.json({ success: true, data: { ...result, isGuest } });
   }),
 
   getByUsername: asyncHandler(async (req, res) => {
-    const user = await userService.getByUsername(req.params.username);
+    const viewerId = req.user?._id || null;
+    const user = await userService.getByUsername(req.params.username, viewerId);
     res.json({ success: true, data: { user } });
   }),
 

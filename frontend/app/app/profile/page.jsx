@@ -5,6 +5,7 @@ import { FileText, MessageCircle, Image as ImageIcon, Heart, Settings, Github } 
 import { ProfileHeader, ProfileTabs } from "@/components/app/ProfileHeader";
 import { EmptyState } from "@/components/app/EmptyState";
 import { EditProfileModal } from "@/components/app/EditProfileModal";
+import { FollowModal } from "@/components/app/FollowModal";
 import { api } from "@/lib/api";
 import { Loader2 } from "lucide-react";
 import { ContributionGraph, ContributionGraphBlock, ContributionGraphCalendar, ContributionGraphFooter, ContributionGraphTotalCount, ContributionGraphLegend } from "@/components/ui/contribution-graph";
@@ -15,6 +16,7 @@ export default function OwnProfilePage() {
   const [tab, setTab] = useState("posts");
   const [error, setError] = useState("");
   const [editOpen, setEditOpen] = useState(false);
+  const [followModal, setFollowModal] = useState({ open: false, type: "followers" });
 
   const fetchMe = async () => {
     try {
@@ -49,7 +51,13 @@ export default function OwnProfilePage() {
 
   return (
     <div className="mx-auto w-full max-w-[640px] space-y-4">
-      <ProfileHeader user={user} isOwn onEdit={() => setEditOpen(true)} />
+      <ProfileHeader
+        user={user}
+        isOwn
+        onEdit={() => setEditOpen(true)}
+        onFollowersClick={() => setFollowModal({ open: true, type: "followers" })}
+        onFollowingClick={() => setFollowModal({ open: true, type: "following" })}
+      />
 
       <ProfileTabs active={tab} onChange={setTab} />
 
@@ -111,8 +119,10 @@ export default function OwnProfilePage() {
 
       <EditProfileModal open={editOpen} onClose={() => setEditOpen(false)} user={user} onSaved={(u) => setUser(u)} />
 
+      <FollowModal open={followModal.open} onClose={() => setFollowModal((s) => ({ ...s, open: false }))} userId={user._id} type={followModal.type} viewerId={user._id} />
+
       <div className="rounded-[12px] border border-dashed border-[var(--cz-border)] p-3 text-center text-[11px] leading-[15px] text-[var(--cz-text-secondary)]/60">
-        @{user.username} • Academic chips dark bg + light icons • Social minimal (github, x, linkedin, instagram)
+        @{user.username} • Followers/Following live counts • GitHub tab with graph
       </div>
     </div>
   );

@@ -43,6 +43,24 @@ export const api = {
     return request(`/api/users${q ? `?${q}` : ""}`, { method: "GET" });
   },
   updateMe: (payload) => request("/api/users/me", { method: "PATCH", body: payload }),
+  followUser: (id) => request(`/api/users/${encodeURIComponent(id)}/follow`, { method: "POST" }),
+  unfollowUser: (id) => request(`/api/users/${encodeURIComponent(id)}/follow`, { method: "DELETE" }),
+  getFollowers: (id, params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "") qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(`/api/users/${encodeURIComponent(id)}/followers${q ? `?${q}` : ""}`, { method: "GET" });
+  },
+  getFollowing: (id, params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "") qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(`/api/users/${encodeURIComponent(id)}/following${q ? `?${q}` : ""}`, { method: "GET" });
+  },
   uploadAvatar: async (file) => {
     const form = new FormData();
     form.append("avatar", file);

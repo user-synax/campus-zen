@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { MapPin, GraduationCap, Calendar, MoreHorizontal, Github, Linkedin, Twitter, Instagram, Link2 } from "lucide-react";
+import { MapPin, GraduationCap, Calendar, MoreHorizontal, Github, Linkedin, Twitter, Instagram } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AnimatedNumber } from "@/components/app/AnimatedNumber";
 
-export function ProfileHeader({ user, isOwn, onEdit, onFollow }) {
+export function ProfileHeader({ user, isOwn, onEdit, onFollow, isFollowing, followLoading, onFollowersClick, onFollowingClick }) {
   const initials = (user.fullName || user.username || "U").trim().slice(0, 2).toUpperCase();
   const displayName = user.fullName || user.username;
   const subtitle = user.bio || "Student at CampusZen • Building in public.";
@@ -34,8 +35,23 @@ export function ProfileHeader({ user, isOwn, onEdit, onFollow }) {
                 Edit profile
               </Button>
             ) : onFollow ? (
-              <Button variant="primary" size="sm" onClick={onFollow} className="h-[34px] px-5">
-                Follow
+              <Button
+                variant={isFollowing ? "secondary" : "primary"}
+                size="sm"
+                onClick={onFollow}
+                disabled={!!followLoading}
+                className="h-[34px] px-5 min-w-[96px] group"
+              >
+                {followLoading ? (
+                  <span className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                ) : isFollowing ? (
+                  <>
+                    <span className="group-hover:hidden">Following</span>
+                    <span className="hidden group-hover:inline text-[var(--cz-error)]">Unfollow</span>
+                  </>
+                ) : (
+                  "Follow"
+                )}
               </Button>
             ) : null}
             <button
@@ -124,16 +140,22 @@ export function ProfileHeader({ user, isOwn, onEdit, onFollow }) {
           ) : null}
 
           <div className="mt-3 flex items-center gap-4 text-[13px]">
-            <span>
-              <b className="font-semibold text-[var(--cz-text-primary)]">{user.followingCount ?? 0}</b>{" "}
+            <button type="button" onClick={onFollowingClick} className="hover:opacity-80 transition-opacity text-left">
+              <b className="font-semibold text-[var(--cz-text-primary)]">
+                <AnimatedNumber value={user.followingCount ?? 0} />
+              </b>{" "}
               <span className="text-[var(--cz-text-secondary)]">Following</span>
-            </span>
-            <span>
-              <b className="font-semibold text-[var(--cz-text-primary)]">{user.followersCount ?? 0}</b>{" "}
+            </button>
+            <button type="button" onClick={onFollowersClick} className="hover:opacity-80 transition-opacity text-left">
+              <b className="font-semibold text-[var(--cz-text-primary)]">
+                <AnimatedNumber value={user.followersCount ?? 0} />
+              </b>{" "}
               <span className="text-[var(--cz-text-secondary)]">Followers</span>
-            </span>
+            </button>
             <span>
-              <b className="font-semibold text-[var(--cz-text-primary)]">{user.postCount ?? 0}</b>{" "}
+              <b className="font-semibold text-[var(--cz-text-primary)]">
+                <AnimatedNumber value={user.postCount ?? 0} />
+              </b>{" "}
               <span className="text-[var(--cz-text-secondary)]">Posts</span>
             </span>
           </div>

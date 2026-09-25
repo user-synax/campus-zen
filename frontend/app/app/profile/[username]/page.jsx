@@ -7,6 +7,7 @@ import { FileText, MessageCircle, Image as ImageIcon, Heart, UserX, Github } fro
 import { ProfileHeader, ProfileTabs } from "@/components/app/ProfileHeader";
 import { EmptyState } from "@/components/app/EmptyState";
 import { EditProfileModal } from "@/components/app/EditProfileModal";
+import { FollowModal } from "@/components/app/FollowModal";
 import { api } from "@/lib/api";
 import { Loader2 } from "lucide-react";
 import { ContributionGraph, ContributionGraphBlock, ContributionGraphCalendar, ContributionGraphFooter, ContributionGraphTotalCount, ContributionGraphLegend } from "@/components/ui/contribution-graph";
@@ -21,6 +22,7 @@ export default function UserProfilePage() {
   const [followLoading, setFollowLoading] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [followModal, setFollowModal] = useState({ open: false, type: "followers" });
 
   useEffect(() => {
     let cancelled = false;
@@ -30,9 +32,24 @@ export default function UserProfilePage() {
       try {
         const [meRes, userRes] = await Promise.allSettled([api.me(), api.getUser(username)]);
         if (cancelled) return;
-        if (meRes.status === "fulfilled") setMe(meRes.value.data?.user);
+        if (meRes.status === "fulfilled") {
+          const m = meRes.value.data?.user;
+          setMe(m);
+          // check following status if not own
+          if (m && userRes.status === "fulfilled") {
+            const u = userRes.value.data?.user;
+            if (u && m._id !== u._id) {
+              // check if following via followers list? use isFollowing from user if provided, else fetch
+              // fallback: try to fetch following status via follow check (optimistic)
+              setIsFollowing(Boolean(u.isFollowing));
+            }
+          }
+        }
         if (userRes.status === "fulfilled") {
-          setUser(userRes.value.data?.user);
+          const u = userRes.value.data?.user;
+          setUser(u);
+          // if viewer is logged in and not own, isFollowing may be on user object if backend provides
+          if (u?.isFollowing !== undefined) setIsFollowing(Boolean(u.isFollowing));
         } else {
           const e = userRes.reason;
           if (e?.status === 404) setError("Student not found");
@@ -49,6 +66,27 @@ export default function UserProfilePage() {
   }, [username]);
 
   const isOwn = me && user && me.username === user.username;
+
+  const handleFollow = async () => {
+    if (!user || isOwn) return;
+    setFollowLoading(true);
+    try {
+      if (isFollowing) {
+        await api.unfollowUser(user._id);
+        setIsFollowing(false);
+        setUser((u) => ({ ...u, followersCount: Math.max(0, (u.followersCount ?? 1) - 1) }));
+      } else {
+        await api.followUser(user._id);
+        setIsFollowing(true);
+        setUser((u) => ({ ...u, followersCount: (u.followersCount ?? 0) + 1 }));
+      }
+    } catch (e) {
+      // handle self-follow error etc.
+      if (e.data?.code === "SELF_FOLLOW") setError("You cannot follow yourself");
+    } finally {
+      setFollowLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -83,18 +121,16 @@ export default function UserProfilePage() {
       <ProfileHeader
         user={user}
         isOwn={!!isOwn}
+        isFollowing={isFollowing}
+        followLoading={followLoading}
         onEdit={() => setEditOpen(true)}
-        onFollow={() => {
-          setFollowLoading(true);
-          setTimeout(() => {
-            setIsFollowing((v) => !v);
-            setFollowLoading(false);
-          }, 500);
-        }}
+        onFollow={handleFollow}
+        onFollowersClick={() => setFollowModal({ open: true, type: "followers" })}
+        onFollowingClick={() => setFollowModal({ open: true, type: "following" })}
       />
 
       {!isOwn && isFollowing ? (
-        <div className="rounded-[10px] border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[13px] text-emerald-300">Following @{user.username} — static demo (backend follow coming next)</div>
+        <div className="rounded-[10px] border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[13px] text-emerald-300">Following @{user.username}</div>
       ) : null}
 
       <ProfileTabs active={tab} onChange={setTab} />
@@ -132,6 +168,7 @@ export default function UserProfilePage() {
       ) : null}
 
       {isOwn ? <EditProfileModal open={editOpen} onClose={() => setEditOpen(false)} user={user} onSaved={setUser} /> : null}
+      <FollowModal open={followModal.open} onClose={() => setFollowModal((s) => ({ ...s, open: false }))} userId={user._id} type={followModal.type} viewerId={me?._id} />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { validate } from "../middleware/validate.js";
 import { protect, optionalAuth } from "../middleware/auth.js";
 import { userController } from "../controllers/userController.js";
+import { followController } from "../controllers/followController.js";
 import { avatarUpload } from "../middleware/upload.js";
 import rateLimit from "express-rate-limit";
 
@@ -48,7 +49,22 @@ const avatarLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const followLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const idParam = z.object({ id: z.string().regex(/^[a-f\d]{24}$/i, "Invalid id") });
+
 router.post("/me/avatar", avatarLimiter, protect, avatarUpload.single("avatar"), userController.updateAvatar);
+
+// follow — before /:username to avoid param clash
+router.post("/:id/follow", followLimiter, protect, validate(idParam, "params"), followController.follow);
+router.delete("/:id/follow", followLimiter, protect, validate(idParam, "params"), followController.unfollow);
+router.get("/:id/followers", meLimiter, optionalAuth, validate(idParam, "params"), followController.getFollowers);
+router.get("/:id/following", meLimiter, optionalAuth, validate(idParam, "params"), followController.getFollowing);
 
 // list users — public, optional auth to decide guest blur
 router.get("/", meLimiter, optionalAuth, userController.listUsers);
