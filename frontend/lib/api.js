@@ -43,6 +43,46 @@ export const api = {
     return request(`/api/users${q ? `?${q}` : ""}`, { method: "GET" });
   },
   updateMe: (payload) => request("/api/users/me", { method: "PATCH", body: payload }),
+  getUserPosts: (username, params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "") qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(`/api/users/${encodeURIComponent(username)}/posts${q ? `?${q}` : ""}`, { method: "GET" });
+  },
+  getUserReplies: (username, params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "") qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(`/api/users/${encodeURIComponent(username)}/replies${q ? `?${q}` : ""}`, { method: "GET" });
+  },
+  getUserLikes: (username, params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "") qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(`/api/users/${encodeURIComponent(username)}/likes${q ? `?${q}` : ""}`, { method: "GET" });
+  },
+  getUserReposts: (username, params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "") qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(`/api/users/${encodeURIComponent(username)}/reposts${q ? `?${q}` : ""}`, { method: "GET" });
+  },
+  getUserMedia: (username, params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "") qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(`/api/users/${encodeURIComponent(username)}/media${q ? `?${q}` : ""}`, { method: "GET" });
+  },
   followUser: (id) => request(`/api/users/${encodeURIComponent(id)}/follow`, { method: "POST" }),
   unfollowUser: (id) => request(`/api/users/${encodeURIComponent(id)}/follow`, { method: "DELETE" }),
   getFollowers: (id, params = {}) => {
@@ -61,6 +101,39 @@ export const api = {
     const q = qs.toString();
     return request(`/api/users/${encodeURIComponent(id)}/following${q ? `?${q}` : ""}`, { method: "GET" });
   },
+  createPost: (text) => request("/api/posts", { method: "POST", body: { text } }),
+  getPost: (id) => request(`/api/posts/${encodeURIComponent(id)}`, { method: "GET" }),
+  updatePost: (id, text) => request(`/api/posts/${encodeURIComponent(id)}`, { method: "PATCH", body: { text } }),
+  deletePost: (id) => request(`/api/posts/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  getFeed: (params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "") qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(`/api/posts/feed${q ? `?${q}` : ""}`, { method: "GET" });
+  },
+  getPublicFeed: (params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "") qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(`/api/posts/public${q ? `?${q}` : ""}`, { method: "GET" });
+  },
+  likePost: (id) => request(`/api/posts/${encodeURIComponent(id)}/like`, { method: "POST" }),
+  unlikePost: (id) => request(`/api/posts/${encodeURIComponent(id)}/like`, { method: "DELETE" }),
+  repostPost: (id) => request(`/api/posts/${encodeURIComponent(id)}/repost`, { method: "POST" }),
+  unrepostPost: (id) => request(`/api/posts/${encodeURIComponent(id)}/repost`, { method: "DELETE" }),
+  getReplies: (id, params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "") qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(`/api/posts/${encodeURIComponent(id)}/replies${q ? `?${q}` : ""}`, { method: "GET" });
+  },
+  createReply: (id, text) => request(`/api/posts/${encodeURIComponent(id)}/replies`, { method: "POST", body: { text } }),
   uploadAvatar: async (file) => {
     const form = new FormData();
     form.append("avatar", file);

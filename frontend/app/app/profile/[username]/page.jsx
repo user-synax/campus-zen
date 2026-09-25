@@ -3,14 +3,133 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { FileText, MessageCircle, Image as ImageIcon, Heart, UserX, Github } from "lucide-react";
+import { FileText, MessageCircle, Image as ImageIcon, Heart, Repeat2, UserX, Github } from "lucide-react";
 import { ProfileHeader, ProfileTabs } from "@/components/app/ProfileHeader";
 import { EmptyState } from "@/components/app/EmptyState";
 import { EditProfileModal } from "@/components/app/EditProfileModal";
 import { FollowModal } from "@/components/app/FollowModal";
+import { PostCard } from "@/components/app/PostCard";
 import { api } from "@/lib/api";
 import { Loader2 } from "lucide-react";
 import { ContributionGraph, ContributionGraphBlock, ContributionGraphCalendar, ContributionGraphFooter, ContributionGraphTotalCount, ContributionGraphLegend } from "@/components/ui/contribution-graph";
+
+function TabPosts({ username, currentUser }) {
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getUserPosts(username, { page: 1, limit: 20 })
+      .then((r) => {
+        if (!cancelled) setPosts(r.data?.posts || []);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [username]);
+  if (loading) return <div className="grid place-items-center py-8"><Loader2 className="h-5 w-5 animate-spin text-[var(--cz-text-secondary)]" /></div>;
+  if (posts.length === 0) return <EmptyState icon={FileText} title="No posts yet" description={`@${username} hasn’t posted anything.`} />;
+  return (
+    <div className="space-y-3">
+      {posts.map((p) => (
+        <PostCard key={p._id} post={p} currentUser={currentUser} />
+      ))}
+    </div>
+  );
+}
+function TabReplies({ username }) {
+  const [replies, setReplies] = useState([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getUserReplies(username, { page: 1, limit: 20 })
+      .then((r) => {
+        if (!cancelled) setReplies(r.data?.comments || []);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [username]);
+  if (loading) return <div className="grid place-items-center py-8"><Loader2 className="h-5 w-5 animate-spin text-[var(--cz-text-secondary)]" /></div>;
+  if (replies.length === 0) return <EmptyState icon={MessageCircle} title="No replies yet" description="Replies will appear here." />;
+  return (
+    <div className="space-y-3">
+      {replies.map((c) => (
+        <div key={c._id} className="rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)] p-4">
+          <p className="text-[11px] tracking-[0.04em] uppercase text-[var(--cz-text-secondary)]">Replied to @{c.post?.author?.username || "post"}</p>
+          <p className="mt-1 text-[12px] leading-[16px] text-[var(--cz-text-secondary)] line-clamp-2">{c.post?.text || "Post"}</p>
+          <p className="mt-2 text-[14px] leading-[20px] whitespace-pre-wrap break-words text-[var(--cz-text-primary)]">{c.text}</p>
+          <p className="mt-2 text-[11px] text-[var(--cz-text-secondary)]/60">{new Date(c.createdAt).toLocaleString("en-IN")}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+function TabLikes({ username, currentUser }) {
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getUserLikes(username, { page: 1, limit: 20 })
+      .then((r) => {
+        if (!cancelled) setPosts(r.data?.posts || []);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [username]);
+  if (loading) return <div className="grid place-items-center py-8"><Loader2 className="h-5 w-5 animate-spin text-[var(--cz-text-secondary)]" /></div>;
+  if (posts.length === 0) return <EmptyState icon={Heart} title="No likes yet" description="Likes will be collected here." />;
+  return (
+    <div className="space-y-3">
+      {posts.map((p) => (
+        <PostCard key={p._id} post={p} currentUser={currentUser} />
+      ))}
+    </div>
+  );
+}
+function TabReposts({ username, currentUser }) {
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getUserReposts(username, { page: 1, limit: 20 })
+      .then((r) => {
+        if (!cancelled) setPosts(r.data?.posts || []);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [username]);
+  if (loading) return <div className="grid place-items-center py-8"><Loader2 className="h-5 w-5 animate-spin text-[var(--cz-text-secondary)]" /></div>;
+  if (posts.length === 0) return <EmptyState icon={Repeat2} title="No reposts yet" description="Reposts will appear here." />;
+  return (
+    <div className="space-y-3">
+      {posts.map((p) => (
+        <PostCard key={p._id} post={p} currentUser={currentUser} />
+      ))}
+    </div>
+  );
+}
 
 export default function UserProfilePage() {
   const { username } = useParams();
@@ -35,20 +154,14 @@ export default function UserProfilePage() {
         if (meRes.status === "fulfilled") {
           const m = meRes.value.data?.user;
           setMe(m);
-          // check following status if not own
           if (m && userRes.status === "fulfilled") {
             const u = userRes.value.data?.user;
-            if (u && m._id !== u._id) {
-              // check if following via followers list? use isFollowing from user if provided, else fetch
-              // fallback: try to fetch following status via follow check (optimistic)
-              setIsFollowing(Boolean(u.isFollowing));
-            }
+            if (u && m._id !== u._id) setIsFollowing(Boolean(u.isFollowing));
           }
         }
         if (userRes.status === "fulfilled") {
           const u = userRes.value.data?.user;
           setUser(u);
-          // if viewer is logged in and not own, isFollowing may be on user object if backend provides
           if (u?.isFollowing !== undefined) setIsFollowing(Boolean(u.isFollowing));
         } else {
           const e = userRes.reason;
@@ -81,7 +194,6 @@ export default function UserProfilePage() {
         setUser((u) => ({ ...u, followersCount: (u.followersCount ?? 0) + 1 }));
       }
     } catch (e) {
-      // handle self-follow error etc.
       if (e.data?.code === "SELF_FOLLOW") setError("You cannot follow yourself");
     } finally {
       setFollowLoading(false);
@@ -108,7 +220,7 @@ export default function UserProfilePage() {
     }
     return (
       <div className="mx-auto w-full max-w-[640px] space-y-4">
-        <EmptyState icon={UserX} title="Student not found" description={error || `No student @${username} yet. Profiles are backed by GET /api/users/:username.`} actionLabel="Back to profile" actionHref="/app/profile" />
+        <EmptyState icon={UserX} title="Student not found" description={error || `No student @${username} yet.`} actionLabel="Back to profile" actionHref="/app/profile" />
         <div className="rounded-[12px] border border-[var(--cz-border)] bg-[rgba(255,255,255,0.02)] p-4 text-[12px] leading-[16px] text-[var(--cz-text-secondary)]">
           Tip: create another account with a different username to test cross-profile views. Own profile is at <Link href="/app/profile" className="underline text-[var(--cz-text-primary)]">/app/profile</Link>.
         </div>
@@ -129,20 +241,20 @@ export default function UserProfilePage() {
         onFollowingClick={() => setFollowModal({ open: true, type: "following" })}
       />
 
-      {!isOwn && isFollowing ? (
-        <div className="rounded-[10px] border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[13px] text-emerald-300">Following @{user.username}</div>
-      ) : null}
+      {!isOwn && isFollowing ? <div className="rounded-[10px] border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[13px] text-emerald-300">Following @{user.username}</div> : null}
 
       <ProfileTabs active={tab} onChange={setTab} />
 
       {tab === "posts" ? (
-        <EmptyState icon={FileText} title={`No posts yet`} description={`@${user.username} hasn’t posted anything. Posts will show here newest first.`} />
+        <TabPosts username={user.username} currentUser={me} />
       ) : tab === "replies" ? (
-        <EmptyState icon={MessageCircle} title="No replies yet" description="Replies will appear here." />
+        <TabReplies username={user.username} />
       ) : tab === "media" ? (
-        <EmptyState icon={ImageIcon} title="No media yet" description="Media uploads in V1." />
+        <EmptyState icon={ImageIcon} title="No media yet" description="Media uploads via Appwrite bucket coming soon. Text only for MVP." />
       ) : tab === "likes" ? (
-        <EmptyState icon={Heart} title="No likes yet" description="Likes will be collected here." />
+        <TabLikes username={user.username} currentUser={me} />
+      ) : tab === "reposts" ? (
+        <TabReposts username={user.username} currentUser={me} />
       ) : tab === "github" ? (
         user.socialLinks?.github ? (
           <div className="rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)] p-4 overflow-hidden">

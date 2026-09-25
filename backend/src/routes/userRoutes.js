@@ -66,6 +66,13 @@ router.delete("/:id/follow", followLimiter, protect, validate(idParam, "params")
 router.get("/:id/followers", meLimiter, optionalAuth, validate(idParam, "params"), followController.getFollowers);
 router.get("/:id/following", meLimiter, optionalAuth, validate(idParam, "params"), followController.getFollowing);
 
+// profile tab lists — single via username, before generic :username
+router.get("/:username/posts", meLimiter, optionalAuth, validate(usernameParam, "params"), userController.getUserPosts);
+router.get("/:username/replies", meLimiter, optionalAuth, validate(usernameParam, "params"), userController.getUserReplies);
+router.get("/:username/likes", meLimiter, optionalAuth, validate(usernameParam, "params"), userController.getUserLikes);
+router.get("/:username/reposts", meLimiter, optionalAuth, validate(usernameParam, "params"), userController.getUserReposts);
+router.get("/:username/media", meLimiter, optionalAuth, validate(usernameParam, "params"), userController.getUserMedia);
+
 // list users — public, optional auth to decide guest blur
 router.get("/", meLimiter, optionalAuth, userController.listUsers);
 

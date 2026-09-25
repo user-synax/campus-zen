@@ -171,6 +171,7 @@ export function ProfileTabs({ active = "posts", onChange }) {
     { id: "replies", label: "Replies" },
     { id: "media", label: "Media" },
     { id: "likes", label: "Likes" },
+    { id: "reposts", label: "Reposts" },
     { id: "github", label: "GitHub" },
   ];
   return (
