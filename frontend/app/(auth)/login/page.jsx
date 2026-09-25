@@ -3,12 +3,13 @@
 import { useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, LogIn, Loader2 } from "lucide-react";
+import { Eye, EyeOff, LogIn, Loader2, AlertCircle, ShieldAlert } from "lucide-react";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { Label } from "@/components/ui/label";
 import { InputWrap, InputShell, ErrorMsg } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { api } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,6 +20,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [shake, setShake] = useState({});
+  const [serverMsg, setServerMsg] = useState(null);
 
   const userRef = useRef(null);
   const pwRef = useRef(null);
@@ -41,23 +43,75 @@ export default function LoginPage() {
     return Object.keys(e).length === 0;
   };
 
-  const onSubmit = (e) => {
+  const onSubmit = async (e) => {
     e.preventDefault();
+    setServerMsg(null);
     if (!validate()) return;
     setLoading(true);
-    setTimeout(() => {
+    try {
+      const res = await api.login({ username: username.trim().toLowerCase(), password, remember });
+      const user = res.data?.user;
+      // allow login but show verify banner if not verified per spec §10
+      if (user && !user.isEmailVerified) {
+        setServerMsg({
+          type: "warn",
+          text: "Logged in — please verify your email. Check your inbox or resend code.",
+          email: user.email,
+        });
+        setTimeout(() => router.push(`/verify-email?email=${encodeURIComponent(user.email)}`), 900);
+        return;
+      }
+      // success — go to home (future: feed)
+      router.push("/");
+      router.refresh();
+    } catch (err) {
+      const data = err.data || {};
+      if (err.status === 401) {
+        setErrors({ password: "Invalid username or password" });
+        triggerShake("password");
+        triggerShake("username");
+      } else if (data.code === "VALIDATION_ERROR" && data.details) {
+        const ne = {};
+        data.details.forEach((d) => {
+          if (d.path?.includes("username")) ne.username = d.message;
+          else if (d.path?.includes("password")) ne.password = d.message;
+        });
+        if (Object.keys(ne).length) {
+          setErrors(ne);
+          Object.keys(ne).forEach(triggerShake);
+        }
+      } else {
+        setServerMsg({ type: "error", text: data.message || err.message || "Login failed" });
+      }
+      if (err.status === 429) setServerMsg({ type: "error", text: data.message || "Too many attempts. Try later." });
+    } finally {
       setLoading(false);
-      // static demo - show success then redirect to fictional feed
-      router.push("/login?success=1");
-      // keep on page for demo but indicate success via toast-like inline
-      setErrors({ _success: "Logged in — welcome back! (static demo)" });
-    }, 700);
+    }
   };
 
   return (
     <AuthShell title="Welcome back" subtitle="Log in with your username and password.">
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
-        {/* username */}
+        {serverMsg ? (
+          <div
+            className={`flex items-start gap-2 rounded-[10px] border px-3 py-2.5 text-[13px] leading-[18px] ${
+              serverMsg.type === "warn"
+                ? "border-amber-500/20 bg-amber-500/10 text-amber-200"
+                : "border-[var(--cz-error)]/20 bg-[rgba(255,90,106,0.08)] text-[var(--cz-error)]"
+            }`}
+          >
+            {serverMsg.type === "warn" ? <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5" /> : <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />}
+            <span>
+              {serverMsg.text}{" "}
+              {serverMsg.type === "warn" && serverMsg.email ? (
+                <Link href={`/verify-email?email=${encodeURIComponent(serverMsg.email)}`} className="underline underline-offset-4 font-medium">
+                  Verify now
+                </Link>
+              ) : null}
+            </span>
+          </div>
+        ) : null}
+
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="username">
             Username <span className="text-[var(--cz-error)]">*</span>
@@ -73,7 +127,8 @@ export default function LoginPage() {
                 value={username}
                 onChange={(e) => {
                   setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""));
-                  if (errors.username) setErrors((p) => ({ ...p, username: undefined, _success: undefined }));
+                  if (errors.username) setErrors((p) => ({ ...p, username: undefined }));
+                  setServerMsg(null);
                 }}
                 className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 text-[var(--cz-text-primary)] h-full"
               />
@@ -82,16 +137,12 @@ export default function LoginPage() {
           </InputWrap>
         </div>
 
-        {/* password */}
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
             <Label htmlFor="password">
               Password <span className="text-[var(--cz-error)]">*</span>
             </Label>
-            <Link
-              href="/forgot-password"
-              className="text-[12px] font-medium text-[var(--cz-muted)] hover:text-[#9aa0ff] underline-offset-4 hover:underline"
-            >
+            <Link href="/forgot-password" className="text-[12px] font-medium text-[var(--cz-muted)] hover:text-[#9aa0ff] underline-offset-4 hover:underline">
               Forgot password?
             </Link>
           </div>
@@ -106,7 +157,8 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
-                  if (errors.password) setErrors((p) => ({ ...p, password: undefined, _success: undefined }));
+                  if (errors.password) setErrors((p) => ({ ...p, password: undefined }));
+                  setServerMsg(null);
                 }}
                 className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 text-[var(--cz-text-primary)] h-full"
               />
@@ -130,12 +182,6 @@ export default function LoginPage() {
           <Checkbox id="remember" checked={remember} onChange={setRemember} label="Remember me" />
           <span className="hidden sm:inline text-[11px] tracking-[0.04em] uppercase text-[var(--cz-text-secondary)]/60">Secure • HTTP-only</span>
         </div>
-
-        {errors._success ? (
-          <div className="rounded-[10px] border border-emerald-500/20 bg-emerald-500/10 px-3 py-2.5 text-[13px] leading-[18px] text-emerald-300">
-            {errors._success}
-          </div>
-        ) : null}
 
         <Button type="submit" disabled={loading} className="mt-1 w-full">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}

@@ -1,17 +1,17 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Check, Loader2, Sparkles } from "lucide-react";
+import { Eye, EyeOff, Check, Loader2, Sparkles, AlertCircle } from "lucide-react";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { PasswordStrength } from "@/components/auth/PasswordStrength";
 import { Label } from "@/components/ui/label";
 import { InputWrap, InputShell, ErrorMsg } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { api } from "@/lib/api";
 
-const TAKEN = new Set(["admin", "campuszen", "test", "ayush", "root"]);
 const EMAIL_ALLOW = ["gmail.com", "proton.me"];
 
 function isValidEmail(v) {
@@ -21,13 +21,12 @@ function isValidEmail(v) {
   return EMAIL_ALLOW.includes(domain) && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(m);
 }
 
-function usernameStatus(v) {
+function usernameFormatStatus(v) {
   if (!v) return { state: "idle", msg: "" };
   if (v.length < 3) return { state: "error", msg: "Minimum 3 characters." };
   if (!/^[a-z0-9_]+$/.test(v)) return { state: "error", msg: "Only lowercase letters, numbers and _" };
   if (v.length > 20) return { state: "error", msg: "Maximum 20 characters." };
-  if (TAKEN.has(v.toLowerCase())) return { state: "taken", msg: "Username is taken." };
-  return { state: "available", msg: "Username is available." };
+  return null; // needs backend check
 }
 
 export default function SignupPage() {
@@ -39,16 +38,46 @@ export default function SignupPage() {
   const [showPw, setShowPw] = useState(false);
   const [agree, setAgree] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [serverError, setServerError] = useState("");
 
   const [errors, setErrors] = useState({});
   const [shake, setShake] = useState({});
+
+  // backend username availability
+  const [userAvail, setUserAvail] = useState({ state: "idle", msg: "" });
+  const [checkingUser, setCheckingUser] = useState(false);
 
   const nameRef = useRef(null);
   const userRef = useRef(null);
   const emailRef = useRef(null);
   const pwRef = useRef(null);
 
-  const userStat = usernameStatus(username);
+  // debounce username check
+  useEffect(() => {
+    const fmt = usernameFormatStatus(username);
+    if (fmt) {
+      setUserAvail(fmt);
+      return;
+    }
+    if (!username) {
+      setUserAvail({ state: "idle", msg: "" });
+      return;
+    }
+    // valid format -> check backend
+    const t = setTimeout(async () => {
+      setCheckingUser(true);
+      try {
+        const res = await api.checkUsername(username);
+        const d = res.data;
+        setUserAvail(d.available ? { state: "available", msg: "Available" } : { state: "taken", msg: d.reason || "Username is taken" });
+      } catch {
+        setUserAvail({ state: "idle", msg: "" });
+      } finally {
+        setCheckingUser(false);
+      }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [username]);
 
   const triggerShake = (key) => {
     setShake((s) => ({ ...s, [key]: true }));
@@ -59,7 +88,10 @@ export default function SignupPage() {
     const e = {};
     if (!fullName.trim() || fullName.trim().length < 2) e.fullName = "Enter your full name (at least 2 characters).";
     if (!username.trim()) e.username = "Choose a username.";
-    else if (userStat.state === "error" || userStat.state === "taken") e.username = userStat.msg;
+    else if (userAvail.state === "error" || userAvail.state === "taken") e.username = userAvail.msg;
+    else if (userAvail.state === "available" && usernameFormatStatus(username) === null) {
+      // ok
+    } else if (usernameFormatStatus(username)) e.username = usernameFormatStatus(username).msg;
     if (!email.trim()) e.email = "Enter your email.";
     else if (!isValidEmail(email)) e.email = `Use a gmail.com or proton.me email.`;
     if (!password) e.password = "Create a password.";
@@ -67,9 +99,7 @@ export default function SignupPage() {
     if (!agree) e.agree = "You must agree to Terms and Privacy.";
 
     setErrors(e);
-    // shake fields
     Object.keys(e).forEach((k) => triggerShake(k));
-    // focus first error
     if (e.fullName) nameRef.current?.focus();
     else if (e.username) userRef.current?.focus();
     else if (e.email) emailRef.current?.focus();
@@ -77,26 +107,69 @@ export default function SignupPage() {
     return Object.keys(e).length === 0;
   };
 
-  const onSubmit = (ev) => {
+  const onSubmit = async (ev) => {
     ev.preventDefault();
+    setServerError("");
     if (!validate()) return;
+    if (userAvail.state !== "available") {
+      setErrors((p) => ({ ...p, username: "Username not available" }));
+      triggerShake("username");
+      return;
+    }
     setLoading(true);
-    setTimeout(() => {
-      // static demo: store email for verify step then push
+    try {
+      await api.signup({
+        fullName: fullName.trim(),
+        username: username.trim().toLowerCase(),
+        email: email.trim().toLowerCase(),
+        password,
+      });
       try {
         sessionStorage.setItem("cz_pending_email", email.trim().toLowerCase());
       } catch {}
       router.push(`/verify-email?email=${encodeURIComponent(email.trim().toLowerCase())}`);
-    }, 700);
+    } catch (err) {
+      const data = err.data || {};
+      const code = data.code;
+      const details = data.details;
+      // map zod details to fields
+      if (details && Array.isArray(details)) {
+        const ne = {};
+        details.forEach((d) => {
+          if (d.path?.includes("username")) ne.username = d.message;
+          else if (d.path?.includes("email")) ne.email = d.message;
+          else if (d.path?.includes("password")) ne.password = d.message;
+          else if (d.path?.includes("fullName")) ne.fullName = d.message;
+        });
+        if (Object.keys(ne).length) {
+          setErrors(ne);
+          Object.keys(ne).forEach(triggerShake);
+        }
+      }
+      if (code === "USERNAME_TAKEN") {
+        setErrors((p) => ({ ...p, username: "Username is already taken" }));
+        triggerShake("username");
+      } else if (code === "EMAIL_TAKEN") {
+        setErrors((p) => ({ ...p, email: "Email already registered" }));
+        triggerShake("email");
+      } else if (!details || Object.keys(details || {}).length === 0) {
+        setServerError(data.message || err.message || "Signup failed");
+      }
+      if (err.status === 429) setServerError(data.message || "Too many attempts. Try later.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <AuthShell
-      title="Create your account"
-      subtitle="Join CampusZen — minimal signup, no college details needed yet."
-    >
+    <AuthShell title="Create your account" subtitle="Join CampusZen — minimal signup, no college details needed yet.">
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
-        {/* full name */}
+        {serverError ? (
+          <div className="flex items-start gap-2 rounded-[10px] border border-[var(--cz-error)]/20 bg-[rgba(255,90,106,0.08)] px-3 py-2.5 text-[13px] leading-[18px] text-[var(--cz-error)]">
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" /> <span>{serverError}</span>
+          </div>
+        ) : null}
+
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="fullName">
             Full name <span className="text-[var(--cz-error)]">*</span>
@@ -112,8 +185,8 @@ export default function SignupPage() {
                 onChange={(e) => {
                   setFullName(e.target.value);
                   if (errors.fullName) setErrors((p) => ({ ...p, fullName: undefined }));
+                  setServerError("");
                 }}
-                onInput={() => errors.fullName && setErrors((p) => ({ ...p, fullName: undefined }))}
                 className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 text-[var(--cz-text-primary)] h-full"
               />
             </InputShell>
@@ -121,7 +194,6 @@ export default function SignupPage() {
           </InputWrap>
         </div>
 
-        {/* username */}
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
             <Label htmlFor="username">
@@ -142,6 +214,7 @@ export default function SignupPage() {
                   const v = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "");
                   setUsername(v);
                   if (errors.username) setErrors((p) => ({ ...p, username: undefined }));
+                  setServerError("");
                 }}
                 className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 text-[var(--cz-text-primary)] h-full"
                 maxLength={20}
@@ -149,22 +222,19 @@ export default function SignupPage() {
               {username ? (
                 <span
                   className={`inline-flex items-center gap-1 text-[11px] font-medium shrink-0 ${
-                    userStat.state === "available" ? "text-emerald-400" : userStat.state === "taken" || userStat.state === "error" ? "text-[var(--cz-error)]" : "text-[var(--cz-text-secondary)]"
+                    userAvail.state === "available" ? "text-emerald-400" : userAvail.state === "taken" || userAvail.state === "error" ? "text-[var(--cz-error)]" : "text-[var(--cz-text-secondary)]"
                   }`}
                 >
-                  {userStat.state === "available" ? <Check className="h-3 w-3" /> : null}
-                  {userStat.state === "available" ? "Available" : userStat.state === "taken" ? "Taken" : userStat.state === "error" ? "Invalid" : ""}
+                  {checkingUser ? <Loader2 className="h-3 w-3 animate-spin" /> : userAvail.state === "available" ? <Check className="h-3 w-3" /> : null}
+                  {checkingUser ? "Checking…" : userAvail.state === "available" ? "Available" : userAvail.state === "taken" ? "Taken" : userAvail.state === "error" ? "Invalid" : ""}
                 </span>
               ) : null}
             </InputShell>
-            <ErrorMsg>{errors.username || (userStat.state !== "available" && userStat.state !== "idle" ? userStat.msg : "")}</ErrorMsg>
-            {!errors.username && userStat.state === "available" ? (
-              <p className="text-[11px] leading-[14px] text-emerald-400/90 mt-1">Nice — this username is free.</p>
-            ) : null}
+            <ErrorMsg>{errors.username || (userAvail.state !== "available" && userAvail.state !== "idle" && !checkingUser ? userAvail.msg : "")}</ErrorMsg>
+            {!errors.username && userAvail.state === "available" ? <p className="text-[11px] leading-[14px] text-emerald-400/90 mt-1">Nice — this username is free.</p> : null}
           </InputWrap>
         </div>
 
-        {/* email */}
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="email">
             Email <span className="text-[var(--cz-error)]">*</span>
@@ -181,6 +251,7 @@ export default function SignupPage() {
                 onChange={(e) => {
                   setEmail(e.target.value);
                   if (errors.email) setErrors((p) => ({ ...p, email: undefined }));
+                  setServerError("");
                 }}
                 className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 text-[var(--cz-text-primary)] h-full"
               />
@@ -190,7 +261,6 @@ export default function SignupPage() {
           </InputWrap>
         </div>
 
-        {/* password */}
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="password">
             Password <span className="text-[var(--cz-error)]">*</span>
@@ -207,6 +277,7 @@ export default function SignupPage() {
                 onChange={(e) => {
                   setPassword(e.target.value);
                   if (errors.password) setErrors((p) => ({ ...p, password: undefined }));
+                  setServerError("");
                 }}
                 className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 text-[var(--cz-text-primary)] h-full"
               />
@@ -231,15 +302,8 @@ export default function SignupPage() {
           </InputWrap>
         </div>
 
-        {/* terms */}
         <div className="pt-1">
-          <Checkbox
-            id="agree"
-            checked={agree}
-            onChange={setAgree}
-            label=""
-            className="items-start"
-          />
+          <Checkbox id="agree" checked={agree} onChange={setAgree} label="" className="items-start" />
           <div className="ml-[28px] -mt-[2px]">
             <p className="text-[12.5px] leading-[18px] text-[var(--cz-text-secondary)]">
               I agree to the{" "}

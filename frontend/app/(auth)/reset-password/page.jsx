@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useRef, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Eye, EyeOff, Lock, CheckCircle2, Loader2, KeyRound } from "lucide-react";
+import { Eye, EyeOff, Lock, CheckCircle2, Loader2, KeyRound, AlertCircle } from "lucide-react";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { Label } from "@/components/ui/label";
 import { InputWrap, InputShell, ErrorMsg } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { PasswordStrength } from "@/components/auth/PasswordStrength";
 import { OtpInput } from "@/components/auth/OtpInput";
+import { api } from "@/lib/api";
 
 function ResetPasswordInner() {
   const search = useSearchParams();
@@ -20,6 +21,7 @@ function ResetPasswordInner() {
   const [otp, setOtp] = useState("");
   const [otpError, setOtpError] = useState("");
   const [shakeOtp, setShakeOtp] = useState(false);
+  const [info, setInfo] = useState("");
 
   const [pw, setPw] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -54,14 +56,11 @@ function ResetPasswordInner() {
       setTimeout(() => setShakeOtp(false), 380);
       return;
     }
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      setStep(2);
-    }, 600);
+    // local step transition — backend will fully verify when resetting password
+    setOtpError("");
+    setStep(2);
   };
 
-  // auto-advance when 6 digits
   useEffect(() => {
     if (step === 1 && otp.length === 6 && !loading) {
       const t = setTimeout(() => onVerifyOtp(), 300);
@@ -69,7 +68,25 @@ function ResetPasswordInner() {
     }
   }, [otp, step, loading]);
 
-  const onReset = (e) => {
+  const onResend = async () => {
+    if (!canResend || !email) return;
+    setOtpError("");
+    setInfo("");
+    try {
+      await api.resendOtp({ email: email.toLowerCase().trim(), type: "reset" });
+      setCanResend(false);
+      setResendIn(30);
+      setOtp("");
+      setInfo("New reset code sent. Check console in dev.");
+    } catch (err) {
+      const data = err.data || {};
+      setOtpError(data.message || err.message || "Resend failed");
+      setShakeOtp(true);
+      setTimeout(() => setShakeOtp(false), 380);
+    }
+  };
+
+  const onReset = async (e) => {
     e.preventDefault();
     if (!pw || pw.length < 8) {
       setPwError("Minimum 8 characters.");
@@ -77,12 +94,35 @@ function ResetPasswordInner() {
       setTimeout(() => setShakePw(false), 380);
       return;
     }
+    if (!email) {
+      setPwError("Missing email. Start over from forgot password.");
+      return;
+    }
+    if (otp.length !== 6) {
+      setPwError("Missing code. Go back and re-enter it.");
+      return;
+    }
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    setPwError("");
+    try {
+      await api.resetPassword({ email: email.toLowerCase().trim(), otp, newPassword: pw });
       setDone(true);
       setTimeout(() => router.push("/login"), 1600);
-    }, 700);
+    } catch (err) {
+      const data = err.data || {};
+      const msg = data.message || err.message || "Reset failed";
+      setPwError(msg);
+      setShakePw(true);
+      setTimeout(() => setShakePw(false), 380);
+      // if otp invalid/expired, send user back to step 1
+      if (data.code?.includes("OTP") || /code/i.test(msg)) {
+        setOtpError(msg);
+        setShakeOtp(true);
+        setTimeout(() => setShakeOtp(false), 380);
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (done) {
@@ -109,7 +149,7 @@ function ResetPasswordInner() {
       title={step === 1 ? "Enter reset code" : "Set new password"}
       subtitle={
         step === 1
-          ? `We sent a 6-digit code to ${email ? email.replace(/(^.).+(@.*)/, (m, a, b) => a + "***" + b) : "your email"}. Demo code: 123456`
+          ? `We sent a 6-digit code to ${email ? email.replace(/(^.).+(@.*)/, (m, a, b) => a + "***" + b) : "your email"}. Check console in dev.`
           : "Choose a strong new password. Minimum 8 characters."
       }
     >
@@ -121,27 +161,35 @@ function ResetPasswordInner() {
             </span>
             <div>
               <div className="text-[13px] font-medium leading-none text-[var(--cz-text-primary)]">{email || "you@gmail.com"}</div>
-              <div className="text-[11px] text-[var(--cz-text-secondary)] mt-1">Code valid for 10 minutes</div>
+              <div className="text-[11px] text-[var(--cz-text-secondary)] mt-1">Code valid for 10 minutes • 5 attempts max</div>
             </div>
           </div>
+
+          {info ? <div className="rounded-[10px] border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[13px] text-emerald-300">{info}</div> : null}
 
           <div>
             <Label>6-digit code</Label>
             <div className={`mt-1.5 ${shakeOtp ? "t-input is-shaking" : ""}`}>
-              <OtpInput value={otp} onChange={(v) => { setOtp(v); setOtpError(""); }} error={!!otpError} />
+              <OtpInput value={otp} onChange={(v) => { setOtp(v); setOtpError(""); setInfo(""); }} error={!!otpError} />
             </div>
-            {otpError ? <p className="mt-2 text-[12px] text-[var(--cz-error)]">{otpError}</p> : <p className="mt-2 text-[12px] text-[var(--cz-text-secondary)]/70">Check spam folder if you don’t see it.</p>}
+            {otpError ? (
+              <p className="mt-2 flex items-center gap-1.5 text-[12px] text-[var(--cz-error)]">
+                <AlertCircle className="h-3.5 w-3.5" /> {otpError}
+              </p>
+            ) : (
+              <p className="mt-2 text-[12px] text-[var(--cz-text-secondary)]/70">Check spam folder or console in dev if you don’t see it.</p>
+            )}
           </div>
 
           <Button type="submit" disabled={loading || otp.length !== 6} className="w-full">
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-            {loading ? "Verifying..." : "Verify code"}
+            {loading ? "Verifying..." : "Continue"}
           </Button>
 
           <div className="flex items-center justify-between text-[13px]">
             <button
               type="button"
-              onClick={() => { if (canResend) { setCanResend(false); setResendIn(30); setOtp(""); setOtpError(""); } }}
+              onClick={onResend}
               disabled={!canResend}
               className={`font-medium ${canResend ? "text-[var(--cz-text-primary)] hover:text-[var(--cz-muted)]" : "text-[var(--cz-text-secondary)]/60 cursor-not-allowed"}`}
             >
@@ -158,6 +206,10 @@ function ResetPasswordInner() {
         </form>
       ) : (
         <form onSubmit={onReset} noValidate className="flex flex-col gap-4">
+          <div className="rounded-[10px] border border-[var(--cz-border)] bg-[rgba(255,255,255,0.03)] px-3 py-2.5 text-[12px] leading-[17px] text-[var(--cz-text-secondary)]">
+            Resetting for <span className="text-[var(--cz-text-primary)] font-medium">{email || "your email"}</span> • Code <span className="font-mono text-[var(--cz-text-primary)]">{otp || "______"}</span>
+          </div>
+
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="newpw">
               New password <span className="text-[var(--cz-error)]">*</span>
@@ -171,7 +223,10 @@ function ResetPasswordInner() {
                   autoComplete="new-password"
                   placeholder="Minimum 8 characters"
                   value={pw}
-                  onChange={(e) => { setPw(e.target.value); setPwError(""); }}
+                  onChange={(e) => {
+                    setPw(e.target.value);
+                    setPwError("");
+                  }}
                   className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 text-[var(--cz-text-primary)] h-full"
                 />
                 <button
@@ -192,7 +247,7 @@ function ResetPasswordInner() {
           </div>
 
           <div className="rounded-[10px] border border-[var(--cz-border)] bg-[rgba(255,255,255,0.03)] px-3 py-2.5 text-[12px] leading-[17px] text-[var(--cz-text-secondary)]">
-            After reset, you’ll be redirected to login to continue.
+            After reset, you’ll be redirected to login. Existing sessions will be revoked.
           </div>
 
           <Button type="submit" disabled={loading} className="w-full">
