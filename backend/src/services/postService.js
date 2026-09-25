@@ -4,7 +4,7 @@ import { Like } from "../models/Like.js";
 import { Repost } from "../models/Repost.js";
 import { Follow } from "../models/Follow.js";
 import { User } from "../models/User.js";
-import { Notification } from "../models/Notification.js";
+import { notificationService } from "./notificationService.js";
 import { AppError } from "../utils/AppError.js";
 
 const EDIT_WINDOW_MS = 5 * 60 * 1000;
@@ -137,10 +137,9 @@ export const postService = {
         throw e;
       }
       await Post.findByIdAndUpdate(postId, { $inc: { likeCount: 1 } });
-      // notification — not for own post
       if (String(post.author) !== String(userId)) {
         try {
-          await Notification.create({ recipient: post.author, actor: userId, type: "like", post: postId });
+          await notificationService.create({ recipient: post.author, actor: userId, type: "like", post: postId });
         } catch {}
       }
       const updated = await Post.findById(postId).select("likeCount");
@@ -168,7 +167,7 @@ export const postService = {
       await Post.findByIdAndUpdate(postId, { $inc: { repostCount: 1 } });
       if (String(post.author) !== String(userId)) {
         try {
-          await Notification.create({ recipient: post.author, actor: userId, type: "repost", post: postId });
+          await notificationService.create({ recipient: post.author, actor: userId, type: "repost", post: postId });
         } catch {}
       }
       const updated = await Post.findById(postId).select("repostCount");
@@ -185,7 +184,7 @@ export const postService = {
     await Post.findByIdAndUpdate(postId, { $inc: { replyCount: 1 } });
     if (String(post.author) !== String(userId)) {
       try {
-        await Notification.create({ recipient: post.author, actor: userId, type: "reply", post: postId });
+        await notificationService.create({ recipient: post.author, actor: userId, type: "reply", post: postId });
       } catch {}
     }
     const populated = await Comment.findById(comment._id).populate("author", "fullName username avatarUrl isEmailVerified");

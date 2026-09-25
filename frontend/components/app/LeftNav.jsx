@@ -2,8 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { Home, Search, Plus, Bell, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { api } from "@/lib/api";
+import { AnimatedNumber } from "@/components/app/AnimatedNumber";
 
 // Desktop shows all nav items with labels (space available)
 // Mobile bottom keeps Menu at last (handled in BottomNav)
@@ -18,6 +21,28 @@ const createItem = { href: "/app/create", label: "Create", icon: Plus };
 
 export function LeftNav({ user, collapsed }) {
   const pathname = usePathname();
+  const [unread, setUnread] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchCount = async () => {
+      try {
+        const r = await api.getUnreadCount();
+        if (!cancelled) setUnread(r.data?.count ?? 0);
+      } catch {}
+    };
+    fetchCount();
+    const id = setInterval(fetchCount, 30000);
+    const onFocus = () => fetchCount();
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("cz:notif-read", fetchCount);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("cz:notif-read", fetchCount);
+    };
+  }, []);
 
   const isActive = (it) => (it.exact ? pathname === it.href : pathname.startsWith(it.href));
 
@@ -67,21 +92,40 @@ export function LeftNav({ user, collapsed }) {
 
       {desktopItems.slice(2).map((it) => {
         const active = isActive(it);
+        const isNotif = it.href === "/app/notifications";
         return (
           <Link
             key={it.href}
             href={it.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "group inline-flex items-center gap-3 rounded-[12px] h-[40px] px-3 text-[14px] font-medium tracking-[-0.01em] transition-colors",
+              "group inline-flex items-center gap-3 rounded-[12px] h-[40px] px-3 text-[14px] font-medium tracking-[-0.01em] transition-colors relative",
               collapsed ? "justify-center w-[44px] p-0" : "w-full",
               active
                 ? "bg-[var(--cz-text-primary)] text-[var(--cz-text-inverse)] shadow-[0_2px_10px_rgba(255,206,173,0.18)]"
                 : "text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] hover:bg-[rgba(255,206,173,0.06)]"
             )}
           >
-            <it.icon className={cn("h-[18px] w-[18px] shrink-0", active ? "opacity-100" : "opacity-80 group-hover:opacity-100")} />
-            {!collapsed ? <span>{it.label}</span> : <span className="sr-only">{it.label}</span>}
+            <span className="relative grid place-items-center shrink-0">
+              <it.icon className={cn("h-[18px] w-[18px]", active ? "opacity-100" : "opacity-80 group-hover:opacity-100")} />
+              {isNotif && unread > 0 ? (
+                <span className={cn("absolute -top-1 -right-1 grid place-items-center min-w-[16px] h-[16px] rounded-full bg-[var(--cz-error)] text-white text-[10px] font-bold leading-none px-1", collapsed ? "" : "hidden sm:grid")}>
+                  <AnimatedNumber value={unread > 99 ? "99+" : unread} className="text-[10px]" />
+                </span>
+              ) : null}
+            </span>
+            {!collapsed ? (
+              <span className="flex-1 flex items-center justify-between gap-2">
+                <span>{it.label}</span>
+                {isNotif && unread > 0 ? (
+                  <span className="inline-flex items-center justify-center min-w-[20px] h-[20px] rounded-full bg-[var(--cz-error)] text-white text-[11px] font-bold px-1.5">
+                    <AnimatedNumber value={unread > 99 ? "99+" : unread} />
+                  </span>
+                ) : null}
+              </span>
+            ) : (
+              <span className="sr-only">{it.label}</span>
+            )}
           </Link>
         );
       })}

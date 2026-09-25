@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { Follow } from "../models/Follow.js";
 import { User } from "../models/User.js";
-import { Notification } from "../models/Notification.js";
+import { notificationService } from "./notificationService.js";
 import { AppError } from "../utils/AppError.js";
 
 export const followService = {
@@ -19,9 +19,9 @@ export const followService = {
       await Follow.create([{ follower: followerId, following: followingId }], { session });
       await User.findByIdAndUpdate(followerId, { $inc: { followingCount: 1 } }, { session });
       await User.findByIdAndUpdate(followingId, { $inc: { followersCount: 1 } }, { session });
-      // notification — best effort, not transactional critical
+      // notification — best effort, outside transaction to avoid session lock, with dedup
       try {
-        await Notification.create([{ recipient: followingId, actor: followerId, type: "follow" }], { session });
+        await notificationService.create({ recipient: followingId, actor: followerId, type: "follow" });
       } catch {}
       await session.commitTransaction();
     } catch (err) {

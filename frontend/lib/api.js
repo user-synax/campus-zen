@@ -91,6 +91,17 @@ export const api = {
     const q = qs.toString();
     return request(`/api/search${q ? `?${q}` : ""}`, { method: "GET" });
   },
+  getNotifications: (params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "") qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(`/api/notifications${q ? `?${q}` : ""}`, { method: "GET" });
+  },
+  getUnreadCount: () => request("/api/notifications/unread-count", { method: "GET" }),
+  markNotificationRead: (id) => request(`/api/notifications/${encodeURIComponent(id)}/read`, { method: "PATCH" }),
+  markAllNotificationsRead: () => request("/api/notifications/read-all", { method: "PATCH" }),
   followUser: (id) => request(`/api/users/${encodeURIComponent(id)}/follow`, { method: "POST" }),
   unfollowUser: (id) => request(`/api/users/${encodeURIComponent(id)}/follow`, { method: "DELETE" }),
   getFollowers: (id, params = {}) => {
