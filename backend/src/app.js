@@ -7,6 +7,7 @@ import cookieParser from "cookie-parser";
 import mongoSanitize from "express-mongo-sanitize";
 import { env, isProd } from "./config/env.js";
 import authRoutes from "./routes/authRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
 import { notFound, errorHandler } from "./middleware/errorHandler.js";
 
 const app = express();
@@ -44,6 +45,7 @@ app.get("/api/health", (req, res) => {
 
 // routes
 app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
 
 // 404
 app.use(notFound);

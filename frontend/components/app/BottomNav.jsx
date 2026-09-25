@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Home, Search, Plus, Bell, Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// Mobile: 5 icons only, no labels — Menu stays at last
 const items = [
   { href: "/app", icon: Home, label: "Home", exact: true },
   { href: "/app/search", icon: Search, label: "Search" },
@@ -29,18 +30,19 @@ export function BottomNav() {
             <Link
               key={it.href}
               href={it.href}
+              aria-label={it.label}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "grid place-items-center gap-1 rounded-[12px] h-[44px] text-[11px] font-medium tracking-[-0.01em] transition-colors",
+                "grid place-items-center rounded-[12px] h-[44px] w-full transition-colors",
                 isCreate
                   ? "bg-[var(--cz-text-primary)] text-[var(--cz-text-inverse)] shadow-[0_2px_10px_rgba(255,206,173,0.18)] mx-1"
                   : active
                     ? "text-[var(--cz-text-primary)] bg-[rgba(255,206,173,0.08)]"
-                    : "text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)]"
+                    : "text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] active:bg-[rgba(255,206,173,0.06)]"
               )}
             >
-              <it.icon className={cn("h-[18px] w-[18px]", isCreate && "h-[20px] w-[20px]")} />
-              <span className={cn("leading-none text-[10px] tracking-[0.04em] uppercase", isCreate && "sr-only")}>{it.label}</span>
+              <it.icon className={cn("h-[20px] w-[20px]", isCreate && "h-[22px] w-[22px]")} aria-hidden />
+              <span className="sr-only">{it.label}</span>
             </Link>
           );
         })}

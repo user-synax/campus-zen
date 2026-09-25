@@ -33,4 +33,6 @@ export const api = {
   refresh: () => request("/api/auth/refresh", { method: "POST" }),
   forgotPassword: (payload) => request("/api/auth/forgot-password", { method: "POST", body: payload }),
   resetPassword: (payload) => request("/api/auth/reset-password", { method: "POST", body: payload }),
+  getUser: (username) => request(`/api/users/${encodeURIComponent(username)}`, { method: "GET" }),
+  updateMe: (payload) => request("/api/users/me", { method: "PATCH", body: payload }),
 };
