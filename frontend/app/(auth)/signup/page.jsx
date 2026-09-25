@@ -127,7 +127,8 @@ export default function SignupPage() {
       try {
         sessionStorage.setItem("cz_pending_email", email.trim().toLowerCase());
       } catch {}
-      router.push(`/verify-email?email=${encodeURIComponent(email.trim().toLowerCase())}`);
+      // OTP skipped for now — go directly to app, show verify banner if needed
+      router.push(`/app`);
     } catch (err) {
       const data = err.data || {};
       const code = data.code;

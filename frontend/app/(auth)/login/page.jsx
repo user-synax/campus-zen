@@ -55,14 +55,16 @@ export default function LoginPage() {
       if (user && !user.isEmailVerified) {
         setServerMsg({
           type: "warn",
-          text: "Logged in — please verify your email. Check your inbox or resend code.",
+          text: "Logged in — please verify your email. Redirecting to app…",
           email: user.email,
         });
-        setTimeout(() => router.push(`/verify-email?email=${encodeURIComponent(user.email)}`), 900);
+        setTimeout(() => {
+          router.push(`/app`);
+          router.refresh();
+        }, 700);
         return;
       }
-      // success — go to home (future: feed)
-      router.push("/");
+      router.push("/app");
       router.refresh();
     } catch (err) {
       const data = err.data || {};
