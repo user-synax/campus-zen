@@ -39,7 +39,7 @@ export function errorHandler(err, req, res, _next) {
   if (err.code === "LIMIT_FILE_SIZE") {
     statusCode = 400;
     code = "FILE_TOO_LARGE";
-    message = "Image must be under 4MB";
+    message = "Image must be under 5MB";
   }
   if (err.message === "Only image files are allowed") {
     statusCode = 400;

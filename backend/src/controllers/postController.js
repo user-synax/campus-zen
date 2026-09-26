@@ -16,7 +16,7 @@ export const postController = {
   }),
 
   create: asyncHandler(async (req, res) => {
-    const post = await postService.create(req.user._id, req.body.text);
+    const post = await postService.create(req.user._id, req.body.text, req.file);
     res.status(201).json({ success: true, data: { post } });
   }),
 

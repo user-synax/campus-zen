@@ -20,10 +20,20 @@ async function withoutBlockedAuthors(posts, viewerId) {
 }
 
 export const postService = {
-  async create(authorId, text) {
-    const t = text.trim();
-    if (!t || t.length > 500) throw new AppError("Post must be 1-500 characters", 400, "INVALID_TEXT");
-    const post = await Post.create({ author: authorId, text: t });
+  async create(authorId, text, imageFile) {
+    const t = text?.trim() || "";
+    if (t.length > 500) throw new AppError("Post must be 1-500 characters", 400, "INVALID_TEXT");
+    if (!t && !imageFile) throw new AppError("Post must have text or an image", 400, "EMPTY_POST");
+
+    let imageUrl = null;
+    if (imageFile) {
+      const { isAppwriteConfigured, uploadToAppwrite } = await import("../config/appwrite.js");
+      if (!isAppwriteConfigured()) throw new AppError("Image upload not configured", 503, "APPWRITE_NOT_CONFIGURED");
+      const uploaded = await uploadToAppwrite(imageFile.buffer, imageFile.originalname, imageFile.mimetype);
+      imageUrl = uploaded.viewUrl;
+    }
+
+    const post = await Post.create({ author: authorId, text: t || undefined, imageUrl });
     await User.findByIdAndUpdate(authorId, { $inc: { postCount: 1 } });
     const populated = await Post.findById(post._id).populate("author", "fullName username avatarUrl isEmailVerified");
     return populated;
@@ -75,6 +85,14 @@ export const postService = {
     ]);
     // clamp
     await User.updateOne({ _id: userId, postCount: { $lt: 0 } }, { $set: { postCount: 0 } });
+    // cleanup image from Appwrite
+    if (post.imageUrl) {
+      try {
+        const { deleteFromAppwrite } = await import("../config/appwrite.js");
+        const fileId = post.imageUrl.match(/\/files\/([^/]+)\//)?.[1];
+        if (fileId) await deleteFromAppwrite(fileId);
+      } catch {}
+    }
     return { message: "Post deleted" };
   },
 

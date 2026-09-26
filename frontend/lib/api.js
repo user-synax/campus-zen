@@ -181,8 +181,28 @@ export const api = {
       { method: "GET" },
     );
   },
-  createPost: (text) =>
-    request("/api/posts", { method: "POST", body: { text } }),
+  createPost: async (text, image) => {
+    if (image) {
+      const form = new FormData();
+      if (text) form.append("text", text);
+      form.append("image", image);
+      const res = await fetch(`${BASE}/api/posts`, {
+        method: "POST",
+        body: form,
+        credentials: "include",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = data.message || `Post failed (${res.status})`;
+        const err = new Error(msg);
+        err.status = res.status;
+        err.data = data;
+        throw err;
+      }
+      return data;
+    }
+    return request("/api/posts", { method: "POST", body: { text } });
+  },
   getPost: (id) =>
     request(`/api/posts/${encodeURIComponent(id)}`, { method: "GET" }),
   updatePost: (id, text) =>

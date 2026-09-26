@@ -3,6 +3,7 @@ import { z } from "zod";
 import { validate } from "../middleware/validate.js";
 import { protect, optionalAuth } from "../middleware/auth.js";
 import { postController } from "../controllers/postController.js";
+import { postImageUpload } from "../middleware/upload.js";
 import rateLimit from "express-rate-limit";
 
 const router = Router();
@@ -18,8 +19,8 @@ const createLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 30, standardHea
 const feedLimiter = rateLimit({ windowMs: 60 * 1000, max: 60, standardHeaders: true, legacyHeaders: false });
 const interactionLimiter = rateLimit({ windowMs: 60 * 1000, max: 60, standardHeaders: true, legacyHeaders: false });
 
-// create
-router.post("/", protect, createLimiter, validate(textSchema), postController.create);
+// create — accepts JSON (text only) or multipart/form-data (text + image)
+router.post("/", protect, createLimiter, postImageUpload.single("image"), postController.create);
 
 // single list for profile tabs — author / likedBy / repostedBy (single endpoint per your choice)
 const listQuery = z.object({

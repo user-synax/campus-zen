@@ -14,3 +14,9 @@ export const avatarUpload = multer({
   limits: { fileSize: 4 * 1024 * 1024, files: 1 },
   fileFilter,
 });
+
+export const postImageUpload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+  fileFilter,
+});

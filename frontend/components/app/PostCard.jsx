@@ -246,6 +246,17 @@ export function PostCard({
               {post.text}
             </Link>
           )}
+          {post.imageUrl ? (
+            <div className="mt-2 rounded-[12px] overflow-hidden border border-[var(--cz-border)]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={post.imageUrl}
+                alt="Post attachment"
+                className="w-full max-h-[400px] object-cover"
+                loading="lazy"
+              />
+            </div>
+          ) : null}
         </div>
         {!editing ? (
           <div className="relative shrink-0">
@@ -261,7 +272,7 @@ export function PostCard({
               <>
                 {/* desktop dropdown */}
                 <div className="hidden sm:block absolute right-0 top-9 z-10 w-[160px] rounded-[12px] border border-[var(--cz-border)] bg-[var(--cz-surface-strong)] shadow-[0_8px_24px_rgba(0,0,0,0.4)] overflow-hidden">
-                  {isOwn ? (
+                  {isOwn && post.text ? (
                     <>
                       <button
                         onClick={() => {
@@ -300,7 +311,7 @@ export function PostCard({
                   />
                   <div className="relative w-full max-w-[420px] rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)] shadow-[0_16px_40px_rgba(0,0,0,0.5)] overflow-hidden animate-[t-panel-slide] p-2">
                     <div className="mx-auto h-1 w-8 rounded-full bg-[var(--cz-border)] mb-2" />
-                    {isOwn ? (
+                    {isOwn && post.text ? (
                       <>
                         <button
                           onClick={() => {

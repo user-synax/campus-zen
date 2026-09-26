@@ -25,7 +25,7 @@ export default function CreatePage() {
           router.refresh();
         }}
       />
-      <EmptyState icon={FileText} title="Text only • 500 chars" description="Emoji allowed in text. Icons in UI are lucide only. Posts appear in Following feed newest first." />
+      <EmptyState icon={FileText} title="Text + Image • 500 chars" description="Posts can be text, image, or both. Emoji allowed. Images up to 5MB. Posts appear in Following feed newest first." />
       <div className="rounded-[12px] border border-dashed border-[var(--cz-border)] p-3 text-center text-[11px] leading-[15px] text-[var(--cz-text-secondary)]/60">After posting you’ll be redirected to Home feed with card-resize animation.</div>
     </div>
   );

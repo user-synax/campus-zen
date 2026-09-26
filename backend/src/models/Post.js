@@ -5,11 +5,11 @@ const postSchema = new mongoose.Schema(
     author: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
     text: {
       type: String,
-      required: true,
       trim: true,
-      minlength: 1,
       maxlength: 500,
+      default: null,
     },
+    imageUrl: { type: String, default: null },
     likeCount: { type: Number, default: 0, min: 0 },
     replyCount: { type: Number, default: 0, min: 0 },
     repostCount: { type: Number, default: 0, min: 0 },
