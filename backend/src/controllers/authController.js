@@ -7,7 +7,7 @@ export const authController = {
     const user = await authService.signup(req.body);
     res.status(201).json({
       success: true,
-      message: "Account created. Verification code sent to your email (check console in dev).",
+      message: "Account created. Verification code sent to your email.",
       data: { user },
     });
   }),

@@ -4,7 +4,6 @@ import { validate } from "../middleware/validate.js";
 import { authController } from "../controllers/authController.js";
 import { protect } from "../middleware/auth.js";
 import { signupLimiter, loginLimiter, verifyLimiter, forgotLimiter, resendLimiter, checkUsernameLimiter, refreshLimiter } from "../middleware/rateLimiter.js";
-import { env } from "../config/env.js";
 
 const router = Router();
 
@@ -75,14 +74,5 @@ router.post("/logout", authController.logout);
 router.get("/me", protect, authController.me);
 router.post("/forgot-password", forgotLimiter, validate(forgotSchema), authController.forgotPassword);
 router.post("/reset-password", verifyLimiter, validate(resetSchema), authController.resetPassword);
-
-// dev debug: expose last OTP hash? Not plain. Instead log already. Provide endpoint to list expiry for dev
-if (env.NODE_ENV !== "production") {
-  router.get("/debug-otp/:email", async (req, res) => {
-    const { Otp } = await import("../models/Otp.js");
-    const list = await Otp.find({ email: req.params.email.toLowerCase() }).sort({ createdAt: -1 }).limit(3).lean();
-    res.json({ success: true, data: list.map((o) => ({ type: o.type, expiresAt: o.expiresAt, attempts: o.attempts, createdAt: o.createdAt })) });
-  });
-}
 
 export default router;

@@ -20,6 +20,7 @@
         "mongoose": "^8.9.5",
         "multer": "^2.4.0",
         "node-appwrite": "^29.0.0",
+        "nodemailer": "^10.0.10",
         "zod": "^3.24.1",
       },
     },
@@ -194,6 +195,8 @@
     "negotiator": ["negotiator@0.6.4", "", {}, "sha512-myRT3DiWPHqho5PrJaIRyaMv2kgYf0mUVgBNOYMuCH5Ki1yEiQaf/ZJuQ62nvpc44wL5WDbTX7yGJi1Neevw8w=="],
 
     "node-appwrite": ["node-appwrite@29.0.0", "", { "dependencies": { "json-bigint": "1.0.0", "undici": "^6.27.0" } }, "sha512-c2lkV5uiHrOXEs2VqyQYmXomEGgeHS21neCJHb0tyGfeQ0KqIPKYz9O3TQrRtRJk7YMBRoJfjorR527371TRdQ=="],
+
+    "nodemailer": ["nodemailer@10.0.10", "", {}, "sha512-He9XskOFms62SyAKkLu8CcGcYHAo+BSHSsORI8s4PJH8qZgZY4L4lDfvyN0twvmbpyG+eGrxpyBlskj9d9rJ8A=="],
 
     "object-assign": ["object-assign@4.1.1", "", {}, "sha512-rJgTQnkUnH1sFw8yT6VSU3zD3sWmu6sZhIseY8VX+GRu3P6F7Fu+JNDoXfklElbLJSnc3FUQHVe4cU5hj+BcUg=="],
 

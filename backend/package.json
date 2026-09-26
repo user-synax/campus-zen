@@ -24,6 +24,7 @@
     "mongoose": "^8.9.5",
     "multer": "^2.4.0",
     "node-appwrite": "^29.0.0",
+    "nodemailer": "^10.0.10",
     "zod": "^3.24.1"
   },
   "packageManager": "bun@1.4.2"

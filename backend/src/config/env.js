@@ -18,6 +18,13 @@ export const env = {
   JWT_REFRESH_DEFAULT_EXPIRES: process.env.JWT_REFRESH_DEFAULT_EXPIRES || "1d",
   FRONTEND_URL: process.env.FRONTEND_URL || "http://localhost:3000",
   COOKIE_SECURE: process.env.COOKIE_SECURE === "true",
+  // Email (Gmail SMTP — needs an App Password, not the login password)
+  SMTP_HOST: process.env.SMTP_HOST || "smtp.gmail.com",
+  SMTP_PORT: Number(process.env.SMTP_PORT || 587),
+  SMTP_USER: requireEnv("SMTP_USER"),
+  SMTP_PASS: requireEnv("SMTP_PASS"),
+  EMAIL_FROM: process.env.EMAIL_FROM || process.env.SMTP_USER,
+  EMAIL_FROM_NAME: process.env.EMAIL_FROM_NAME || "CampusZen",
 };
 
 export const isProd = env.NODE_ENV === "production";

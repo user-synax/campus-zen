@@ -80,7 +80,7 @@ function VerifyEmailInner() {
       setCanResend(false);
       setResendIn(30);
       setOtp("");
-      setInfo("New code sent. Check your email or console in dev.");
+      setInfo("New code sent. Check your email.");
     } catch (err) {
       const data = err.data || {};
       setError(data.message || err.message || "Resend failed");
@@ -101,7 +101,7 @@ function VerifyEmailInner() {
   const masked = email ? email.replace(/(^.).+(@.*)/, (m, a, b) => a + "***" + b) : "your email";
 
   return (
-    <AuthShell title="Verify your email" subtitle={`We sent a 6-digit code to ${masked}. Expires in 10 minutes. Check console in dev.`}>
+    <AuthShell title="Verify your email" subtitle={`We sent a 6-digit code to ${masked}. Expires in 10 minutes.`}>
       <div className="flex flex-col gap-5">
         {!success ? (
           <>
@@ -132,7 +132,7 @@ function VerifyEmailInner() {
                     <AlertCircle className="h-3.5 w-3.5" /> {error}
                   </p>
                 ) : (
-                  <p className="mt-2 text-[12px] leading-[16px] text-[var(--cz-text-secondary)]/70">Didn&apos;t get a code? Check spam or resend. Backend logs OTP in dev.</p>
+                  <p className="mt-2 text-[12px] leading-[16px] text-[var(--cz-text-secondary)]/70">Didn&apos;t get a code? Check spam or resend.</p>
                 )}
               </div>
 

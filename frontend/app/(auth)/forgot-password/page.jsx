@@ -69,7 +69,7 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <AuthShell title="Forgot password?" subtitle="Enter your email and we’ll send you a 6-digit code to reset it. Backend logs OTP in dev.">
+    <AuthShell title="Forgot password?" subtitle="Enter your email and we’ll send you a 6-digit code to reset it.">
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
         <div className="rounded-[12px] border border-[var(--cz-muted)]/20 bg-[var(--cz-muted)]/10 px-3 py-3 flex items-start gap-3">
           <span className="grid place-items-center h-8 w-8 rounded-[9px] bg-[var(--cz-muted)] text-white shrink-0 mt-0.5">

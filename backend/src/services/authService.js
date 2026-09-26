@@ -2,7 +2,8 @@ import bcrypt from "bcryptjs";
 import { User } from "../models/User.js";
 import { Otp } from "../models/Otp.js";
 import { AppError } from "../utils/AppError.js";
-import { generateOtp, hashOtp, compareOtp, otpExpiresAt, logOtp } from "../utils/otp.js";
+import { generateOtp, hashOtp, compareOtp, otpExpiresAt } from "../utils/otp.js";
+import { sendOtpEmail, sendWelcomeEmail } from "../utils/email.js";
 import { signAccessToken, signRefreshToken, hashToken, verifyRefreshToken } from "../utils/jwt.js";
 
 const ALLOWED_DOMAINS = ["gmail.com", "proton.me"];
@@ -14,17 +15,19 @@ function assertAllowedEmail(email) {
 }
 
 async function createAndSendOtp({ email, type }) {
+  const plain = generateOtp();
+
+  // fail closed: email must send BEFORE anything is persisted,
+  // otherwise a user could be stuck with an undelivered code
+  await sendOtpEmail({ to: email, type, otp: plain });
+
   // delete previous OTPs of same type to keep 1 active
   await Otp.deleteMany({ email, type });
 
-  const plain = generateOtp();
   const otpHash = await hashOtp(plain);
   const expiresAt = otpExpiresAt(10);
 
   await Otp.create({ email, otpHash, type, expiresAt, attempts: 0 });
-  logOtp({ email, type, otp: plain, expiresAt });
-
-  return plain; // only for dev logging; not returned to client in prod
 }
 
 export const authService = {
@@ -58,8 +61,13 @@ export const authService = {
       isEmailVerified: false,
     });
 
-    // send verify OTP (async, don't block too long)
-    await createAndSendOtp({ email: cleanEmail, type: "verify" });
+    // fail closed: roll back the account if the verification email can't send
+    try {
+      await createAndSendOtp({ email: cleanEmail, type: "verify" });
+    } catch (err) {
+      await User.deleteOne({ _id: user._id }).catch(() => {});
+      throw err;
+    }
 
     return user.toSafeObject();
   },
@@ -92,6 +100,10 @@ export const authService = {
     user.isEmailVerified = true;
     await user.save();
 
+    // welcome email is best-effort: verification already succeeded,
+    // so a send failure here only gets logged, never fails the request
+    await sendWelcomeEmail({ to: cleanEmail, name: user.fullName });
+
     return user.toSafeObject();
   },
 
@@ -107,7 +119,7 @@ export const authService = {
     }
 
     await createAndSendOtp({ email: cleanEmail, type });
-    return { message: "Code sent. Check your email (or console in dev)." };
+    return { message: "Code sent. Check your email." };
   },
 
   async login({ username, password, remember = true }) {
@@ -170,7 +182,7 @@ export const authService = {
     assertAllowedEmail(cleanEmail);
     const user = await User.findOne({ email: cleanEmail });
     // generic response to avoid enumeration
-    if (!user) return { message: "If an account exists, a reset code has been sent. Check email or console in dev." };
+    if (!user) return { message: "If an account exists, a reset code has been sent." };
 
     await createAndSendOtp({ email: cleanEmail, type: "reset" });
     return { message: "Reset code sent. Expires in 10 minutes." };

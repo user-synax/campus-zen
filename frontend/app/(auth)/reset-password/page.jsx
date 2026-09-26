@@ -77,7 +77,7 @@ function ResetPasswordInner() {
       setCanResend(false);
       setResendIn(30);
       setOtp("");
-      setInfo("New reset code sent. Check console in dev.");
+      setInfo("New reset code sent. Check your email.");
     } catch (err) {
       const data = err.data || {};
       setOtpError(data.message || err.message || "Resend failed");
@@ -149,7 +149,7 @@ function ResetPasswordInner() {
       title={step === 1 ? "Enter reset code" : "Set new password"}
       subtitle={
         step === 1
-          ? `We sent a 6-digit code to ${email ? email.replace(/(^.).+(@.*)/, (m, a, b) => a + "***" + b) : "your email"}. Check console in dev.`
+          ? `We sent a 6-digit code to ${email ? email.replace(/(^.).+(@.*)/, (m, a, b) => a + "***" + b) : "your email"}. Check your inbox — it expires in 10 minutes.`
           : "Choose a strong new password. Minimum 8 characters."
       }
     >
@@ -177,7 +177,7 @@ function ResetPasswordInner() {
                 <AlertCircle className="h-3.5 w-3.5" /> {otpError}
               </p>
             ) : (
-              <p className="mt-2 text-[12px] text-[var(--cz-text-secondary)]/70">Check spam folder or console in dev if you don’t see it.</p>
+              <p className="mt-2 text-[12px] text-[var(--cz-text-secondary)]/70">Check your spam folder if you don’t see it.</p>
             )}
           </div>
 

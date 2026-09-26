@@ -19,9 +19,3 @@ export async function compareOtp(otp, hash) {
 export function otpExpiresAt(minutes = 10) {
   return new Date(Date.now() + minutes * 60 * 1000);
 }
-
-// dev helper — logs to console, replace with nodemailer per TODO.md
-export function logOtp({ email, type, otp, expiresAt }) {
-  const masked = email.replace(/(^.).+(@.*)/, (m, a, b) => a + "***" + b);
-  console.log(`[OTP][${type}] ${masked} -> ${otp}  expires ${expiresAt.toISOString()}  (dev only, email skipped)`);
-}

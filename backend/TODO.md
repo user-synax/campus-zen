@@ -7,7 +7,8 @@
   - Prevent follow/message when blocked, hide blocked user's posts, filter out of search/feed.
   - Add to `followService` check `isBlocked` before follow, and to `postService` feed filter.
 
-- [ ] **Email delivery (PRD §7, §21)** — Currently OTP is logged to console via `utils/otp.js:logOtp` and exposed via `GET /api/auth/debug-otp` in development only.
+- [x] **Email delivery (PRD §7, §21)** — Done 2026-09-26 via Gmail SMTP + nodemailer (`utils/email.js`).
+  - OTP emails (verify/reset) + welcome email, fail-closed sends, no dev console/debug leaks.
   - Replace with `nodemailer` + provider (Resend / SendGrid / SMTP).
   - Template: verification vs reset, 6-digit, 10m expiry, brand colors `#ffcead` on `#0c122c`.
   - Env: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM=noreply@campuszen.app`.
