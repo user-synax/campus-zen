@@ -6,6 +6,7 @@ import { Follow } from "../models/Follow.js";
 import { User } from "../models/User.js";
 import { notificationService } from "./notificationService.js";
 import { blockService } from "./blockService.js";
+import { extractHashtags, normalizeHashtag } from "../utils/hashtags.js";
 import { AppError } from "../utils/AppError.js";
 
 const EDIT_WINDOW_MS = 5 * 60 * 1000;
@@ -33,7 +34,7 @@ export const postService = {
       imageUrl = uploaded.viewUrl;
     }
 
-    const post = await Post.create({ author: authorId, text: t || undefined, imageUrl });
+    const post = await Post.create({ author: authorId, text: t || undefined, imageUrl, hashtags: extractHashtags(t) });
     await User.findByIdAndUpdate(authorId, { $inc: { postCount: 1 } });
     const populated = await Post.findById(post._id).populate("author", "fullName username avatarUrl isEmailVerified");
     return populated;
@@ -66,6 +67,7 @@ export const postService = {
     const t = text.trim();
     if (!t || t.length > 500) throw new AppError("Post must be 1-500 characters", 400, "INVALID_TEXT");
     post.text = t;
+    post.hashtags = extractHashtags(t);
     post.edited = true;
     await post.save();
     const populated = await Post.findById(post._id).populate("author", "fullName username avatarUrl isEmailVerified");
@@ -353,5 +355,48 @@ export const postService = {
       })
     );
     return { comments: populated, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
+  },
+
+  async byHashtag(rawTag, { page = 1, limit = 20 }, viewerId = null) {
+    const tag = normalizeHashtag(rawTag);
+    if (!tag) throw new AppError("Invalid hashtag", 400, "INVALID_HASHTAG");
+    const lim = Math.max(1, Math.min(50, Number(limit)));
+    const skip = (Math.max(1, Number(page)) - 1) * lim;
+    const hidden = viewerId ? await blockService.blockedIdsFor(viewerId) : [];
+    const filter = { hashtags: tag };
+    if (hidden.length) filter.author = { $nin: hidden };
+    const [posts, total] = await Promise.all([
+      Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified").lean(),
+      Post.countDocuments(filter),
+    ]);
+    if (posts.length && viewerId) {
+      const postIds = posts.map((p) => p._id);
+      const [likes, reposts] = await Promise.all([
+        Like.find({ user: viewerId, post: { $in: postIds } }).select("post").lean(),
+        Repost.find({ user: viewerId, post: { $in: postIds } }).select("post").lean(),
+      ]);
+      const likeSet = new Set(likes.map((l) => String(l.post)));
+      const repostSet = new Set(reposts.map((r) => String(r.post)));
+      posts.forEach((p) => {
+        p.isLiked = likeSet.has(String(p._id));
+        p.isReposted = repostSet.has(String(p._id));
+      });
+    }
+    return { tag, posts, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
+  },
+
+  async trending({ limit = 10, hours = 24 } = {}) {
+    const lim = Math.max(1, Math.min(30, Number(limit)));
+    const hrs = Math.max(1, Math.min(168, Number(hours)));
+    const since = new Date(Date.now() - hrs * 60 * 60 * 1000);
+    const rows = await Post.aggregate([
+      { $match: { createdAt: { $gte: since }, hashtags: { $ne: [] } } },
+      { $unwind: "$hashtags" },
+      { $group: { _id: "$hashtags", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: lim },
+      { $project: { _id: 0, tag: "$_id", count: 1 } },
+    ]);
+    return { tags: rows, windowHours: hrs };
   },
 };

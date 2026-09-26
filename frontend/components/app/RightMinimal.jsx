@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Search } from "lucide-react";
+import { ArrowRight, Hash, Search } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
@@ -100,6 +100,8 @@ function Skeleton() {
 export function RightMinimal({ currentUser }) {
   const [suggested, setSuggested] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [trending, setTrending] = useState([]);
+  const [trendingLoading, setTrendingLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -124,6 +126,31 @@ export function RightMinimal({ currentUser }) {
     };
   }, [currentUser?.username]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await api.getTrendingHashtags({ limit: 8 });
+        if (cancelled) return;
+        setTrending(res.data?.tags || []);
+      } catch {
+        if (!cancelled) setTrending([]);
+      } finally {
+        if (!cancelled) setTrendingLoading(false);
+      }
+    };
+    load();
+    const refresh = () => {
+      setTrendingLoading(true);
+      load();
+    };
+    window.addEventListener("cz:hashtag-trending", refresh);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("cz:hashtag-trending", refresh);
+    };
+  }, []);
+
   const handleFollowed = (id, isNowFollowing) => {
     // remove from suggestions once followed to keep rail fresh
     if (isNowFollowing)
@@ -132,6 +159,49 @@ export function RightMinimal({ currentUser }) {
 
   return (
     <div className="flex flex-col gap-7">
+      <section>
+        <h3 className="text-[11px] font-medium uppercase tracking-[0.12em] text-[var(--cz-text-secondary)]/70">
+          Trending tags
+        </h3>
+        <div className="mt-1">
+          {trendingLoading ? (
+            <div className="flex flex-col gap-1.5 py-1">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-8 rounded-[10px] bg-[var(--cz-border)]/40 animate-pulse"
+                />
+              ))}
+            </div>
+          ) : trending.length === 0 ? (
+            <p className="py-2 text-[13px] leading-[19px] text-[var(--cz-text-secondary)]">
+              No trending tags yet. Be the first to post with a #hashtag.
+            </p>
+          ) : (
+            <div className="flex flex-col">
+              {trending.map((t, i) => (
+                <Link
+                  key={t.tag}
+                  href={`/app/tag/${encodeURIComponent(t.tag)}`}
+                  className="group flex items-center gap-2.5 rounded-[10px] px-2 py-2 hover:bg-[rgba(255,206,173,0.06)] transition-colors"
+                >
+                  <span className="text-[11px] font-medium text-[var(--cz-text-secondary)]/60 w-4 shrink-0">
+                    {i + 1}
+                  </span>
+                  <Hash className="h-3.5 w-3.5 text-[var(--cz-muted)] shrink-0" />
+                  <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-[var(--cz-text-primary)] group-hover:underline underline-offset-4">
+                    {t.tag}
+                  </span>
+                  <span className="shrink-0 text-[11px] text-[var(--cz-text-secondary)]/70">
+                    {t.count} {t.count === 1 ? "post" : "posts"}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
       <section>
         <h3 className="text-[11px] font-medium uppercase tracking-[0.12em] text-[var(--cz-text-secondary)]/70">
           Suggested

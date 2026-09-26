@@ -2,7 +2,13 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Search as SearchIcon, Users, FileText, Loader2, X } from "lucide-react";
+import {
+  Search as SearchIcon,
+  Users,
+  FileText,
+  Loader2,
+  X,
+} from "lucide-react";
 import { EmptyState } from "@/components/app/EmptyState";
 import { UserCard } from "@/components/app/UserCard";
 import { PostCard } from "@/components/app/PostCard";
@@ -24,7 +30,10 @@ export default function SearchPage() {
   const abortRef = useRef(null);
 
   useEffect(() => {
-    api.me().then((r) => setMe(r.data?.user)).catch(() => {});
+    api
+      .me()
+      .then((r) => setMe(r.data?.user))
+      .catch(() => {});
   }, []);
 
   // sync URL q
@@ -41,41 +50,40 @@ export default function SearchPage() {
     router.replace(`/app/search${qs ? `?${qs}` : ""}`, { scroll: false });
   }, [debouncedQ, type, router]);
 
-  const fetchSearch = useCallback(
-    async (query, tab, p = 1, append = false) => {
-      if (!query || query.trim().length < 1) {
-        setUsers([]);
-        setPosts([]);
-        setHasMore(false);
-        return;
+  const fetchSearch = useCallback(async (query, tab, p = 1, append = false) => {
+    if (!query || query.trim().length < 1) {
+      setUsers([]);
+      setPosts([]);
+      setHasMore(false);
+      return;
+    }
+    // abort previous
+    if (abortRef.current) abortRef.current.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    if (!append) setLoading(true);
+    try {
+      const res = await api.search({ q: query, page: p, limit: 20, type: tab });
+      if (controller.signal.aborted) return;
+      const d = res.data;
+      if (append) {
+        if (tab === "all" || tab === "users")
+          setUsers((prev) => [...prev, ...(d.users || [])]);
+        if (tab === "all" || tab === "posts")
+          setPosts((prev) => [...prev, ...(d.posts || [])]);
+      } else {
+        setUsers(d.users || []);
+        setPosts(d.posts || []);
       }
-      // abort previous
-      if (abortRef.current) abortRef.current.abort();
-      const controller = new AbortController();
-      abortRef.current = controller;
-      if (!append) setLoading(true);
-      try {
-        const res = await api.search({ q: query, page: p, limit: 20, type: tab });
-        if (controller.signal.aborted) return;
-        const d = res.data;
-        if (append) {
-          if (tab === "all" || tab === "users") setUsers((prev) => [...prev, ...(d.users || [])]);
-          if (tab === "all" || tab === "posts") setPosts((prev) => [...prev, ...(d.posts || [])]);
-        } else {
-          setUsers(d.users || []);
-          setPosts(d.posts || []);
-        }
-        setHasMore(Boolean(d.hasMoreUsers || d.hasMorePosts));
-        setPage(p);
-      } catch (e) {
-        if (e.name === "AbortError") return;
-        // silent
-      } finally {
-        if (!append) setLoading(false);
-      }
-    },
-    []
-  );
+      setHasMore(Boolean(d.hasMoreUsers || d.hasMorePosts));
+      setPage(p);
+    } catch (e) {
+      if (e.name === "AbortError") return;
+      // silent
+    } finally {
+      if (!append) setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     fetchSearch(debouncedQ, type, 1, false);
@@ -87,7 +95,12 @@ export default function SearchPage() {
   };
 
   const showTabs = debouncedQ.trim().length > 0;
-  const isEmpty = !loading && debouncedQ && users.length === 0 && posts.length === 0;
+  const isHashtagSearch = debouncedQ.trim().startsWith("#");
+  const hashtagTag = isHashtagSearch
+    ? debouncedQ.trim().replace(/^#+/, "").toLowerCase()
+    : "";
+  const isEmpty =
+    !loading && debouncedQ && users.length === 0 && posts.length === 0;
   const showUsers = (type === "all" || type === "users") && users.length > 0;
   const showPosts = (type === "all" || type === "posts") && posts.length > 0;
 
@@ -104,13 +117,21 @@ export default function SearchPage() {
           autoFocus
           className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 text-[var(--cz-text-primary)] h-full"
         />
-        {loading ? <Loader2 className="h-4 w-4 animate-spin text-[var(--cz-text-secondary)] shrink-0" /> : null}
+        {loading ? (
+          <Loader2 className="h-4 w-4 animate-spin text-[var(--cz-text-secondary)] shrink-0" />
+        ) : null}
         {q ? (
-          <button onClick={() => setQ("")} className="grid place-items-center h-7 w-7 rounded-[8px] hover:bg-[rgba(255,206,173,0.08)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] shrink-0" aria-label="Clear">
+          <button
+            onClick={() => setQ("")}
+            className="grid place-items-center h-7 w-7 rounded-[8px] hover:bg-[rgba(255,206,173,0.08)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] shrink-0"
+            aria-label="Clear"
+          >
             <X className="h-3.5 w-3.5" />
           </button>
         ) : (
-          <span className="hidden sm:inline text-[11px] tracking-[0.04em] uppercase text-[var(--cz-text-secondary)]/60 shrink-0">Fast • Indexed</span>
+          <span className="hidden sm:inline text-[11px] tracking-[0.04em] uppercase text-[var(--cz-text-secondary)]/60 shrink-0">
+            Fast • Indexed
+          </span>
         )}
       </div>
 
@@ -128,23 +149,50 @@ export default function SearchPage() {
               className={`relative whitespace-nowrap px-3 sm:px-4 h-[36px] text-[13px] font-medium tracking-[-0.01em] transition-colors shrink-0 ${type === t.id ? "text-[var(--cz-text-primary)]" : "text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)]"}`}
             >
               {t.label}
-              {type === t.id ? <span className="absolute bottom-0 left-2 right-2 h-[2px] rounded-full bg-[var(--cz-text-primary)]" /> : null}
+              {type === t.id ? (
+                <span className="absolute bottom-0 left-2 right-2 h-[2px] rounded-full bg-[var(--cz-text-primary)]" />
+              ) : null}
             </button>
           ))}
         </div>
       ) : null}
 
+      {isHashtagSearch && hashtagTag ? (
+        <a
+          href={`/app/tag/${encodeURIComponent(hashtagTag)}`}
+          className="flex items-center justify-between gap-3 rounded-[12px] border border-[var(--cz-border)] bg-[rgba(125,130,217,0.08)] px-3 h-[44px] text-[13px] hover:border-[var(--cz-border-strong)] transition-colors"
+        >
+          <span className="truncate">
+            View all posts tagged{" "}
+            <span className="font-semibold text-[var(--cz-text-primary)]">
+              #{hashtagTag}
+            </span>
+          </span>
+          <span className="shrink-0 text-[11px] uppercase tracking-[0.06em] text-[var(--cz-text-secondary)]">
+            Open tag →
+          </span>
+        </a>
+      ) : null}
+
       {!debouncedQ ? (
         <>
-          <EmptyState icon={Users} title="Search CampusZen" description="Find students by name, username, college or course, and posts by text (up to 500 chars). Results are optimized with lean queries + indexes." />
+          <EmptyState
+            icon={Users}
+            title="Search CampusZen"
+            description="Find students by name, username, college or course, and posts by text (up to 500 chars). Results are optimized with lean queries + indexes."
+          />
           <div className="grid sm:grid-cols-2 gap-3">
             <div className="rounded-[12px] border border-[var(--cz-border)] bg-[rgba(255,255,255,0.02)] p-4">
               <h3 className="text-[13px] font-medium">Students</h3>
-              <p className="mt-1 text-[12px] leading-[16px] text-[var(--cz-text-secondary)]">Weighted text index: username 10, fullName 5, bio/college 2.</p>
+              <p className="mt-1 text-[12px] leading-[16px] text-[var(--cz-text-secondary)]">
+                Weighted text index: username 10, fullName 5, bio/college 2.
+              </p>
             </div>
             <div className="rounded-[12px] border border-[var(--cz-border)] bg-[rgba(255,255,255,0.02)] p-4">
               <h3 className="text-[13px] font-medium">Posts</h3>
-              <p className="mt-1 text-[12px] leading-[16px] text-[var(--cz-text-secondary)]">Regex on text with author populate, isLiked flags for you.</p>
+              <p className="mt-1 text-[12px] leading-[16px] text-[var(--cz-text-secondary)]">
+                Regex on text with author populate, isLiked flags for you.
+              </p>
             </div>
           </div>
         </>
@@ -152,7 +200,10 @@ export default function SearchPage() {
         <div className="space-y-3">
           <div className="grid sm:grid-cols-2 gap-3">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)] p-4 animate-pulse">
+              <div
+                key={i}
+                className="rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)] p-4 animate-pulse"
+              >
                 <div className="flex gap-3">
                   <div className="h-9 w-9 rounded-full bg-[var(--cz-border)]" />
                   <div className="flex-1 space-y-2">
@@ -165,7 +216,10 @@ export default function SearchPage() {
           </div>
           <div className="space-y-3">
             {Array.from({ length: 2 }).map((_, i) => (
-              <div key={i} className="rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)] p-4 animate-pulse">
+              <div
+                key={i}
+                className="rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)] p-4 animate-pulse"
+              >
                 <div className="h-4 w-3/4 rounded bg-[var(--cz-border)]" />
                 <div className="h-3 w-full rounded bg-[var(--cz-border)]/60 mt-3" />
               </div>
@@ -173,15 +227,26 @@ export default function SearchPage() {
           </div>
         </div>
       ) : isEmpty ? (
-        <EmptyState icon={SearchIcon} title={`No results for "${debouncedQ}"`} description="Try a different term or check spelling. Search is case-insensitive and matches username, name, bio, college, course and post text." />
+        <EmptyState
+          icon={SearchIcon}
+          title={`No results for "${debouncedQ}"`}
+          description="Try a different term or check spelling. Search is case-insensitive and matches username, name, bio, college, course and post text."
+        />
       ) : (
         <div className="space-y-6">
           {showUsers ? (
             <div className="space-y-3">
-              <h2 className="text-[12px] font-semibold tracking-[0.06em] uppercase text-[var(--cz-text-secondary)]">Students • {users.length}</h2>
+              <h2 className="text-[12px] font-semibold tracking-[0.06em] uppercase text-[var(--cz-text-secondary)]">
+                Students • {users.length}
+              </h2>
               <div className="grid sm:grid-cols-2 gap-3">
                 {users.map((u) => (
-                  <UserCard key={u._id} user={u} isOwn={me?.username === u.username} isGuest={false} />
+                  <UserCard
+                    key={u._id}
+                    user={u}
+                    isOwn={me?.username === u.username}
+                    isGuest={false}
+                  />
                 ))}
               </div>
             </div>
@@ -189,7 +254,9 @@ export default function SearchPage() {
 
           {showPosts ? (
             <div className="space-y-3">
-              <h2 className="text-[12px] font-semibold tracking-[0.06em] uppercase text-[var(--cz-text-secondary)]">Posts • {posts.length}</h2>
+              <h2 className="text-[12px] font-semibold tracking-[0.06em] uppercase text-[var(--cz-text-secondary)]">
+                Posts • {posts.length}
+              </h2>
               <div className="space-y-3">
                 {posts.map((p) => (
                   <PostCard key={p._id} post={p} currentUser={me} />
@@ -199,11 +266,16 @@ export default function SearchPage() {
           ) : null}
 
           {hasMore ? (
-            <button onClick={handleLoadMore} className="w-full rounded-[12px] border border-[var(--cz-border)] bg-transparent h-[40px] text-[13px] font-medium hover:bg-[var(--cz-surface)] transition-colors">
+            <button
+              onClick={handleLoadMore}
+              className="w-full rounded-[12px] border border-[var(--cz-border)] bg-transparent h-[40px] text-[13px] font-medium hover:bg-[var(--cz-surface)] transition-colors"
+            >
               Load more
             </button>
           ) : (
-            <p className="text-center text-[11px] text-[var(--cz-text-secondary)]/60 py-2">End • {users.length + posts.length} results</p>
+            <p className="text-center text-[11px] text-[var(--cz-text-secondary)]/60 py-2">
+              End • {users.length + posts.length} results
+            </p>
           )}
         </div>
       )}

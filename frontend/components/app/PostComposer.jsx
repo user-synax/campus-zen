@@ -48,9 +48,13 @@ export function PostComposer({ user, onCreated }) {
     setError("");
     setLoading(true);
     try {
-      const res = await api.createPost(text.trim() || undefined, image || undefined);
+      const res = await api.createPost(
+        text.trim() || undefined,
+        image || undefined,
+      );
       setText("");
       removeImage();
+      window.dispatchEvent(new Event("cz:hashtag-trending"));
       onCreated?.(res.data?.post);
     } catch (err) {
       const data = err.data || {};
@@ -60,15 +64,25 @@ export function PostComposer({ user, onCreated }) {
     }
   };
 
-  const initials = (user?.fullName || user?.username || "U").trim().slice(0, 1).toUpperCase();
+  const initials = (user?.fullName || user?.username || "U")
+    .trim()
+    .slice(0, 1)
+    .toUpperCase();
 
   return (
-    <form onSubmit={onSubmit} className="rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)] p-3 sm:p-4 space-y-3">
+    <form
+      onSubmit={onSubmit}
+      className="rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)] p-3 sm:p-4 space-y-3"
+    >
       <div className="flex gap-3">
         <span className="hidden sm:grid place-items-center h-9 w-9 rounded-full bg-[var(--cz-muted)] text-white text-[12px] font-semibold shrink-0 overflow-hidden">
           {user?.avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={user.avatarUrl} alt={user?.username} className="h-full w-full object-cover" />
+            <img
+              src={user.avatarUrl}
+              alt={user?.username}
+              className="h-full w-full object-cover"
+            />
           ) : (
             initials
           )}
@@ -102,8 +116,15 @@ export function PostComposer({ user, onCreated }) {
           ) : null}
           <div className="mt-2 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span className={`text-[11px] font-medium tracking-[0.04em] uppercase ${over ? "text-[var(--cz-error)]" : remaining <= 20 ? "text-amber-300" : "text-[var(--cz-text-secondary)]/60"}`}>
-                {len}/500 {over ? "• Over limit" : remaining <= 50 ? `• ${remaining} left` : ""}
+              <span
+                className={`text-[11px] font-medium tracking-[0.04em] uppercase ${over ? "text-[var(--cz-error)]" : remaining <= 20 ? "text-amber-300" : "text-[var(--cz-text-secondary)]/60"}`}
+              >
+                {len}/500{" "}
+                {over
+                  ? "• Over limit"
+                  : remaining <= 50
+                    ? `• ${remaining} left`
+                    : ""}
               </span>
               <button
                 type="button"
@@ -121,12 +142,25 @@ export function PostComposer({ user, onCreated }) {
                 className="hidden"
               />
             </div>
-            <Button type="submit" disabled={!canPost} size="sm" className="h-[36px] px-4">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            <Button
+              type="submit"
+              disabled={!canPost}
+              size="sm"
+              className="h-[36px] px-4"
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
               {loading ? "Posting…" : "Post"}
             </Button>
           </div>
-          {error ? <p className="mt-2 text-[12px] leading-[16px] text-[var(--cz-error)]">{error}</p> : null}
+          {error ? (
+            <p className="mt-2 text-[12px] leading-[16px] text-[var(--cz-error)]">
+              {error}
+            </p>
+          ) : null}
         </div>
       </div>
     </form>

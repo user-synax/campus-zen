@@ -15,6 +15,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AnimatedNumber } from "@/components/app/AnimatedNumber";
+import { HashtagText } from "@/components/app/HashtagText";
 import { ReportDialog } from "@/components/app/ReportDialog";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
@@ -236,15 +237,23 @@ export function PostCard({
             </form>
           ) : isDetail ? (
             <p className="mt-1.5 text-[14px] leading-[20px] whitespace-pre-wrap break-words text-[var(--cz-text-primary)]">
-              {post.text}
+              <HashtagText text={post.text} />
             </p>
           ) : (
-            <Link
-              href={`/app/p/${post._id}`}
-              className="mt-1.5 block text-[14px] leading-[20px] whitespace-pre-wrap break-words text-[var(--cz-text-primary)] hover:opacity-90 cursor-pointer"
+            <div
+              role="link"
+              tabIndex={0}
+              onClick={() => router.push(`/app/p/${post._id}`)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  router.push(`/app/p/${post._id}`);
+                }
+              }}
+              className="mt-1.5 block text-[14px] leading-[20px] whitespace-pre-wrap break-words text-[var(--cz-text-primary)] hover:opacity-90 cursor-pointer outline-none focus-visible:underline underline-offset-4"
             >
-              {post.text}
-            </Link>
+              <HashtagText text={post.text} />
+            </div>
           )}
           {post.imageUrl ? (
             <div className="mt-2 rounded-[12px] overflow-hidden border border-[var(--cz-border)]">
@@ -470,7 +479,7 @@ export function PostCard({
                   </span>
                 </div>
                 <p className="text-[13px] leading-[18px] whitespace-pre-wrap break-words mt-1">
-                  {c.text}
+                  <HashtagText text={c.text} />
                 </p>
               </div>
             </div>

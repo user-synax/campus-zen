@@ -72,6 +72,37 @@ export const searchService = {
     let postsPromise = Promise.resolve({ posts: [], total: 0 });
     if (wantPosts) {
       postsPromise = (async () => {
+        // hashtag search: query starts with # → exact tag match
+        if (query.startsWith("#")) {
+          const rawTag = query.replace(/^#+/, "").toLowerCase().trim().slice(0, 30);
+          if (!rawTag) return { posts: [], total: 0 };
+          let filter = { hashtags: rawTag };
+          if (viewerId) {
+            const hidden = await blockService.blockedIdsFor(viewerId);
+            if (hidden.length) filter.author = { $nin: hidden };
+          }
+          const lim2 = Math.max(1, Math.min(50, Number(limit)));
+          const pg2 = Math.max(1, Number(page));
+          const skip2 = (pg2 - 1) * lim2;
+          const [posts, total] = await Promise.all([
+            Post.find(filter).sort({ createdAt: -1 }).skip(skip2).limit(lim2).populate("author", "fullName username avatarUrl isEmailVerified").lean(),
+            Post.countDocuments(filter),
+          ]);
+          if (viewerId && posts.length) {
+            const ids = posts.map((p) => p._id);
+            const [likes, reposts] = await Promise.all([
+              Like.find({ user: viewerId, post: { $in: ids } }).select("post").lean(),
+              Repost.find({ user: viewerId, post: { $in: ids } }).select("post").lean(),
+            ]);
+            const likeSet = new Set(likes.map((l) => String(l.post)));
+            const repostSet = new Set(reposts.map((r) => String(r.post)));
+            posts.forEach((p) => {
+              p.isLiked = likeSet.has(String(p._id));
+              p.isReposted = repostSet.has(String(p._id));
+            });
+          }
+          return { posts, total };
+        }
         // use regex for now — text index exists but regex is predictable for small data; use text when query >=2
         let filter;
         if (query.length >= 2) {

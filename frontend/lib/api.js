@@ -257,6 +257,30 @@ export const api = {
       method: "POST",
       body: { text },
     }),
+  getTrendingHashtags: (params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "")
+        qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(`/api/hashtags/trending${q ? `?${q}` : ""}`, {
+      method: "GET",
+    });
+  },
+  getPostsByHashtag: (tag, params = {}) => {
+    const clean = String(tag || "").replace(/^#+/, "");
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "")
+        qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(
+      `/api/hashtags/${encodeURIComponent(clean)}/posts${q ? `?${q}` : ""}`,
+      { method: "GET" },
+    );
+  },
   uploadAvatar: async (file) => {
     const form = new FormData();
     form.append("avatar", file);
