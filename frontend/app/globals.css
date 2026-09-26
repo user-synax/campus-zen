@@ -557,9 +557,9 @@ body {
   border-color: var(--cz-border-strong);
   background: rgba(255, 255, 255, 0.05);
 }
-.cz-input:focus-within {
-  border-color: var(--cz-muted);
-  box-shadow: 0 0 0 3px rgba(125, 130, 217, 0.15);
+.cz-input:focus-within:not(.is-error) {
+  border-color: var(--cz-border);
+  box-shadow: 0 0 0 3px rgba(125, 130, 217, 0.18);
   background: rgba(255, 255, 255, 0.06);
 }
 

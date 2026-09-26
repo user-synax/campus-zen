@@ -303,9 +303,9 @@ export default function SignupPage() {
           </InputWrap>
         </div>
 
-        <div className="pt-1">
-          <Checkbox id="agree" checked={agree} onChange={setAgree} label="" className="items-start" />
-          <div className="ml-[28px] -mt-[2px]">
+        <div className="flex items-start gap-2.5 pt-1">
+          <Checkbox id="agree" checked={agree} onChange={setAgree} label="" className="shrink-0 mt-[1px]" />
+          <div className="min-w-0 flex-1">
             <p className="text-[12.5px] leading-[18px] text-[var(--cz-text-secondary)]">
               I agree to the{" "}
               <Link href="/terms" className="text-[var(--cz-text-primary)] underline decoration-[var(--cz-border-strong)] underline-offset-4 hover:decoration-[var(--cz-text-primary)]">
@@ -317,7 +317,7 @@ export default function SignupPage() {
               </Link>
               .
             </p>
-            {errors.agree ? <p className="t-error-msg !opacity-100 !visible !max-h-[20px] !mt-1" style={{ visibility: "visible", opacity: 1 }}>{errors.agree}</p> : null}
+            {errors.agree ? <p className="mt-1 text-[12px] leading-[16px] text-[var(--cz-error)]">{errors.agree}</p> : null}
           </div>
         </div>
 

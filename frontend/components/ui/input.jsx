@@ -11,7 +11,7 @@ export const Input = forwardRef(({ className, type = "text", error, ...props }, 
       data-error={error ? "true" : "false"}
       className={cn(
         "flex h-[42px] w-full rounded-[10px] cz-input px-3 py-2 text-[14px] leading-none tracking-[-0.01em] placeholder:text-[var(--cz-text-secondary)]/55 text-[var(--cz-text-primary)] outline-none transition-all duration-150 disabled:opacity-45 disabled:cursor-not-allowed",
-        "focus-visible:border-[var(--cz-muted)] focus-visible:shadow-[0_0_0_3px_rgba(125,130,217,0.15)]",
+        "focus-visible:border-[var(--cz-border)] focus-visible:shadow-[0_0_0_3px_rgba(125,130,217,0.18)]",
         error && "border-[var(--cz-error)]! shadow-[0_0_0_3px_rgba(255,90,106,0.12)]!",
         className
       )}

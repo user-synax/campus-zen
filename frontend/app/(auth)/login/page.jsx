@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, LogIn, Loader2, AlertCircle, ShieldAlert } from "lucide-react";
+import { Eye, EyeOff, LogIn, Loader2, AlertCircle, ShieldAlert, Lock } from "lucide-react";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { Label } from "@/components/ui/label";
 import { InputWrap, InputShell, ErrorMsg } from "@/components/ui/input";
@@ -150,6 +150,7 @@ export default function LoginPage() {
           </div>
           <InputWrap error={!!errors.password}>
             <InputShell error={!!errors.password} shaking={!!shake.password}>
+              <Lock className="h-4 w-4 text-[var(--cz-text-secondary)] shrink-0" />
               <input
                 ref={pwRef}
                 id="password"
