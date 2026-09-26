@@ -87,31 +87,13 @@ export default function AppLayout({ children }) {
               </span>
             </div>
 
-            {/* nav */}
+            {/* nav — Create Post lives inside LeftNav only */}
             <div className="flex-1 overflow-y-auto px-2 lg:px-2 space-y-3">
               <div className="hidden lg:block">
                 <LeftNav user={user} collapsed={false} />
               </div>
               <div className="hidden md:block lg:hidden">
                 <LeftNav user={user} collapsed={true} />
-              </div>
-
-              <div className="hidden lg:block pt-2">
-                <button
-                  onClick={() => (window.location.href = "/app/create")}
-                  className="w-full inline-flex items-center justify-center rounded-[12px] bg-[var(--cz-text-primary)] text-[var(--cz-text-inverse)] h-[40px] text-[14px] font-medium hover:bg-[#ffd9c0] transition-colors"
-                >
-                  Create Post
-                </button>
-              </div>
-              <div className="hidden md:block lg:hidden pt-2">
-                <button
-                  onClick={() => (window.location.href = "/app/create")}
-                  aria-label="Create post"
-                  className="mx-auto grid place-items-center h-[44px] w-[44px] rounded-[12px] bg-[var(--cz-text-primary)] text-[var(--cz-text-inverse)] hover:bg-[#ffd9c0] transition-colors"
-                >
-                  +
-                </button>
               </div>
             </div>
 
@@ -139,7 +121,7 @@ export default function AppLayout({ children }) {
 
           {/* right minimal desktop only */}
           <aside className="hidden lg:block sticky top-0 h-[100dvh] overflow-y-auto py-6">
-            <RightMinimal />
+            <RightMinimal currentUser={user} />
           </aside>
         </div>
       </div>

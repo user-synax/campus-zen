@@ -10,6 +10,7 @@ import { AnimatedNumber } from "@/components/app/AnimatedNumber";
 
 // Desktop shows all nav items with labels (space available)
 // Mobile bottom keeps Menu at last (handled in BottomNav)
+// Create lives only here as a single primary action — no duplicate button in layout.
 const desktopItems = [
   { href: "/app", label: "Home", icon: Home, exact: true },
   { href: "/app/search", label: "Search", icon: Search },
@@ -17,7 +18,7 @@ const desktopItems = [
   { href: "/app/profile", label: "Profile", icon: User },
 ];
 
-const createItem = { href: "/app/create", label: "Create", icon: Plus };
+const createItem = { href: "/app/create", label: "Create Post", shortLabel: "Create", icon: Plus };
 
 export function LeftNav({ user, collapsed }) {
   const pathname = usePathname();
@@ -69,22 +70,24 @@ export function LeftNav({ user, collapsed }) {
         );
       })}
 
-      {/* Create — highlighted as action */}
+      {/* Create — single primary action (no duplicate in layout) */}
       {(() => {
         const active = isActive(createItem);
         return (
           <Link
             href={createItem.href}
             aria-current={active ? "page" : undefined}
+            aria-label={createItem.label}
+            title={createItem.label}
             className={cn(
-              "group inline-flex items-center gap-3 rounded-[12px] h-[40px] px-3 text-[14px] font-medium tracking-[-0.01em] transition-colors",
-              collapsed ? "justify-center w-[44px] p-0" : "w-full",
-              active
-                ? "bg-[var(--cz-text-primary)] text-[var(--cz-text-inverse)] shadow-[0_2px_10px_rgba(255,206,173,0.18)]"
-                : "text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] hover:bg-[rgba(255,206,173,0.06)] border border-dashed border-[var(--cz-border)] hover:border-[var(--cz-border-strong)]"
+              "group inline-flex items-center gap-2 rounded-[12px] h-[40px] text-[14px] font-medium tracking-[-0.01em] transition-colors",
+              collapsed
+                ? "justify-center w-[44px] p-0 bg-[var(--cz-text-primary)] text-[var(--cz-text-inverse)] hover:bg-[#ffd9c0]"
+                : "justify-center w-full px-3 bg-[var(--cz-text-primary)] text-[var(--cz-text-inverse)] hover:bg-[#ffd9c0] shadow-[0_2px_10px_rgba(255,206,173,0.18)]",
+              active && "ring-2 ring-[var(--cz-text-primary)]/40 ring-offset-2 ring-offset-[var(--cz-bg)]"
             )}
           >
-            <createItem.icon className="h-[18px] w-[18px] shrink-0" />
+            <createItem.icon className="h-[18px] w-[18px] shrink-0" aria-hidden />
             {!collapsed ? <span>{createItem.label}</span> : <span className="sr-only">{createItem.label}</span>}
           </Link>
         );
