@@ -61,3 +61,11 @@ export const refreshLimiter = rateLimit({
   legacyHeaders: false,
   handler: jsonHandler("Too many refresh attempts."),
 });
+
+export const reportLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1h
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: jsonHandler("Too many reports. Try again later."),
+});

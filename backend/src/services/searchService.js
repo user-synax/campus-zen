@@ -2,6 +2,7 @@ import { User } from "../models/User.js";
 import { Post } from "../models/Post.js";
 import { Like } from "../models/Like.js";
 import { Repost } from "../models/Repost.js";
+import { blockService } from "./blockService.js";
 
 export const searchService = {
   async search({ q, page = 1, limit = 20, type = "all", viewerId }) {
@@ -41,6 +42,11 @@ export const searchService = {
           filter = { $or: [{ username: re }, { fullName: re }, { bio: re }, { college: re }, { course: re }] };
           sort = { createdAt: -1 };
         }
+        // mutual hide for logged-in viewers
+        if (viewerId) {
+          const hidden = await blockService.blockedIdsFor(viewerId);
+          if (hidden.length) filter._id = { $nin: hidden };
+        }
         const [users, total] = await Promise.all([
           User.find(filter, useText ? { score: { $meta: "textScore" } } : {})
             .sort(useText ? { score: { $meta: "textScore" } } : { createdAt: -1 })
@@ -73,6 +79,11 @@ export const searchService = {
           filter = { text: re };
         } else {
           filter = { text: re };
+        }
+        // hide posts by blocked authors for logged-in viewers
+        if (viewerId) {
+          const hidden = await blockService.blockedIdsFor(viewerId);
+          if (hidden.length) filter.author = { $nin: hidden };
         }
         const [posts, total] = await Promise.all([
           Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified").lean(),

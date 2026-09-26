@@ -1,5 +1,6 @@
 import { User } from "../models/User.js";
 import { AppError } from "../utils/AppError.js";
+import { blockService } from "./blockService.js";
 
 export const userService = {
   async listUsers({ q, college, course, academicYear, page = 1, limit = 20, viewerId }) {
@@ -12,6 +13,11 @@ export const userService = {
     if (college) filter.college = new RegExp(`^${college.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
     if (course) filter.course = new RegExp(`^${course.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
     if (academicYear) filter.academicYear = academicYear;
+    // mutual hide: exclude blocked users for logged-in viewers
+    if (viewerId) {
+      const hidden = await blockService.blockedIdsFor(viewerId);
+      if (hidden.length) filter._id = { $nin: hidden };
+    }
 
     const skip = (Math.max(1, Number(page)) - 1) * Math.max(1, Math.min(50, Number(limit)));
     const lim = Math.max(1, Math.min(50, Number(limit)));
@@ -47,6 +53,16 @@ export const userService = {
     const clean = username.toLowerCase().trim();
     const user = await User.findOne({ username: clean });
     if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+    if (viewerId && String(viewerId) !== String(user._id)) {
+      const rel = await blockService.relationOf(viewerId, user._id);
+      if (rel) {
+        throw new AppError("This profile is unavailable", 403, "PROFILE_BLOCKED", {
+          username: user.username,
+          userId: user._id,
+          isBlocker: rel.isBlocker,
+        });
+      }
+    }
     const safe = user.toSafeObject();
     if (viewerId && String(viewerId) !== String(user._id)) {
       const { Follow } = await import("../models/Follow.js");

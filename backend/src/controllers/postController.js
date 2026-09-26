@@ -66,7 +66,8 @@ export const postController = {
 
   getComments: asyncHandler(async (req, res) => {
     const { page, limit } = req.query;
-    const result = await postService.getComments(req.params.id, { page, limit });
+    const viewerId = req.user?._id || null;
+    const result = await postService.getComments(req.params.id, { page, limit }, viewerId);
     res.json({ success: true, data: result });
   }),
 };

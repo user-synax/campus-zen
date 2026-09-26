@@ -2,10 +2,8 @@
 
 ## Skipped for now
 
-- [ ] **Block user (PRD §15)** — Skip for now per 2026-09-25 decision. Implement after follow is stable.
-  - Model `Block { blocker, blocked, unique index }` + `POST /api/users/:id/block` `DELETE /api/users/:id/block` `GET /api/users/:id/blocks`
-  - Prevent follow/message when blocked, hide blocked user's posts, filter out of search/feed.
-  - Add to `followService` check `isBlocked` before follow, and to `postService` feed filter.
+- [x] **Block user (PRD §15)** — Done 2026-09-26: `Block` model + `blockService` (mutual hide, auto-unfollow both ways, notif suppression), enforced in follow/feed/search/profile/lists/notifications. `POST/DELETE /api/users/:id/block`, `GET /api/users/me/blocks`.
+- [x] **Report (PRD §15)** — Done 2026-09-26: `Report` model + `POST /api/reports` (reason enum, one report per reporter+target, status=open queue for future admin). Frontend hides reported posts instantly via local store.
 
 - [x] **Email delivery (PRD §7, §21)** — Done 2026-09-26 via Gmail SMTP + nodemailer (`utils/email.js`).
   - OTP emails (verify/reset) + welcome email, fail-closed sends, no dev console/debug leaks.

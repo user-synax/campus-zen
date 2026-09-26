@@ -1,8 +1,11 @@
 import { Notification } from "../models/Notification.js";
+import { blockService } from "./blockService.js";
 
 export const notificationService = {
   async create({ recipient, actor, type, post = null }) {
     if (String(recipient) === String(actor)) return null; // no self-notif
+    // never notify across a block — either direction
+    if (await blockService.isBlocked(recipient, actor)) return null;
     // dedup: ignore if same unread exists within 1h
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
     const existing = await Notification.findOne({

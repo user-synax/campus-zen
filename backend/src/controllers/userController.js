@@ -20,14 +20,15 @@ export const userController = {
   getUserPosts: asyncHandler(async (req, res) => {
     const viewerId = req.user?._id || null;
     const { page, limit } = req.query;
-    const user = await userService.getByUsername(req.params.username);
+    const user = await userService.getByUsername(req.params.username, viewerId);
     const result = await postService.list({ author: user._id, page, limit, viewerId });
     res.json({ success: true, data: result });
   }),
 
   getUserReplies: asyncHandler(async (req, res) => {
+    const viewerId = req.user?._id || null;
     const { page, limit } = req.query;
-    const user = await userService.getByUsername(req.params.username);
+    const user = await userService.getByUsername(req.params.username, viewerId);
     const result = await postService.listRepliesByUser(user._id, { page, limit });
     res.json({ success: true, data: result });
   }),
@@ -35,7 +36,7 @@ export const userController = {
   getUserLikes: asyncHandler(async (req, res) => {
     const viewerId = req.user?._id || null;
     const { page, limit } = req.query;
-    const user = await userService.getByUsername(req.params.username);
+    const user = await userService.getByUsername(req.params.username, viewerId);
     const result = await postService.list({ likedBy: user._id, page, limit, viewerId });
     res.json({ success: true, data: result });
   }),

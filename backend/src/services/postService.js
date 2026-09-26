@@ -5,9 +5,19 @@ import { Repost } from "../models/Repost.js";
 import { Follow } from "../models/Follow.js";
 import { User } from "../models/User.js";
 import { notificationService } from "./notificationService.js";
+import { blockService } from "./blockService.js";
 import { AppError } from "../utils/AppError.js";
 
 const EDIT_WINDOW_MS = 5 * 60 * 1000;
+
+// strip posts whose author is blocked (either direction) from a fetched list
+async function withoutBlockedAuthors(posts, viewerId) {
+  if (!viewerId || !posts.length) return posts;
+  const hidden = await blockService.blockedIdsFor(viewerId);
+  if (!hidden.length) return posts;
+  const set = new Set(hidden.map(String));
+  return posts.filter((p) => !set.has(String(p.author?._id || p.author)));
+}
 
 export const postService = {
   async create(authorId, text) {
@@ -22,6 +32,11 @@ export const postService = {
   async getById(postId, viewerId) {
     const post = await Post.findById(postId).populate("author", "fullName username avatarUrl isEmailVerified").lean();
     if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
+    // blocked in either direction → indistinguishable from deleted
+    if (viewerId) {
+      const authorId = post.author?._id || post.author;
+      if (await blockService.isBlocked(viewerId, authorId)) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
+    }
     if (viewerId) {
       const [liked, reposted] = await Promise.all([
         Like.exists({ user: viewerId, post: postId }),
@@ -66,18 +81,20 @@ export const postService = {
   async feed(userId, { page = 1, limit = 20 }) {
     const lim = Math.max(1, Math.min(50, Number(limit)));
     const skip = (Math.max(1, Number(page)) - 1) * lim;
-    // get following ids + self
+    // get following ids + self, minus blocked authors
     const follows = await Follow.find({ follower: userId }).select("following").lean();
     const ids = follows.map((f) => f.following);
     ids.push(userId);
+    const hidden = await blockService.blockedIdsFor(userId);
+    const authorFilter = hidden.length ? { $in: ids, $nin: hidden } : { $in: ids };
     const [posts, total] = await Promise.all([
-      Post.find({ author: { $in: ids } })
+      Post.find({ author: authorFilter })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(lim)
         .populate("author", "fullName username avatarUrl isEmailVerified")
         .lean(),
-      Post.countDocuments({ author: { $in: ids } }),
+      Post.countDocuments({ author: authorFilter }),
     ]);
     // add isLiked/isReposted
     if (posts.length && userId) {
@@ -99,9 +116,11 @@ export const postService = {
   async publicFeed({ page = 1, limit = 20 }, viewerId) {
     const lim = Math.max(1, Math.min(50, Number(limit)));
     const skip = (Math.max(1, Number(page)) - 1) * lim;
+    const hidden = viewerId ? await blockService.blockedIdsFor(viewerId) : [];
+    const filter = hidden.length ? { author: { $nin: hidden } } : {};
     const [posts, total] = await Promise.all([
-      Post.find({}).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified").lean(),
-      Post.countDocuments({}),
+      Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified").lean(),
+      Post.countDocuments(filter),
     ]);
     if (posts.length && viewerId) {
       const postIds = posts.map((p) => p._id);
@@ -122,6 +141,7 @@ export const postService = {
   async toggleLike(userId, postId) {
     const post = await Post.findById(postId);
     if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
+    await blockService.assertNoBlock(userId, post.author, "You can't interact with this account's posts.");
     const existing = await Like.findOne({ user: userId, post: postId });
     if (existing) {
       await Like.deleteOne({ _id: existing._id });
@@ -150,6 +170,7 @@ export const postService = {
   async toggleRepost(userId, postId) {
     const post = await Post.findById(postId);
     if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
+    await blockService.assertNoBlock(userId, post.author, "You can't interact with this account's posts.");
     const existing = await Repost.findOne({ user: userId, post: postId });
     if (existing) {
       await Repost.deleteOne({ _id: existing._id });
@@ -178,6 +199,7 @@ export const postService = {
   async createComment(userId, postId, text) {
     const post = await Post.findById(postId);
     if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
+    await blockService.assertNoBlock(userId, post.author, "You can't interact with this account's posts.");
     const t = text.trim();
     if (!t || t.length > 500) throw new AppError("Reply must be 1-500 characters", 400, "INVALID_TEXT");
     const comment = await Comment.create({ post: postId, author: userId, text: t });
@@ -192,9 +214,12 @@ export const postService = {
     return { comment: populated, replyCount: updatedPost.replyCount };
   },
 
-  async getComments(postId, { page = 1, limit = 20 }) {
+  async getComments(postId, { page = 1, limit = 20 }, viewerId = null) {
     const post = await Post.findById(postId);
     if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
+    if (viewerId && (await blockService.isBlocked(viewerId, post.author))) {
+      throw new AppError("Post not found", 404, "POST_NOT_FOUND");
+    }
     const lim = Math.max(1, Math.min(50, Number(limit)));
     const skip = (Math.max(1, Number(page)) - 1) * lim;
     const [comments, total] = await Promise.all([
@@ -220,7 +245,8 @@ export const postService = {
       // preserve like order
       const posts = await Post.find(filter).populate("author", "fullName username avatarUrl isEmailVerified").lean();
       const map = new Map(posts.map((p) => [String(p._id), p]));
-      const ordered = postIds.map((id) => map.get(String(id))).filter(Boolean);
+      let ordered = postIds.map((id) => map.get(String(id))).filter(Boolean);
+      if (viewerId) ordered = await withoutBlockedAuthors(ordered, viewerId);
       // add isLiked/isReposted
       if (viewerId && ordered.length) {
         const ids = ordered.map((p) => p._id);
@@ -246,7 +272,8 @@ export const postService = {
       filter = { _id: { $in: postIds } };
       const posts = await Post.find(filter).populate("author", "fullName username avatarUrl isEmailVerified").lean();
       const map = new Map(posts.map((p) => [String(p._id), p]));
-      const ordered = postIds.map((id) => map.get(String(id))).filter(Boolean);
+      let ordered = postIds.map((id) => map.get(String(id))).filter(Boolean);
+      if (viewerId) ordered = await withoutBlockedAuthors(ordered, viewerId);
       if (viewerId && ordered.length) {
         const ids = ordered.map((p) => p._id);
         const [likes, reps] = await Promise.all([
