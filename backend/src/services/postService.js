@@ -7,6 +7,7 @@ import { User } from "../models/User.js";
 import { notificationService } from "./notificationService.js";
 import { blockService } from "./blockService.js";
 import { extractHashtags, normalizeHashtag } from "../utils/hashtags.js";
+import { extractMentions } from "../utils/mentions.js";
 import { AppError } from "../utils/AppError.js";
 
 const EDIT_WINDOW_MS = 5 * 60 * 1000;
@@ -18,6 +19,23 @@ async function withoutBlockedAuthors(posts, viewerId) {
   if (!hidden.length) return posts;
   const set = new Set(hidden.map(String));
   return posts.filter((p) => !set.has(String(p.author?._id || p.author)));
+}
+
+// notify mentioned users — skips self, missing users, and optional skipId
+// (e.g. post author on replies already gets a reply notification)
+async function notifyMentions(actorId, usernames, postId, skipId = null) {
+  if (!usernames?.length) return;
+  const unique = [...new Set(usernames.map((u) => String(u).toLowerCase()))].slice(0, 10);
+  for (const username of unique) {
+    try {
+      if (skipId && username === String(skipId).toLowerCase()) continue;
+      const user = await User.findOne({ username }).select("_id username").lean();
+      if (!user) continue;
+      if (String(user._id) === String(actorId)) continue;
+      if (skipId && String(user._id) === String(skipId)) continue;
+      await notificationService.create({ recipient: user._id, actor: actorId, type: "mention", post: postId });
+    } catch {}
+  }
 }
 
 export const postService = {
@@ -34,8 +52,9 @@ export const postService = {
       imageUrl = uploaded.viewUrl;
     }
 
-    const post = await Post.create({ author: authorId, text: t || undefined, imageUrl, hashtags: extractHashtags(t) });
+    const post = await Post.create({ author: authorId, text: t || undefined, imageUrl, hashtags: extractHashtags(t), mentions: extractMentions(t) });
     await User.findByIdAndUpdate(authorId, { $inc: { postCount: 1 } });
+    await notifyMentions(authorId, extractMentions(t), post._id);
     const populated = await Post.findById(post._id).populate("author", "fullName username avatarUrl isEmailVerified");
     return populated;
   },
@@ -66,10 +85,15 @@ export const postService = {
     if (Date.now() - new Date(post.createdAt).getTime() > EDIT_WINDOW_MS) throw new AppError("Edit window expired (5 minutes)", 403, "EDIT_WINDOW_EXPIRED");
     const t = text.trim();
     if (!t || t.length > 500) throw new AppError("Post must be 1-500 characters", 400, "INVALID_TEXT");
+    const oldMentions = new Set((post.mentions || []).map((m) => String(m).toLowerCase()));
+    const newMentions = extractMentions(t);
     post.text = t;
     post.hashtags = extractHashtags(t);
+    post.mentions = newMentions;
     post.edited = true;
     await post.save();
+    const added = newMentions.filter((m) => !oldMentions.has(m));
+    await notifyMentions(userId, added, post._id);
     const populated = await Post.findById(post._id).populate("author", "fullName username avatarUrl isEmailVerified");
     return populated;
   },
@@ -222,13 +246,17 @@ export const postService = {
     await blockService.assertNoBlock(userId, post.author, "You can't interact with this account's posts.");
     const t = text.trim();
     if (!t || t.length > 500) throw new AppError("Reply must be 1-500 characters", 400, "INVALID_TEXT");
-    const comment = await Comment.create({ post: postId, author: userId, text: t });
+    const mentions = extractMentions(t);
+    const comment = await Comment.create({ post: postId, author: userId, text: t, mentions });
     await Post.findByIdAndUpdate(postId, { $inc: { replyCount: 1 } });
     if (String(post.author) !== String(userId)) {
       try {
         await notificationService.create({ recipient: post.author, actor: userId, type: "reply", post: postId });
       } catch {}
     }
+    // mention notifications for everyone tagged except the post author
+    // (they already get a reply notification above)
+    await notifyMentions(userId, mentions, postId, post.author);
     const populated = await Comment.findById(comment._id).populate("author", "fullName username avatarUrl isEmailVerified");
     const updatedPost = await Post.findById(postId).select("replyCount");
     return { comment: populated, replyCount: updatedPost.replyCount };

@@ -17,6 +17,7 @@ import { BlockedProfile } from "@/components/app/BlockedProfile";
 import { EmptyState } from "@/components/app/EmptyState";
 import { FollowModal } from "@/components/app/FollowModal";
 import { PostCard } from "@/components/app/PostCard";
+import { RichText } from "@/components/app/RichText";
 import { ProfileHeader, ProfileTabs } from "@/components/app/ProfileHeader";
 import { ReportDialog } from "@/components/app/ReportDialog";
 import {
@@ -107,7 +108,7 @@ function TabReplies({ username }) {
             {c.post?.text || "Post"}
           </p>
           <p className="mt-2 text-[14px] leading-[20px] whitespace-pre-wrap break-words">
-            {c.text}
+            <RichText text={c.text} />
           </p>
         </div>
       ))}

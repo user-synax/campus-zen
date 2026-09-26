@@ -13,9 +13,13 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { AnimatedNumber } from "@/components/app/AnimatedNumber";
-import { HashtagText } from "@/components/app/HashtagText";
+import {
+  MentionSuggest,
+  useMentionAutocomplete,
+} from "@/components/app/MentionAutocomplete";
+import { RichText } from "@/components/app/RichText";
 import { ReportDialog } from "@/components/app/ReportDialog";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
@@ -60,6 +64,18 @@ export function PostCard({
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState(initialPost.text);
   const [editLoading, setEditLoading] = useState(false);
+  const replyRef = useRef(null);
+  const editRef = useRef(null);
+  const replyMention = useMentionAutocomplete({
+    value: replyText,
+    setValue: setReplyText,
+    inputRef: replyRef,
+  });
+  const editMention = useMentionAutocomplete({
+    value: editText || "",
+    setValue: setEditText,
+    inputRef: editRef,
+  });
 
   const isOwn =
     currentUser &&
@@ -195,13 +211,29 @@ export function PostCard({
           </div>
           {editing ? (
             <form onSubmit={handleEdit} className="mt-2">
-              <textarea
-                value={editText}
-                onChange={(e) => setEditText(e.target.value)}
-                rows={3}
-                maxLength={500}
-                className="w-full rounded-[10px] border border-[var(--cz-border)] bg-[rgba(255,255,255,0.03)] px-3 py-2 text-[14px] leading-[20px] outline-none focus:border-[var(--cz-muted)]"
-              />
+              <div className="relative">
+                <textarea
+                  ref={editRef}
+                  value={editText}
+                  onChange={(e) => setEditText(e.target.value)}
+                  onSelect={editMention.recheck}
+                  onKeyDown={(e) => {
+                    if (editMention.handleKeyDown(e)) return;
+                  }}
+                  onBlur={() => setTimeout(() => editMention.close(), 150)}
+                  rows={3}
+                  maxLength={500}
+                  className="w-full rounded-[10px] border border-[var(--cz-border)] bg-[rgba(255,255,255,0.03)] px-3 py-2 text-[14px] leading-[20px] outline-none focus:border-[var(--cz-muted)]"
+                />
+                {editMention.open ? (
+                  <MentionSuggest
+                    users={editMention.users}
+                    active={editMention.active}
+                    onSelect={editMention.insert}
+                    onHover={editMention.setActive}
+                  />
+                ) : null}
+              </div>
               <div className="mt-2 flex items-center justify-between">
                 <span className="text-[11px] text-[var(--cz-text-secondary)]/60">
                   {editText.length}/500
@@ -237,7 +269,7 @@ export function PostCard({
             </form>
           ) : isDetail ? (
             <p className="mt-1.5 text-[14px] leading-[20px] whitespace-pre-wrap break-words text-[var(--cz-text-primary)]">
-              <HashtagText text={post.text} />
+              <RichText text={post.text} />
             </p>
           ) : (
             <div
@@ -252,7 +284,7 @@ export function PostCard({
               }}
               className="mt-1.5 block text-[14px] leading-[20px] whitespace-pre-wrap break-words text-[var(--cz-text-primary)] hover:opacity-90 cursor-pointer outline-none focus-visible:underline underline-offset-4"
             >
-              <HashtagText text={post.text} />
+              <RichText text={post.text} />
             </div>
           )}
           {post.imageUrl ? (
@@ -380,7 +412,7 @@ export function PostCard({
         <button
           onClick={handleLike}
           data-liked={liked ? "true" : "false"}
-          className="t-like inline-flex items-center gap-1.5 rounded-full px-2.5 h-[32px] text-[12px] font-medium hover:bg-[rgba(244,0,81,0.08)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] data-[liked=true]:text-[var(--like-color)] transition-colors"
+          className="t-like inline-flex hover:cursor-pointer items-center gap-1.5 rounded-full px-2.5 h-[32px] text-[12px] font-medium hover:bg-[rgba(244,0,81,0.08)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] data-[liked=true]:text-[var(--like-color)] transition-colors"
           aria-label={liked ? "Unlike" : "Like"}
         >
           <span className="t-like-icon grid place-items-center">
@@ -391,7 +423,7 @@ export function PostCard({
 
         <button
           onClick={() => setShowReply((v) => !v)}
-          className="inline-flex items-center gap-1.5 rounded-full px-2.5 h-[32px] text-[12px] font-medium hover:bg-[rgba(125,130,217,0.12)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] transition-colors"
+          className="inline-flex items-center hover:cursor-pointer gap-1.5 rounded-full px-2.5 h-[32px] text-[12px] font-medium hover:bg-[rgba(125,130,217,0.12)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] transition-colors"
         >
           <MessageCircle className="h-[16px] w-[16px]" />
           <AnimatedNumber value={replyCount} />
@@ -400,7 +432,7 @@ export function PostCard({
         <button
           onClick={handleRepost}
           data-reposted={reposted ? "true" : "false"}
-          className="inline-flex items-center gap-1.5 rounded-full px-2.5 h-[32px] text-[12px] font-medium hover:bg-[rgba(125,130,217,0.12)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] data-[reposted=true]:text-[var(--cz-muted)] transition-colors"
+          className="inline-flex hover:cursor-pointer items-center gap-1.5 rounded-full px-2.5 h-[32px] text-[12px] font-medium hover:bg-[rgba(125,130,217,0.12)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] data-[reposted=true]:text-[var(--cz-muted)] transition-colors"
         >
           <Repeat2 className="h-[16px] w-[16px]" />
           <AnimatedNumber value={repostCount} />
@@ -408,7 +440,7 @@ export function PostCard({
 
         <button
           onClick={loadReplies}
-          className="ml-auto text-[11px] font-medium tracking-[0.04em] uppercase text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] px-2"
+          className="ml-auto hover:cursor-pointer text-[11px] font-medium tracking-[0.04em] uppercase text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] px-2"
         >
           {showReplies
             ? "Hide replies"
@@ -426,13 +458,29 @@ export function PostCard({
           onSubmit={handleReply}
           className="rounded-[12px] border border-[var(--cz-border)] bg-[rgba(255,255,255,0.03)] p-3 flex gap-2"
         >
-          <input
-            value={replyText}
-            onChange={(e) => setReplyText(e.target.value)}
-            placeholder="Write a reply… up to 500, emoji allowed"
-            maxLength={500}
-            className="flex-1 bg-transparent outline-none text-[13px] placeholder:text-[var(--cz-text-secondary)]/50 h-[36px]"
-          />
+          <div className="relative flex-1 min-w-0">
+            <input
+              ref={replyRef}
+              value={replyText}
+              onChange={(e) => setReplyText(e.target.value)}
+              onSelect={replyMention.recheck}
+              onKeyDown={(e) => {
+                if (replyMention.handleKeyDown(e)) return;
+              }}
+              onBlur={() => setTimeout(() => replyMention.close(), 150)}
+              placeholder="Write a reply… up to 500, emoji allowed. Use @ to mention"
+              maxLength={500}
+              className="w-full bg-transparent outline-none text-[13px] placeholder:text-[var(--cz-text-secondary)]/50 h-[36px]"
+            />
+            {replyMention.open ? (
+              <MentionSuggest
+                users={replyMention.users}
+                active={replyMention.active}
+                onSelect={replyMention.insert}
+                onHover={replyMention.setActive}
+              />
+            ) : null}
+          </div>
           <Button
             type="submit"
             size="sm"
@@ -479,7 +527,7 @@ export function PostCard({
                   </span>
                 </div>
                 <p className="text-[13px] leading-[18px] whitespace-pre-wrap break-words mt-1">
-                  <HashtagText text={c.text} />
+                  <RichText text={c.text} />
                 </p>
               </div>
             </div>

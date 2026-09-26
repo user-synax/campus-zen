@@ -15,6 +15,7 @@ const postSchema = new mongoose.Schema(
     repostCount: { type: Number, default: 0, min: 0 },
     edited: { type: Boolean, default: false },
     hashtags: { type: [String], default: [], index: true },
+    mentions: { type: [String], default: [], index: true },
   },
   { timestamps: true }
 );

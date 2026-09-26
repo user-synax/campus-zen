@@ -3,6 +3,10 @@
 import { useState, useRef } from "react";
 import { Send, Loader2, Image as ImageIcon, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  MentionSuggest,
+  useMentionAutocomplete,
+} from "@/components/app/MentionAutocomplete";
 import { api } from "@/lib/api";
 
 export function PostComposer({ user, onCreated }) {
@@ -12,6 +16,12 @@ export function PostComposer({ user, onCreated }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const fileInputRef = useRef(null);
+  const textRef = useRef(null);
+  const mention = useMentionAutocomplete({
+    value: text,
+    setValue: setText,
+    inputRef: textRef,
+  });
 
   const len = text.length;
   const remaining = 500 - len;
@@ -88,14 +98,30 @@ export function PostComposer({ user, onCreated }) {
           )}
         </span>
         <div className="flex-1 min-w-0">
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="What's on your mind? Share campus thoughts — up to 500 characters, emoji allowed"
-            rows={3}
-            maxLength={520}
-            className="w-full min-h-[72px] resize-none rounded-[12px] border border-[var(--cz-border)] bg-[rgba(255,255,255,0.03)] px-3 py-2.5 text-[14px] leading-[20px] placeholder:text-[var(--cz-text-secondary)]/50 text-[var(--cz-text-primary)] outline-none focus:border-[var(--cz-muted)] focus:shadow-[0_0_0_3px_rgba(125,130,217,0.15)] transition-colors"
-          />
+          <div className="relative">
+            <textarea
+              ref={textRef}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onSelect={mention.recheck}
+              onKeyDown={(e) => {
+                if (mention.handleKeyDown(e)) return;
+              }}
+              onBlur={() => setTimeout(() => mention.close(), 150)}
+              placeholder="What's on your mind? Share campus thoughts — up to 500 characters, emoji allowed. Use @ to mention, # for tags"
+              rows={3}
+              maxLength={520}
+              className="w-full min-h-[72px] resize-none rounded-[12px] border border-[var(--cz-border)] bg-[rgba(255,255,255,0.03)] px-3 py-2.5 text-[14px] leading-[20px] placeholder:text-[var(--cz-text-secondary)]/50 text-[var(--cz-text-primary)] outline-none focus:border-[var(--cz-muted)] focus:shadow-[0_0_0_3px_rgba(125,130,217,0.15)] transition-colors"
+            />
+            {mention.open ? (
+              <MentionSuggest
+                users={mention.users}
+                active={mention.active}
+                onSelect={mention.insert}
+                onHover={mention.setActive}
+              />
+            ) : null}
+          </div>
           {imagePreview ? (
             <div className="mt-2 relative inline-block">
               {/* eslint-disable-next-line @next/next/no-img-element */}

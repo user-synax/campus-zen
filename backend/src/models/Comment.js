@@ -11,6 +11,7 @@ const commentSchema = new mongoose.Schema(
       minlength: 1,
       maxlength: 500,
     },
+    mentions: { type: [String], default: [], index: true },
   },
   { timestamps: true }
 );

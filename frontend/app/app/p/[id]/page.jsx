@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { PostCard } from "@/components/app/PostCard";
+import { RichText } from "@/components/app/RichText";
 import { api } from "@/lib/api";
 import { isHiddenPost } from "@/lib/hiddenPosts";
 
@@ -97,7 +98,9 @@ export default function PostDetailPage() {
         </Link>
         <div className="rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)] p-6 text-center">
           <p className="text-[14px] font-medium">Post not found</p>
-          <p className="text-[12px] text-[var(--cz-text-secondary)] mt-1">{error}</p>
+          <p className="text-[12px] text-[var(--cz-text-secondary)] mt-1">
+            {error}
+          </p>
         </div>
       </div>
     );
@@ -235,7 +238,7 @@ export default function PostDetailPage() {
                 </span>
               </div>
               <p className="mt-2 text-[14px] leading-[20px] whitespace-pre-wrap break-words">
-                {c.text}
+                <RichText text={c.text} />
               </p>
             </div>
           ))}

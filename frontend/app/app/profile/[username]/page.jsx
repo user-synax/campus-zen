@@ -18,6 +18,7 @@ import { EditProfileModal } from "@/components/app/EditProfileModal";
 import { EmptyState } from "@/components/app/EmptyState";
 import { FollowModal } from "@/components/app/FollowModal";
 import { PostCard } from "@/components/app/PostCard";
+import { RichText } from "@/components/app/RichText";
 import { ProfileHeader, ProfileTabs } from "@/components/app/ProfileHeader";
 import { ReportDialog } from "@/components/app/ReportDialog";
 import {
@@ -116,7 +117,7 @@ function TabReplies({ username }) {
             {c.post?.text || "Post"}
           </p>
           <p className="mt-2 text-[14px] leading-[20px] whitespace-pre-wrap break-words text-[var(--cz-text-primary)]">
-            {c.text}
+            <RichText text={c.text} />
           </p>
           <p className="mt-2 text-[11px] text-[var(--cz-text-secondary)]/60">
             {new Date(c.createdAt).toLocaleString("en-IN")}
