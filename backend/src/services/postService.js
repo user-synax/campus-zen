@@ -2,6 +2,7 @@ import { Post } from "../models/Post.js";
 import { Comment } from "../models/Comment.js";
 import { Like } from "../models/Like.js";
 import { Repost } from "../models/Repost.js";
+import { Bookmark } from "../models/Bookmark.js";
 import { Follow } from "../models/Follow.js";
 import { User } from "../models/User.js";
 import { notificationService } from "./notificationService.js";
@@ -19,6 +20,17 @@ async function withoutBlockedAuthors(posts, viewerId) {
   if (!hidden.length) return posts;
   const set = new Set(hidden.map(String));
   return posts.filter((p) => !set.has(String(p.author?._id || p.author)));
+}
+
+// private saves — no counters, no notifications; attached wherever isLiked/isReposted are set
+async function attachBookmarked(posts, viewerId) {
+  if (!viewerId || !posts.length) return;
+  const ids = posts.map((p) => p._id);
+  const saves = await Bookmark.find({ user: viewerId, post: { $in: ids } }).select("post").lean();
+  const set = new Set(saves.map((s) => String(s.post)));
+  posts.forEach((p) => {
+    p.isBookmarked = set.has(String(p._id));
+  });
 }
 
 // notify mentioned users — skips self, missing users, and optional skipId
@@ -68,12 +80,14 @@ export const postService = {
       if (await blockService.isBlocked(viewerId, authorId)) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
     }
     if (viewerId) {
-      const [liked, reposted] = await Promise.all([
+      const [liked, reposted, bookmarked] = await Promise.all([
         Like.exists({ user: viewerId, post: postId }),
         Repost.exists({ user: viewerId, post: postId }),
+        Bookmark.exists({ user: viewerId, post: postId }),
       ]);
       post.isLiked = Boolean(liked);
       post.isReposted = Boolean(reposted);
+      post.isBookmarked = Boolean(bookmarked);
     }
     return post;
   },
@@ -108,6 +122,7 @@ export const postService = {
       Comment.deleteMany({ post: postId }),
       Like.deleteMany({ post: postId }),
       Repost.deleteMany({ post: postId }),
+      Bookmark.deleteMany({ post: postId }),
     ]);
     // clamp
     await User.updateOne({ _id: userId, postCount: { $lt: 0 } }, { $set: { postCount: 0 } });
@@ -140,7 +155,7 @@ export const postService = {
         .lean(),
       Post.countDocuments({ author: authorFilter }),
     ]);
-    // add isLiked/isReposted
+    // add isLiked/isReposted/isBookmarked
     if (posts.length && userId) {
       const postIds = posts.map((p) => p._id);
       const [likes, reposts] = await Promise.all([
@@ -153,6 +168,7 @@ export const postService = {
         p.isLiked = likeSet.has(String(p._id));
         p.isReposted = repostSet.has(String(p._id));
       });
+      await attachBookmarked(posts, userId);
     }
     return { posts, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
   },
@@ -178,6 +194,7 @@ export const postService = {
         p.isLiked = likeSet.has(String(p._id));
         p.isReposted = repostSet.has(String(p._id));
       });
+      await attachBookmarked(posts, viewerId);
     }
     return { posts, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
   },
@@ -238,6 +255,59 @@ export const postService = {
       const updated = await Post.findById(postId).select("repostCount");
       return { reposted: true, repostCount: updated.repostCount };
     }
+  },
+
+  async toggleBookmark(userId, postId) {
+    const post = await Post.findById(postId);
+    if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
+    await blockService.assertNoBlock(userId, post.author, "You can't interact with this account's posts.");
+    const existing = await Bookmark.findOne({ user: userId, post: postId });
+    if (existing) {
+      await Bookmark.deleteOne({ _id: existing._id });
+      return { bookmarked: false };
+    }
+    try {
+      await Bookmark.create({ user: userId, post: postId });
+    } catch (e) {
+      if (e.code === 11000) throw new AppError("Already bookmarked", 409, "ALREADY_BOOKMARKED");
+      throw e;
+    }
+    return { bookmarked: true };
+  },
+
+  // own saved posts, newest-saved-first — private, viewerId must equal userId
+  async bookmarks(userId, { page = 1, limit = 20 }) {
+    const lim = Math.max(1, Math.min(50, Number(limit)));
+    const skip = (Math.max(1, Number(page)) - 1) * lim;
+    const [saves, total] = await Promise.all([
+      Bookmark.find({ user: userId }).sort({ createdAt: -1 }).skip(skip).limit(lim).select("post").lean(),
+      Bookmark.countDocuments({ user: userId }),
+    ]);
+    const postIds = saves.map((s) => s.post);
+    if (postIds.length === 0) {
+      return { posts: [], total, page: Number(page), limit: lim, hasMore: false };
+    }
+    const posts = await Post.find({ _id: { $in: postIds } })
+      .populate("author", "fullName username avatarUrl isEmailVerified")
+      .lean();
+    const map = new Map(posts.map((p) => [String(p._id), p]));
+    let ordered = postIds.map((id) => map.get(String(id))).filter(Boolean);
+    ordered = await withoutBlockedAuthors(ordered, userId);
+    if (ordered.length) {
+      const ids = ordered.map((p) => p._id);
+      const [likes, reposts] = await Promise.all([
+        Like.find({ user: userId, post: { $in: ids } }).select("post").lean(),
+        Repost.find({ user: userId, post: { $in: ids } }).select("post").lean(),
+      ]);
+      const likeSet = new Set(likes.map((l) => String(l.post)));
+      const repostSet = new Set(reposts.map((r) => String(r.post)));
+      ordered.forEach((p) => {
+        p.isLiked = likeSet.has(String(p._id));
+        p.isReposted = repostSet.has(String(p._id));
+        p.isBookmarked = true;
+      });
+    }
+    return { posts: ordered, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
   },
 
   async createComment(userId, postId, text) {
@@ -308,6 +378,7 @@ export const postService = {
           p.isLiked = likeSet.has(String(p._id));
           p.isReposted = repostSet.has(String(p._id));
         });
+        await attachBookmarked(ordered, viewerId);
       }
       const total = await Like.countDocuments({ user: likedBy });
       return { posts: ordered, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
@@ -334,6 +405,7 @@ export const postService = {
           p.isLiked = likeSet.has(String(p._id));
           p.isReposted = repostSet.has(String(p._id));
         });
+        await attachBookmarked(ordered, viewerId);
       }
       const total = await Repost.countDocuments({ user: repostedBy });
       return { posts: ordered, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
@@ -360,6 +432,7 @@ export const postService = {
         p.isLiked = likeSet.has(String(p._id));
         p.isReposted = repostSet.has(String(p._id));
       });
+      await attachBookmarked(posts, viewerId);
     }
 
     return { posts, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
@@ -409,6 +482,7 @@ export const postService = {
         p.isLiked = likeSet.has(String(p._id));
         p.isReposted = repostSet.has(String(p._id));
       });
+      await attachBookmarked(posts, viewerId);
     }
     return { tag, posts, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
   },

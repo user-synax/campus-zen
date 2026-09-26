@@ -59,6 +59,11 @@ export const postController = {
     res.json({ success: true, data: result });
   }),
 
+  toggleBookmark: asyncHandler(async (req, res) => {
+    const result = await postService.toggleBookmark(req.user._id, req.params.id);
+    res.json({ success: true, data: result });
+  }),
+
   createComment: asyncHandler(async (req, res) => {
     const result = await postService.createComment(req.user._id, req.params.id, req.body.text);
     res.status(201).json({ success: true, data: result });

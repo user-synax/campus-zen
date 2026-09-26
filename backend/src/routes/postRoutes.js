@@ -48,6 +48,8 @@ router.post("/:id/like", protect, interactionLimiter, validate(idParam, "params"
 router.delete("/:id/like", protect, interactionLimiter, validate(idParam, "params"), postController.toggleLike);
 router.post("/:id/repost", protect, interactionLimiter, validate(idParam, "params"), postController.toggleRepost);
 router.delete("/:id/repost", protect, interactionLimiter, validate(idParam, "params"), postController.toggleRepost);
+router.post("/:id/bookmark", protect, interactionLimiter, validate(idParam, "params"), postController.toggleBookmark);
+router.delete("/:id/bookmark", protect, interactionLimiter, validate(idParam, "params"), postController.toggleBookmark);
 
 // comments (replies)
 router.post("/:id/replies", protect, interactionLimiter, validate(idParam, "params"), validate(textSchema), postController.createComment);

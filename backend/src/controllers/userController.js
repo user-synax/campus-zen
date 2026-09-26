@@ -54,6 +54,12 @@ export const userController = {
     res.json({ success: true, data: { posts: [], total: 0, page: 1, limit: 20, hasMore: false } });
   }),
 
+  myBookmarks: asyncHandler(async (req, res) => {
+    const { page, limit } = req.query;
+    const result = await postService.bookmarks(req.user._id, { page, limit });
+    res.json({ success: true, data: result });
+  }),
+
   updateMe: asyncHandler(async (req, res) => {
     const user = await userService.updateMe(req.user._id, req.body);
     res.json({ success: true, message: "Profile updated", data: { user } });

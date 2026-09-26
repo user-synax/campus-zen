@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Home, Plus, Search, User } from "lucide-react";
+import { Bell, Bookmark, Home, Plus, Search, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 const items = [
   { href: "/app", label: "Home", icon: Home, exact: true },
   { href: "/app/search", label: "Search", icon: Search },
+  { href: "/app/bookmarks", label: "Bookmarks", icon: Bookmark },
   { href: "/app/notifications", label: "Notifications", icon: Bell },
   { href: "/app/profile", label: "Profile", icon: User },
 ];

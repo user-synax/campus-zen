@@ -2,6 +2,7 @@ import { User } from "../models/User.js";
 import { Post } from "../models/Post.js";
 import { Like } from "../models/Like.js";
 import { Repost } from "../models/Repost.js";
+import { Bookmark } from "../models/Bookmark.js";
 import { blockService } from "./blockService.js";
 
 export const searchService = {
@@ -90,15 +91,18 @@ export const searchService = {
           ]);
           if (viewerId && posts.length) {
             const ids = posts.map((p) => p._id);
-            const [likes, reposts] = await Promise.all([
+            const [likes, reposts, saves] = await Promise.all([
               Like.find({ user: viewerId, post: { $in: ids } }).select("post").lean(),
               Repost.find({ user: viewerId, post: { $in: ids } }).select("post").lean(),
+              Bookmark.find({ user: viewerId, post: { $in: ids } }).select("post").lean(),
             ]);
             const likeSet = new Set(likes.map((l) => String(l.post)));
             const repostSet = new Set(reposts.map((r) => String(r.post)));
+            const saveSet = new Set(saves.map((s) => String(s.post)));
             posts.forEach((p) => {
               p.isLiked = likeSet.has(String(p._id));
               p.isReposted = repostSet.has(String(p._id));
+              p.isBookmarked = saveSet.has(String(p._id));
             });
           }
           return { posts, total };
@@ -120,18 +124,21 @@ export const searchService = {
           Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified").lean(),
           Post.countDocuments(filter),
         ]);
-        // add isLiked/isReposted for viewer
+        // add isLiked/isReposted/isBookmarked for viewer
         if (viewerId && posts.length) {
           const ids = posts.map((p) => p._id);
-          const [likes, reposts] = await Promise.all([
+          const [likes, reposts, saves] = await Promise.all([
             Like.find({ user: viewerId, post: { $in: ids } }).select("post").lean(),
             Repost.find({ user: viewerId, post: { $in: ids } }).select("post").lean(),
+            Bookmark.find({ user: viewerId, post: { $in: ids } }).select("post").lean(),
           ]);
           const likeSet = new Set(likes.map((l) => String(l.post)));
           const repostSet = new Set(reposts.map((r) => String(r.post)));
+          const saveSet = new Set(saves.map((s) => String(s.post)));
           posts.forEach((p) => {
             p.isLiked = likeSet.has(String(p._id));
             p.isReposted = repostSet.has(String(p._id));
+            p.isBookmarked = saveSet.has(String(p._id));
           });
         }
         return { posts, total };

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Bookmark,
   Flag,
   Heart,
   Loader2,
@@ -50,6 +51,7 @@ export function PostCard({
   const [post, setPost] = useState(initialPost);
   const [liked, setLiked] = useState(Boolean(initialPost.isLiked));
   const [reposted, setReposted] = useState(Boolean(initialPost.isReposted));
+  const [saved, setSaved] = useState(Boolean(initialPost.isBookmarked));
   const [likeCount, setLikeCount] = useState(initialPost.likeCount || 0);
   const [repostCount, setRepostCount] = useState(initialPost.repostCount || 0);
   const [replyCount, setReplyCount] = useState(initialPost.replyCount || 0);
@@ -116,6 +118,19 @@ export function PostCard({
     } catch {
       setReposted(was);
       setRepostCount((c) => (was ? c + 1 : Math.max(0, c - 1)));
+    }
+  };
+
+  const handleBookmark = async () => {
+    const was = saved;
+    setSaved(!was);
+    try {
+      const res = was
+        ? await api.unbookmarkPost(post._id)
+        : await api.bookmarkPost(post._id);
+      setSaved(res.data?.bookmarked ?? !was);
+    } catch {
+      setSaved(was);
     }
   };
 
@@ -436,6 +451,19 @@ export function PostCard({
         >
           <Repeat2 className="h-[16px] w-[16px]" />
           <AnimatedNumber value={repostCount} />
+        </button>
+
+        <button
+          onClick={handleBookmark}
+          data-saved={saved ? "true" : "false"}
+          className="inline-flex hover:cursor-pointer items-center justify-center rounded-full h-[32px] w-[32px] hover:bg-[rgba(255,206,173,0.08)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] data-[saved=true]:text-[var(--cz-text-primary)] transition-colors"
+          aria-label={saved ? "Remove bookmark" : "Bookmark"}
+          aria-pressed={saved}
+        >
+          <Bookmark
+            className="h-[16px] w-[16px]"
+            fill={saved ? "currentColor" : "none"}
+          />
         </button>
 
         <button

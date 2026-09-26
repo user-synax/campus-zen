@@ -76,6 +76,7 @@ router.get("/:id/following", meLimiter, optionalAuth, validate(idParam, "params"
 
 // block — before /:username to avoid param clash
 router.get("/me/blocks", protect, blockController.list);
+router.get("/me/bookmarks", protect, userController.myBookmarks);
 router.post("/:id/block", blockLimiter, protect, validate(idParam, "params"), blockController.block);
 router.delete("/:id/block", blockLimiter, protect, validate(idParam, "params"), blockController.unblock);
 

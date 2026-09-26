@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Bookmark,
   FileText,
   Loader2,
   LogOut,
@@ -110,6 +111,27 @@ export default function MenuPage() {
           </button>
         </div>
       </div>
+
+      <Link
+        href="/app/bookmarks"
+        className="flex items-center gap-3 rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)] px-4 h-[52px] hover:border-[var(--cz-border-strong)] transition-colors"
+      >
+        <Bookmark className="h-4 w-4 text-[var(--cz-muted)] shrink-0" />
+        <span className="flex-1 min-w-0">
+          <span className="block text-[13px] font-medium leading-tight">
+            Bookmarks
+          </span>
+          <span className="block text-[12px] leading-tight text-[var(--cz-text-secondary)]">
+            Your saved posts • private
+          </span>
+        </span>
+        <span
+          aria-hidden
+          className="text-[var(--cz-text-secondary)] text-[16px] leading-none"
+        >
+          →
+        </span>
+      </Link>
 
       <div className="grid gap-3">
         <div className="rounded-[12px] border border-[var(--cz-border)] bg-[rgba(255,255,255,0.02)] p-4">

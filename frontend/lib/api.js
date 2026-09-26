@@ -240,6 +240,25 @@ export const api = {
     request(`/api/posts/${encodeURIComponent(id)}/repost`, {
       method: "DELETE",
     }),
+  bookmarkPost: (id) =>
+    request(`/api/posts/${encodeURIComponent(id)}/bookmark`, {
+      method: "POST",
+    }),
+  unbookmarkPost: (id) =>
+    request(`/api/posts/${encodeURIComponent(id)}/bookmark`, {
+      method: "DELETE",
+    }),
+  getBookmarks: (params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "")
+        qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(`/api/users/me/bookmarks${q ? `?${q}` : ""}`, {
+      method: "GET",
+    });
+  },
   getReplies: (id, params = {}) => {
     const qs = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => {
