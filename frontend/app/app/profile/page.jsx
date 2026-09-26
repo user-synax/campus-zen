@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import {
   FileText,
   MessageCircle,
-  Image as ImageIcon,
   Heart,
   Repeat2,
   Settings,
@@ -21,6 +20,7 @@ import {
   pinnedIdOf,
   splitPinned,
 } from "@/components/app/PinnedSection";
+import { ProfileMediaGrid } from "@/components/app/ProfileMedia";
 import { RichText } from "@/components/app/RichText";
 import { api } from "@/lib/api";
 import {
@@ -311,11 +311,7 @@ export default function OwnProfilePage() {
       ) : tab === "replies" ? (
         <TabReplies username={user.username} />
       ) : tab === "media" ? (
-        <EmptyState
-          icon={ImageIcon}
-          title="No media yet"
-          description="Media uploads via Appwrite bucket coming soon. Text only for MVP."
-        />
+        <ProfileMediaGrid username={user.username} currentUser={user} />
       ) : tab === "likes" ? (
         <TabLikes username={user.username} currentUser={user} />
       ) : tab === "reposts" ? (

@@ -50,8 +50,11 @@ export const userController = {
   }),
 
   getUserMedia: asyncHandler(async (req, res) => {
-    // media not in MVP — text only, return empty
-    res.json({ success: true, data: { posts: [], total: 0, page: 1, limit: 20, hasMore: false } });
+    const viewerId = req.user?._id || null;
+    const { page, limit } = req.query;
+    const user = await userService.getByUsername(req.params.username, viewerId);
+    const result = await postService.mediaByAuthor(user._id, { page, limit });
+    res.json({ success: true, data: result });
   }),
 
   myBookmarks: asyncHandler(async (req, res) => {

@@ -439,6 +439,23 @@ export const postService = {
     return { posts, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
   },
 
+  // image-only posts by author for the profile Media tab — light payload for the grid
+  async mediaByAuthor(authorId, { page = 1, limit = 20 }) {
+    const lim = Math.max(1, Math.min(50, Number(limit)));
+    const skip = (Math.max(1, Number(page)) - 1) * lim;
+    const filter = { author: authorId, imageUrl: { $ne: null } };
+    const [posts, total] = await Promise.all([
+      Post.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(lim)
+        .select("_id imageUrl text createdAt likeCount replyCount repostCount")
+        .lean(),
+      Post.countDocuments(filter),
+    ]);
+    return { posts, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
+  },
+
   async listRepliesByUser(authorId, { page = 1, limit = 20 }) {
     const lim = Math.max(1, Math.min(50, Number(limit)));
     const skip = (Math.max(1, Number(page)) - 1) * lim;

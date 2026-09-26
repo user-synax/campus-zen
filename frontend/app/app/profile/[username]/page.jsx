@@ -4,7 +4,6 @@ import {
   FileText,
   Github,
   Heart,
-  Image as ImageIcon,
   Loader2,
   MessageCircle,
   Repeat2,
@@ -19,6 +18,7 @@ import { EmptyState } from "@/components/app/EmptyState";
 import { FollowModal } from "@/components/app/FollowModal";
 import { PostCard } from "@/components/app/PostCard";
 import { PinnedSection, splitPinned } from "@/components/app/PinnedSection";
+import { ProfileMediaGrid } from "@/components/app/ProfileMedia";
 import { RichText } from "@/components/app/RichText";
 import { ProfileHeader, ProfileTabs } from "@/components/app/ProfileHeader";
 import { ReportDialog } from "@/components/app/ReportDialog";
@@ -427,11 +427,7 @@ export default function UserProfilePage() {
       ) : tab === "replies" ? (
         <TabReplies username={user.username} />
       ) : tab === "media" ? (
-        <EmptyState
-          icon={ImageIcon}
-          title="No media yet"
-          description="Media uploads via Appwrite bucket coming soon. Text only for MVP."
-        />
+        <ProfileMediaGrid username={user.username} currentUser={me} />
       ) : tab === "likes" ? (
         <TabLikes username={user.username} currentUser={me} />
       ) : tab === "reposts" ? (
