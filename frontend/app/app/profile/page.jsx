@@ -16,6 +16,11 @@ import { EmptyState } from "@/components/app/EmptyState";
 import { EditProfileModal } from "@/components/app/EditProfileModal";
 import { FollowModal } from "@/components/app/FollowModal";
 import { PostCard } from "@/components/app/PostCard";
+import {
+  PinnedSection,
+  pinnedIdOf,
+  splitPinned,
+} from "@/components/app/PinnedSection";
 import { RichText } from "@/components/app/RichText";
 import { api } from "@/lib/api";
 import {
@@ -27,7 +32,7 @@ import {
   ContributionGraphLegend,
 } from "@/components/ui/contribution-graph";
 
-function TabPosts({ username, currentUser }) {
+function TabPosts({ username, currentUser, pinnedPost, onPinChange }) {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
@@ -51,7 +56,7 @@ function TabPosts({ username, currentUser }) {
         <Loader2 className="h-5 w-5 animate-spin text-[var(--cz-text-secondary)]" />
       </div>
     );
-  if (posts.length === 0)
+  if (posts.length === 0 && !pinnedIdOf(pinnedPost))
     return (
       <EmptyState
         icon={FileText}
@@ -61,13 +66,28 @@ function TabPosts({ username, currentUser }) {
         actionHref="/app/create"
       />
     );
+  const { pinnedId, list } = splitPinned(posts, pinnedPost);
   return (
     <div className="space-y-3">
-      {posts.map((p) => (
+      <PinnedSection
+        pinnedPost={pinnedPost}
+        posts={posts}
+        currentUser={currentUser}
+        onPinChange={onPinChange}
+        onDelete={(id) => {
+          setPosts((prev) => prev.filter((x) => x._id !== id));
+        }}
+        onUpdate={(u) =>
+          setPosts((prev) => prev.map((x) => (x._id === u._id ? u : x)))
+        }
+      />
+      {list.map((p) => (
         <PostCard
           key={p._id}
           post={p}
           currentUser={currentUser}
+          isPinned={pinnedId ? String(p._id) === pinnedId : false}
+          onPinChange={onPinChange}
           onDelete={(id) =>
             setPosts((prev) => prev.filter((x) => x._id !== id))
           }
@@ -282,7 +302,12 @@ export default function OwnProfilePage() {
       <ProfileTabs active={tab} onChange={setTab} />
 
       {tab === "posts" ? (
-        <TabPosts username={user.username} currentUser={user} />
+        <TabPosts
+          username={user.username}
+          currentUser={user}
+          pinnedPost={user.pinnedPost}
+          onPinChange={(p) => setUser((u) => ({ ...u, pinnedPost: p }))}
+        />
       ) : tab === "replies" ? (
         <TabReplies username={user.username} />
       ) : tab === "media" ? (

@@ -18,6 +18,7 @@ import { EditProfileModal } from "@/components/app/EditProfileModal";
 import { EmptyState } from "@/components/app/EmptyState";
 import { FollowModal } from "@/components/app/FollowModal";
 import { PostCard } from "@/components/app/PostCard";
+import { PinnedSection, splitPinned } from "@/components/app/PinnedSection";
 import { RichText } from "@/components/app/RichText";
 import { ProfileHeader, ProfileTabs } from "@/components/app/ProfileHeader";
 import { ReportDialog } from "@/components/app/ReportDialog";
@@ -31,7 +32,7 @@ import {
 } from "@/components/ui/contribution-graph";
 import { api } from "@/lib/api";
 
-function TabPosts({ username, currentUser }) {
+function TabPosts({ username, currentUser, pinnedPost, onPinChange }) {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
@@ -55,7 +56,8 @@ function TabPosts({ username, currentUser }) {
         <Loader2 className="h-5 w-5 animate-spin text-[var(--cz-text-secondary)]" />
       </div>
     );
-  if (posts.length === 0)
+  const { pinnedId, list } = splitPinned(posts, pinnedPost);
+  if (posts.length === 0 && !pinnedId)
     return (
       <EmptyState
         icon={FileText}
@@ -65,8 +67,20 @@ function TabPosts({ username, currentUser }) {
     );
   return (
     <div className="space-y-3">
-      {posts.map((p) => (
-        <PostCard key={p._id} post={p} currentUser={currentUser} />
+      <PinnedSection
+        pinnedPost={pinnedPost}
+        posts={posts}
+        currentUser={currentUser}
+        onPinChange={onPinChange}
+      />
+      {list.map((p) => (
+        <PostCard
+          key={p._id}
+          post={p}
+          currentUser={currentUser}
+          isPinned={pinnedId ? String(p._id) === pinnedId : false}
+          onPinChange={onPinChange}
+        />
       ))}
     </div>
   );
@@ -404,7 +418,12 @@ export default function UserProfilePage() {
       <ProfileTabs active={tab} onChange={setTab} />
 
       {tab === "posts" ? (
-        <TabPosts username={user.username} currentUser={me} />
+        <TabPosts
+          username={user.username}
+          currentUser={me}
+          pinnedPost={user.pinnedPost}
+          onPinChange={(p) => setUser((u) => ({ ...u, pinnedPost: p }))}
+        />
       ) : tab === "replies" ? (
         <TabReplies username={user.username} />
       ) : tab === "media" ? (

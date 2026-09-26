@@ -1,10 +1,21 @@
 "use client";
 
+import {
+  Check,
+  Github,
+  Image as ImageIcon,
+  Instagram,
+  Linkedin,
+  Loader2,
+  Twitter,
+  Upload,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { X, Upload, Github, Twitter, Linkedin, Instagram, Loader2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { ACCENT_KEYS, ACCENTS, accentFor } from "@/lib/accents";
 import { api } from "@/lib/api";
 
 export function EditProfileModal({ open, onClose, user, onSaved }) {
@@ -16,15 +27,22 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
   const [github, setGithub] = useState(user?.socialLinks?.github || "");
   const [twitter, setTwitter] = useState(user?.socialLinks?.twitter || "");
   const [linkedin, setLinkedin] = useState(user?.socialLinks?.linkedin || "");
-  const [instagram, setInstagram] = useState(user?.socialLinks?.instagram || "");
+  const [instagram, setInstagram] = useState(
+    user?.socialLinks?.instagram || "",
+  );
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState(user?.avatarUrl || null);
+  const [coverFile, setCoverFile] = useState(null);
+  const [coverPreview, setCoverPreview] = useState(user?.coverUrl || null);
+  const [coverRemoved, setCoverRemoved] = useState(false);
+  const [accent, setAccent] = useState(user?.accent || "peach");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [show, setShow] = useState(false);
   const [closing, setClosing] = useState(false);
   const modalRef = useRef(null);
   const fileRef = useRef(null);
+  const coverRef = useRef(null);
 
   // sync when user changes
   useEffect(() => {
@@ -40,6 +58,10 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
       setInstagram(user.socialLinks?.instagram || "");
       setAvatarPreview(user.avatarUrl || null);
       setAvatarFile(null);
+      setCoverPreview(user.coverUrl || null);
+      setCoverFile(null);
+      setCoverRemoved(false);
+      setAccent(user.accent || "peach");
     }
   }, [user]);
 
@@ -93,6 +115,30 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
     setError("");
   };
 
+  const handleCover = (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (!f.type.startsWith("image/")) {
+      setError("Please select an image file");
+      return;
+    }
+    if (f.size > 4 * 1024 * 1024) {
+      setError("Cover must be under 4MB");
+      return;
+    }
+    setCoverFile(f);
+    setCoverPreview(URL.createObjectURL(f));
+    setCoverRemoved(false);
+    setError("");
+  };
+
+  const removeCover = () => {
+    setCoverFile(null);
+    setCoverPreview(null);
+    setCoverRemoved(true);
+    if (coverRef.current) coverRef.current.value = "";
+  };
+
   const onSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -118,7 +164,9 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
         } catch (e) {
           const msg = e.data?.message || e.message || "Avatar upload failed";
           if (e.status === 503) {
-            setError(`${msg} — add APPWRITE_* env on backend (see backend/.env.example)`);
+            setError(
+              `${msg} — add APPWRITE_* env on backend (see backend/.env.example)`,
+            );
           } else {
             setError(msg);
           }
@@ -127,14 +175,37 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
         }
       }
 
+      let coverUrl = user?.coverUrl || null;
+      if (coverFile) {
+        try {
+          const up = await api.uploadCover(coverFile);
+          coverUrl = up.data?.user?.coverUrl || coverUrl;
+        } catch (e) {
+          const msg = e.data?.message || e.message || "Cover upload failed";
+          if (e.status === 503) {
+            setError(
+              `${msg} — add APPWRITE_* env on backend (see backend/.env.example)`,
+            );
+          } else {
+            setError(msg);
+          }
+          setLoading(false);
+          return;
+        }
+      } else if (coverRemoved) {
+        coverUrl = null;
+      }
+
       const payload = {
         fullName: fullName.trim(),
         bio: bio.trim() || null,
         college: college.trim() || null,
         course: course.trim() || null,
         academicYear: academicYear || null,
+        accent: accent || null,
         // avatarUrl already updated via /me/avatar if file was uploaded; include only if no file or to keep consistent
         ...(avatarFile ? {} : { avatarUrl: avatarUrl || null }),
+        ...(coverFile ? {} : { coverUrl: coverUrl || null }),
         socialLinks: {
           github: github.trim() || null,
           twitter: twitter.trim().replace(/^@/, "") || null,
@@ -148,6 +219,8 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
       const finalUser = res.data?.user || user;
       // if we uploaded avatar, finalUser should already have new avatarUrl; ensure it reflects
       if (avatarUrl && avatarFile) finalUser.avatarUrl = avatarUrl;
+      if (coverFile && coverUrl) finalUser.coverUrl = coverUrl;
+      if (coverRemoved && !coverFile) finalUser.coverUrl = null;
       onSaved?.(finalUser);
       onClose?.();
     } catch (err) {
@@ -183,7 +256,9 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
       >
         {/* header */}
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--cz-border)] bg-[var(--cz-surface)] px-4 sm:px-5 h-[56px] shrink-0">
-          <h2 className="text-[15px] font-semibold tracking-[-0.02em]">Edit profile</h2>
+          <h2 className="text-[15px] font-semibold tracking-[-0.02em]">
+            Edit profile
+          </h2>
           <button
             onClick={onClose}
             className="grid place-items-center h-8 w-8 rounded-[10px] hover:bg-[rgba(255,206,173,0.08)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] transition-colors"
@@ -193,9 +268,14 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
           </button>
         </div>
 
-        <form onSubmit={onSubmit} className="flex-1 overflow-y-auto px-4 sm:px-5 py-5 space-y-6">
+        <form
+          onSubmit={onSubmit}
+          className="flex-1 overflow-y-auto px-4 sm:px-5 py-5 space-y-6"
+        >
           {error ? (
-            <div className="rounded-[10px] border border-[var(--cz-error)]/20 bg-[rgba(255,90,106,0.08)] px-3 py-2.5 text-[13px] leading-[18px] text-[var(--cz-error)]">{error}</div>
+            <div className="rounded-[10px] border border-[var(--cz-error)]/20 bg-[rgba(255,90,106,0.08)] px-3 py-2.5 text-[13px] leading-[18px] text-[var(--cz-error)]">
+              {error}
+            </div>
           ) : null}
 
           {/* avatar */}
@@ -203,29 +283,158 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
             <span className="relative grid place-items-center h-[72px] w-[72px] rounded-full overflow-hidden border-2 border-[var(--cz-border)] bg-[var(--cz-bg)] shrink-0">
               {avatarPreview ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={avatarPreview} alt="avatar preview" className="h-full w-full object-cover" />
+                <img
+                  src={avatarPreview}
+                  alt="avatar preview"
+                  className="h-full w-full object-cover"
+                />
               ) : (
                 <span className="grid place-items-center h-full w-full bg-[var(--cz-muted)] text-white font-semibold text-[20px]">
-                  {(fullName || user?.username || "U").trim().slice(0, 1).toUpperCase()}
+                  {(fullName || user?.username || "U")
+                    .trim()
+                    .slice(0, 1)
+                    .toUpperCase()}
                 </span>
               )}
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-medium leading-none">Profile photo</p>
-              <p className="text-[12px] leading-[16px] text-[var(--cz-text-secondary)] mt-1">Backend Appwrite bucket • PNG/JPG up to 4MB • Secure server-side</p>
+              <p className="text-[13px] font-medium leading-none">
+                Profile photo
+              </p>
+              <p className="text-[12px] leading-[16px] text-[var(--cz-text-secondary)] mt-1">
+                Backend Appwrite bucket • PNG/JPG up to 4MB • Secure server-side
+              </p>
               <div className="mt-2 flex items-center gap-2">
-                <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} className="hidden" />
-                <Button type="button" variant="secondary" size="sm" onClick={() => fileRef.current?.click()} className="h-[32px] px-3 text-[12px]">
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFile}
+                  className="hidden"
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => fileRef.current?.click()}
+                  className="h-[32px] px-3 text-[12px]"
+                >
                   <Upload className="h-3.5 w-3.5" /> Upload
                 </Button>
-                {avatarFile ? <span className="text-[11px] text-[var(--cz-text-secondary)] truncate">{avatarFile.name}</span> : null}
+                {avatarFile ? (
+                  <span className="text-[11px] text-[var(--cz-text-secondary)] truncate">
+                    {avatarFile.name}
+                  </span>
+                ) : null}
               </div>
+            </div>
+          </div>
+
+          {/* appearance — cover + accent */}
+          <div className="space-y-3">
+            <h3 className="text-[12px] font-semibold tracking-[0.06em] uppercase text-[var(--cz-text-secondary)]">
+              Appearance
+            </h3>
+
+            <div className="flex flex-col gap-1.5">
+              <Label>Cover banner</Label>
+              <div className="relative h-[76px] rounded-[10px] overflow-hidden border border-[var(--cz-border)] bg-[var(--cz-surface-strong)]">
+                {coverPreview ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={coverPreview}
+                    alt="cover preview"
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                ) : (
+                  <div
+                    aria-hidden
+                    className="absolute inset-0"
+                    style={{
+                      background: `linear-gradient(135deg, ${accentFor(accent).from}, transparent 55%, ${accentFor(accent).to})`,
+                    }}
+                  />
+                )}
+              </div>
+              <div className="mt-1 flex items-center gap-2">
+                <input
+                  ref={coverRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleCover}
+                  className="hidden"
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => coverRef.current?.click()}
+                  className="h-[32px] px-3 text-[12px]"
+                >
+                  <ImageIcon className="h-3.5 w-3.5" />{" "}
+                  {coverPreview ? "Change" : "Upload"}
+                </Button>
+                {coverPreview ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={removeCover}
+                    className="h-[32px] px-3 text-[12px]"
+                  >
+                    Remove
+                  </Button>
+                ) : null}
+                {coverFile ? (
+                  <span className="text-[11px] text-[var(--cz-text-secondary)] truncate">
+                    {coverFile.name}
+                  </span>
+                ) : null}
+              </div>
+              <span className="text-[11px] text-[var(--cz-text-secondary)]/60">
+                PNG/JPG up to 4MB • wide images look best
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label>Accent color</Label>
+              <div className="flex items-center gap-2">
+                {ACCENT_KEYS.map((key) => {
+                  const a = ACCENTS[key];
+                  const selected = accent === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      aria-pressed={selected}
+                      aria-label={a.label}
+                      title={a.label}
+                      onClick={() => setAccent(key)}
+                      className="grid place-items-center h-9 w-9 rounded-full border transition-transform hover:scale-105"
+                      style={{
+                        background: a.dot,
+                        borderColor: selected ? "#fff" : "transparent",
+                        boxShadow: selected ? `0 0 0 2px ${a.dot}55` : "none",
+                      }}
+                    >
+                      {selected ? (
+                        <Check className="h-4 w-4 text-black/70" />
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+              <span className="text-[11px] text-[var(--cz-text-secondary)]/60">
+                Tints your cover fallback, avatar ring and profile glow
+              </span>
             </div>
           </div>
 
           {/* basic */}
           <div className="space-y-3">
-            <h3 className="text-[12px] font-semibold tracking-[0.06em] uppercase text-[var(--cz-text-secondary)]">Basic</h3>
+            <h3 className="text-[12px] font-semibold tracking-[0.06em] uppercase text-[var(--cz-text-secondary)]">
+              Basic
+            </h3>
 
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="edit-fullName">
@@ -241,7 +450,9 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
                   className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 h-full"
                 />
               </div>
-              <span className="text-[11px] text-[var(--cz-text-secondary)]/60">{fullName.length}/50</span>
+              <span className="text-[11px] text-[var(--cz-text-secondary)]/60">
+                {fullName.length}/50
+              </span>
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -257,13 +468,17 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
                   className="w-full bg-transparent outline-none text-[14px] leading-[20px] placeholder:text-[var(--cz-text-secondary)]/50 resize-none"
                 />
               </div>
-              <span className="text-[11px] text-[var(--cz-text-secondary)]/60">{bio.length}/160</span>
+              <span className="text-[11px] text-[var(--cz-text-secondary)]/60">
+                {bio.length}/160
+              </span>
             </div>
           </div>
 
           {/* academic */}
           <div className="space-y-3">
-            <h3 className="text-[12px] font-semibold tracking-[0.06em] uppercase text-[var(--cz-text-secondary)]">Academic</h3>
+            <h3 className="text-[12px] font-semibold tracking-[0.06em] uppercase text-[var(--cz-text-secondary)]">
+              Academic
+            </h3>
             <div className="grid sm:grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="edit-college">College</Label>
@@ -326,36 +541,56 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
 
           {/* social */}
           <div className="space-y-3">
-            <h3 className="text-[12px] font-semibold tracking-[0.06em] uppercase text-[var(--cz-text-secondary)]">Social — username only for GitHub</h3>
+            <h3 className="text-[12px] font-semibold tracking-[0.06em] uppercase text-[var(--cz-text-secondary)]">
+              Social — username only for GitHub
+            </h3>
             <div className="grid gap-3">
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="edit-github" className="inline-flex items-center gap-1.5">
-                  <Github className="h-3.5 w-3.5 text-[var(--cz-text-primary)]" /> GitHub username
+                <Label
+                  htmlFor="edit-github"
+                  className="inline-flex items-center gap-1.5"
+                >
+                  <Github className="h-3.5 w-3.5 text-[var(--cz-text-primary)]" />{" "}
+                  GitHub username
                 </Label>
                 <div className="cz-input flex items-center gap-2 rounded-[10px] px-3 h-[42px]">
-                  <span className="text-[13px] text-[var(--cz-text-secondary)] select-none">github.com/</span>
+                  <span className="text-[13px] text-[var(--cz-text-secondary)] select-none">
+                    github.com/
+                  </span>
                   <input
                     id="edit-github"
                     value={github}
-                    onChange={(e) => setGithub(e.target.value.replace(/[^a-zA-Z0-9-]/g, ""))}
+                    onChange={(e) =>
+                      setGithub(e.target.value.replace(/[^a-zA-Z0-9-]/g, ""))
+                    }
                     placeholder="user_synax"
                     maxLength={39}
                     className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 h-full"
                   />
                 </div>
-                <span className="text-[11px] text-[var(--cz-text-secondary)]/60">Used for the GitHub tab contribution graph</span>
+                <span className="text-[11px] text-[var(--cz-text-secondary)]/60">
+                  Used for the GitHub tab contribution graph
+                </span>
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="edit-twitter" className="inline-flex items-center gap-1.5">
-                  <Twitter className="h-3.5 w-3.5 text-[var(--cz-text-primary)]" /> X / Twitter
+                <Label
+                  htmlFor="edit-twitter"
+                  className="inline-flex items-center gap-1.5"
+                >
+                  <Twitter className="h-3.5 w-3.5 text-[var(--cz-text-primary)]" />{" "}
+                  X / Twitter
                 </Label>
                 <div className="cz-input flex items-center gap-2 rounded-[10px] px-3 h-[42px]">
-                  <span className="text-[13px] text-[var(--cz-text-secondary)] select-none">@</span>
+                  <span className="text-[13px] text-[var(--cz-text-secondary)] select-none">
+                    @
+                  </span>
                   <input
                     id="edit-twitter"
                     value={twitter}
-                    onChange={(e) => setTwitter(e.target.value.replace(/^@/, ""))}
+                    onChange={(e) =>
+                      setTwitter(e.target.value.replace(/^@/, ""))
+                    }
                     placeholder="user_synax"
                     className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 h-full"
                   />
@@ -363,8 +598,12 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="edit-linkedin" className="inline-flex items-center gap-1.5">
-                  <Linkedin className="h-3.5 w-3.5 text-[var(--cz-text-primary)]" /> LinkedIn
+                <Label
+                  htmlFor="edit-linkedin"
+                  className="inline-flex items-center gap-1.5"
+                >
+                  <Linkedin className="h-3.5 w-3.5 text-[var(--cz-text-primary)]" />{" "}
+                  LinkedIn
                 </Label>
                 <div className="cz-input flex items-center rounded-[10px] px-3 h-[42px]">
                   <input
@@ -378,15 +617,23 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="edit-instagram" className="inline-flex items-center gap-1.5">
-                  <Instagram className="h-3.5 w-3.5 text-[var(--cz-text-primary)]" /> Instagram
+                <Label
+                  htmlFor="edit-instagram"
+                  className="inline-flex items-center gap-1.5"
+                >
+                  <Instagram className="h-3.5 w-3.5 text-[var(--cz-text-primary)]" />{" "}
+                  Instagram
                 </Label>
                 <div className="cz-input flex items-center gap-2 rounded-[10px] px-3 h-[42px]">
-                  <span className="text-[13px] text-[var(--cz-text-secondary)] select-none">@</span>
+                  <span className="text-[13px] text-[var(--cz-text-secondary)] select-none">
+                    @
+                  </span>
                   <input
                     id="edit-instagram"
                     value={instagram}
-                    onChange={(e) => setInstagram(e.target.value.replace(/^@/, ""))}
+                    onChange={(e) =>
+                      setInstagram(e.target.value.replace(/^@/, ""))
+                    }
                     placeholder="user_synax"
                     className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 h-full"
                   />
@@ -396,15 +643,27 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
           </div>
 
           <div className="flex items-center gap-2 pt-2 border-t border-[var(--cz-border)]">
-            <Button type="button" variant="ghost" onClick={onClose} className="flex-1" disabled={loading}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onClose}
+              className="flex-1"
+              disabled={loading}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={loading} className="flex-1">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Check className="h-4 w-4" />
+              )}
               {loading ? "Saving…" : "Save"}
             </Button>
           </div>
-          <div className="text-center text-[11px] text-[var(--cz-text-secondary)]/60">Username @{user?.username} cannot be changed here.</div>
+          <div className="text-center text-[11px] text-[var(--cz-text-secondary)]/60">
+            Username @{user?.username} cannot be changed here.
+          </div>
         </form>
       </div>
     </div>

@@ -19,6 +19,8 @@ const updateMeSchema = z.object({
   course: z.string().trim().max(100).nullable().optional(),
   academicYear: z.enum(["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year", "Graduated"]).nullable().optional(),
   avatarUrl: z.string().url().nullable().optional().or(z.literal("").transform(() => null)),
+  coverUrl: z.string().url().nullable().optional().or(z.literal("").transform(() => null)),
+  accent: z.enum(["peach", "lavender", "mint", "sky", "rose"]).nullable().optional(),
   socialLinks: z
     .object({
       github: z
@@ -67,6 +69,12 @@ const blockLimiter = rateLimit({
 const idParam = z.object({ id: z.string().regex(/^[a-f\d]{24}$/i, "Invalid id") });
 
 router.post("/me/avatar", avatarLimiter, protect, avatarUpload.single("avatar"), userController.updateAvatar);
+router.post("/me/cover", avatarLimiter, protect, avatarUpload.single("cover"), userController.updateCover);
+
+// pin — before /:username to avoid param clash
+const pinSchema = z.object({ postId: z.string().regex(/^[a-f\d]{24}$/i, "Invalid post id") });
+router.post("/me/pin", meLimiter, protect, validate(pinSchema), userController.pinPost);
+router.delete("/me/pin", meLimiter, protect, userController.unpinPost);
 
 // follow — before /:username to avoid param clash
 router.post("/:id/follow", followLimiter, protect, validate(idParam, "params"), followController.follow);

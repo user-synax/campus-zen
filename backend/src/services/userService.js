@@ -51,7 +51,10 @@ export const userService = {
 
   async getByUsername(username, viewerId = null) {
     const clean = username.toLowerCase().trim();
-    const user = await User.findOne({ username: clean });
+    const user = await User.findOne({ username: clean }).populate({
+      path: "pinnedPost",
+      populate: { path: "author", select: "fullName username avatarUrl isEmailVerified" },
+    });
     if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
     if (viewerId && String(viewerId) !== String(user._id)) {
       const rel = await blockService.relationOf(viewerId, user._id);
@@ -86,13 +89,49 @@ export const userService = {
     return user.toSafeObject();
   },
 
+  async updateCover(userId, file) {
+    if (!file) throw new AppError("No file uploaded", 400, "NO_FILE");
+    const { isAppwriteConfigured, uploadToAppwrite } = await import("../config/appwrite.js");
+    if (!isAppwriteConfigured()) {
+      throw new AppError("Cover upload not configured. Add APPWRITE_* env on backend.", 503, "APPWRITE_NOT_CONFIGURED");
+    }
+    const { viewUrl } = await uploadToAppwrite(file.buffer, file.originalname, file.mimetype);
+    // best-effort: delete old cover to avoid orphan files
+    const current = await User.findById(userId).select("coverUrl").lean();
+    const user = await User.findByIdAndUpdate(userId, { $set: { coverUrl: viewUrl } }, { new: true, runValidators: true });
+    if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+    if (current?.coverUrl && current.coverUrl !== viewUrl) {
+      try {
+        const { deleteFromAppwrite } = await import("../config/appwrite.js");
+        const fileId = current.coverUrl.match(/\/files\/([^/]+)\//)?.[1];
+        if (fileId) await deleteFromAppwrite(fileId);
+      } catch {}
+    }
+    return user.toSafeObject();
+  },
+
+  async setPinnedPost(userId, postId) {
+    if (!postId) {
+      const user = await User.findByIdAndUpdate(userId, { $unset: { pinnedPost: 1 } }, { new: true });
+      if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+      return user.toSafeObject();
+    }
+    const { Post } = await import("../models/Post.js");
+    const post = await Post.findById(postId).select("author").lean();
+    if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
+    if (String(post.author) !== String(userId)) throw new AppError("You can only pin your own posts", 403, "FORBIDDEN");
+    const user = await User.findByIdAndUpdate(userId, { $set: { pinnedPost: postId } }, { new: true, runValidators: true });
+    if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+    return user.toSafeObject();
+  },
+
   async updateMe(userId, data) {
-    const allowed = ["fullName", "bio", "college", "course", "academicYear", "avatarUrl"];
+    const allowed = ["fullName", "bio", "college", "course", "academicYear", "avatarUrl", "coverUrl", "accent"];
     const update = {};
     for (const k of allowed) if (data[k] !== undefined) update[k] = data[k];
 
     // normalize empty string -> null for optional fields
-    for (const k of ["bio", "college", "course", "academicYear", "avatarUrl"]) {
+    for (const k of ["bio", "college", "course", "academicYear", "avatarUrl", "coverUrl", "accent"]) {
       if (update[k] === "") update[k] = null;
     }
     // socialLinks — accept object {github, twitter, linkedin, instagram} as username/handle only

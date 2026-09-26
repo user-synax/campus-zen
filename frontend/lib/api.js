@@ -318,4 +318,25 @@ export const api = {
     }
     return data;
   },
+  uploadCover: async (file) => {
+    const form = new FormData();
+    form.append("cover", file);
+    const res = await fetch(`${BASE}/api/users/me/cover`, {
+      method: "POST",
+      body: form,
+      credentials: "include",
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = data.message || `Upload failed (${res.status})`;
+      const err = new Error(msg);
+      err.status = res.status;
+      err.data = data;
+      throw err;
+    }
+    return data;
+  },
+  pinPost: (postId) =>
+    request("/api/users/me/pin", { method: "POST", body: { postId } }),
+  unpinPost: () => request("/api/users/me/pin", { method: "DELETE" }),
 };

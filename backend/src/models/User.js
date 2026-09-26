@@ -40,6 +40,16 @@ const userSchema = new mongoose.Schema(
     },
     // optional profile fields per PRD §8
     avatarUrl: { type: String, default: null },
+    coverUrl: { type: String, default: null },
+    accent: {
+      type: String,
+      default: null,
+      enum: {
+        values: ["peach", "lavender", "mint", "sky", "rose", null],
+        message: "{VALUE} is not a supported accent",
+      },
+    },
+    pinnedPost: { type: mongoose.Schema.Types.ObjectId, ref: "Post", default: null },
     bio: { type: String, default: null, maxlength: 160 },
     college: { type: String, default: null, trim: true },
     course: { type: String, default: null, trim: true }, // branch

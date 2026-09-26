@@ -70,4 +70,20 @@ export const userController = {
     const user = await userService.updateAvatar(req.user._id, req.file);
     res.json({ success: true, message: "Avatar updated", data: { user } });
   }),
+
+  updateCover: asyncHandler(async (req, res) => {
+    if (!req.file) throw new (await import("../utils/AppError.js")).AppError("No cover file provided", 400, "NO_FILE");
+    const user = await userService.updateCover(req.user._id, req.file);
+    res.json({ success: true, message: "Cover updated", data: { user } });
+  }),
+
+  pinPost: asyncHandler(async (req, res) => {
+    const user = await userService.setPinnedPost(req.user._id, req.body.postId);
+    res.json({ success: true, message: "Post pinned", data: { user } });
+  }),
+
+  unpinPost: asyncHandler(async (req, res) => {
+    const user = await userService.setPinnedPost(req.user._id, null);
+    res.json({ success: true, message: "Post unpinned", data: { user } });
+  }),
 };

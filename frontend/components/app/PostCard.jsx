@@ -8,6 +8,8 @@ import {
   MessageCircle,
   MoreHorizontal,
   Pencil,
+  Pin,
+  PinOff,
   Repeat2,
   Send,
   Trash2,
@@ -46,6 +48,8 @@ export function PostCard({
   onDelete,
   onUpdate,
   isDetail = false,
+  isPinned = false,
+  onPinChange,
 }) {
   const router = useRouter();
   const [post, setPost] = useState(initialPost);
@@ -66,6 +70,7 @@ export function PostCard({
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState(initialPost.text);
   const [editLoading, setEditLoading] = useState(false);
+  const [pinLoading, setPinLoading] = useState(false);
   const replyRef = useRef(null);
   const editRef = useRef(null);
   const replyMention = useMentionAutocomplete({
@@ -180,6 +185,22 @@ export function PostCard({
       await api.deletePost(post._id);
       onDelete?.(post._id);
     } catch {}
+  };
+
+  const handlePinToggle = async () => {
+    if (pinLoading) return;
+    setPinLoading(true);
+    try {
+      if (isPinned) {
+        await api.unpinPost();
+        onPinChange?.(null);
+      } else {
+        await api.pinPost(post._id);
+        onPinChange?.(post);
+      }
+    } catch {}
+    setPinLoading(false);
+    setMenuOpen(false);
   };
 
   const author = post.author || {};
@@ -328,17 +349,31 @@ export function PostCard({
               <>
                 {/* desktop dropdown */}
                 <div className="hidden sm:block absolute right-0 top-9 z-10 w-[160px] rounded-[12px] border border-[var(--cz-border)] bg-[var(--cz-surface-strong)] shadow-[0_8px_24px_rgba(0,0,0,0.4)] overflow-hidden">
-                  {isOwn && post.text ? (
+                  {isOwn ? (
                     <>
                       <button
-                        onClick={() => {
-                          setEditing(true);
-                          setMenuOpen(false);
-                        }}
-                        className="w-full flex items-center gap-2 px-3 h-[36px] text-[13px] hover:bg-[rgba(255,206,173,0.06)] text-left"
+                        onClick={handlePinToggle}
+                        disabled={pinLoading}
+                        className="w-full flex items-center gap-2 px-3 h-[36px] text-[13px] hover:bg-[rgba(255,206,173,0.06)] text-left disabled:opacity-50"
                       >
-                        <Pencil className="h-3.5 w-3.5" /> Edit
+                        {isPinned ? (
+                          <PinOff className="h-3.5 w-3.5" />
+                        ) : (
+                          <Pin className="h-3.5 w-3.5" />
+                        )}{" "}
+                        {isPinned ? "Unpin" : "Pin to profile"}
                       </button>
+                      {post.text ? (
+                        <button
+                          onClick={() => {
+                            setEditing(true);
+                            setMenuOpen(false);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 h-[36px] text-[13px] hover:bg-[rgba(255,206,173,0.06)] text-left"
+                        >
+                          <Pencil className="h-3.5 w-3.5" /> Edit
+                        </button>
+                      ) : null}
                       <button
                         onClick={handleDelete}
                         className="w-full flex items-center gap-2 px-3 h-[36px] text-[13px] hover:bg-[rgba(255,90,106,0.08)] text-[var(--cz-error)] text-left"
@@ -367,17 +402,31 @@ export function PostCard({
                   />
                   <div className="relative w-full max-w-[420px] rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)] shadow-[0_16px_40px_rgba(0,0,0,0.5)] overflow-hidden animate-[t-panel-slide] p-2">
                     <div className="mx-auto h-1 w-8 rounded-full bg-[var(--cz-border)] mb-2" />
-                    {isOwn && post.text ? (
+                    {isOwn ? (
                       <>
                         <button
-                          onClick={() => {
-                            setEditing(true);
-                            setMenuOpen(false);
-                          }}
-                          className="w-full flex items-center gap-3 px-3 h-[44px] text-[14px] hover:bg-[rgba(255,206,173,0.06)] rounded-[10px] text-left"
+                          onClick={handlePinToggle}
+                          disabled={pinLoading}
+                          className="w-full flex items-center gap-3 px-3 h-[44px] text-[14px] hover:bg-[rgba(255,206,173,0.06)] rounded-[10px] text-left disabled:opacity-50"
                         >
-                          <Pencil className="h-4 w-4" /> Edit post
+                          {isPinned ? (
+                            <PinOff className="h-4 w-4" />
+                          ) : (
+                            <Pin className="h-4 w-4" />
+                          )}{" "}
+                          {isPinned ? "Unpin" : "Pin to profile"}
                         </button>
+                        {post.text ? (
+                          <button
+                            onClick={() => {
+                              setEditing(true);
+                              setMenuOpen(false);
+                            }}
+                            className="w-full flex items-center gap-3 px-3 h-[44px] text-[14px] hover:bg-[rgba(255,206,173,0.06)] rounded-[10px] text-left"
+                          >
+                            <Pencil className="h-4 w-4" /> Edit post
+                          </button>
+                        ) : null}
                         <button
                           onClick={handleDelete}
                           className="w-full flex items-center gap-3 px-3 h-[44px] text-[14px] hover:bg-[rgba(255,90,106,0.08)] text-[var(--cz-error)] rounded-[10px] text-left"

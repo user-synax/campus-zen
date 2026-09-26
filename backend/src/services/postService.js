@@ -119,6 +119,7 @@ export const postService = {
     await Post.deleteOne({ _id: postId });
     await Promise.all([
       User.findByIdAndUpdate(userId, { $inc: { postCount: -1 } }),
+      User.updateOne({ _id: userId, pinnedPost: postId }, { $unset: { pinnedPost: 1 } }),
       Comment.deleteMany({ post: postId }),
       Like.deleteMany({ post: postId }),
       Repost.deleteMany({ post: postId }),

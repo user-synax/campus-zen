@@ -12,10 +12,10 @@ import {
   MoreHorizontal,
   Twitter,
 } from "lucide-react";
-import Link from "next/link";
 import { useState } from "react";
 import { AnimatedNumber } from "@/components/app/AnimatedNumber";
 import { Button } from "@/components/ui/button";
+import { accentFor } from "@/lib/accents";
 
 export function ProfileHeader({
   user,
@@ -32,6 +32,7 @@ export function ProfileHeader({
   blockLoading,
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const accent = accentFor(user.accent);
   const initials = (user.fullName || user.username || "U")
     .trim()
     .slice(0, 2)
@@ -49,21 +50,51 @@ export function ProfileHeader({
 
   return (
     <div className="relative isolate overflow-hidden rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)]">
+      {/* accent hairline */}
+      <div
+        aria-hidden
+        className="absolute top-0 left-0 right-0 h-px z-20"
+        style={{
+          background: `linear-gradient(to right, transparent, ${accent.dot}66, transparent)`,
+        }}
+      />
       {/* cover */}
-      <div className="h-[88px] sm:h-[112px] w-full bg-gradient-to-br from-[var(--cz-muted)]/30 via-[var(--cz-surface-strong)] to-[var(--cz-bg)] relative z-0">
-        <div
-          aria-hidden
-          className="absolute inset-0 opacity-40"
-          style={{
-            background:
-              "radial-gradient(600px 200px at 20% 0%, rgba(125,130,217,0.35), transparent 60%), radial-gradient(400px 160px at 80% 100%, rgba(255,206,173,0.18), transparent 60%)",
-          }}
-        />
+      <div className="h-[88px] sm:h-[112px] w-full relative z-0 overflow-hidden bg-[var(--cz-surface-strong)]">
+        {user.coverUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={user.coverUrl}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        ) : (
+          <>
+            <div
+              aria-hidden
+              className="absolute inset-0"
+              style={{
+                background: `linear-gradient(135deg, ${accent.from}, transparent 55%, ${accent.to})`,
+              }}
+            />
+            <div
+              aria-hidden
+              className="absolute inset-0 opacity-40"
+              style={{
+                background: `radial-gradient(600px 200px at 20% 0%, ${accent.from}, transparent 60%), radial-gradient(400px 160px at 80% 100%, ${accent.to}, transparent 60%)`,
+              }}
+            />
+          </>
+        )}
       </div>
 
       <div className="px-4 sm:px-5 pb-4 relative z-10">
         <div className="flex items-start justify-between gap-3 -mt-8 sm:-mt-10 relative z-10">
-          <span className="relative z-10 grid place-items-center h-[72px] w-[72px] sm:h-[84px] sm:w-[84px] rounded-full border-[3px] border-[var(--cz-surface)] bg-[var(--cz-bg)] text-[18px] font-semibold text-[var(--cz-text-primary)] shadow-[0_8px_24px_rgba(0,0,0,0.35)] overflow-hidden">
+          <span
+            className="relative z-10 grid place-items-center h-[72px] w-[72px] sm:h-[84px] sm:w-[84px] rounded-full border-[3px] border-[var(--cz-surface)] bg-[var(--cz-bg)] text-[18px] font-semibold text-[var(--cz-text-primary)] overflow-hidden"
+            style={{
+              boxShadow: `0 0 0 2px ${accent.ring}, 0 8px 24px rgba(0,0,0,0.35)`,
+            }}
+          >
             {user.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
