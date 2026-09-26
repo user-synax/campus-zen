@@ -1,13 +1,13 @@
 "use client";
 
+import { Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
-import { LeftNav, LeftBrand, LeftUserCard } from "@/components/app/LeftNav";
 import { BottomNav } from "@/components/app/BottomNav";
+import { LeftBrand, LeftNav, LeftUserCard } from "@/components/app/LeftNav";
 import { RightMinimal } from "@/components/app/RightMinimal";
 import { VerifyBanner } from "@/components/app/VerifyBanner";
 import { api } from "@/lib/api";
-import { Loader2 } from "lucide-react";
 
 export default function AppLayout({ children }) {
   const router = useRouter();
@@ -53,7 +53,9 @@ export default function AppLayout({ children }) {
     return (
       <div className="min-h-dvh bg-[var(--cz-bg)] grid place-items-center px-4">
         <div className="flex flex-col items-center gap-3">
-          <span className="grid place-items-center h-10 w-10 rounded-[12px] bg-[var(--cz-text-primary)] text-[var(--cz-text-inverse)] font-bold text-[14px] animate-pulse">CZ</span>
+          <span className="grid place-items-center h-10 w-10 rounded-[12px] bg-[var(--cz-text-primary)] text-[var(--cz-text-inverse)] font-bold text-[14px] animate-pulse">
+            CZ
+          </span>
           <span className="inline-flex items-center gap-2 text-[13px] text-[var(--cz-text-secondary)]">
             <Loader2 className="h-4 w-4 animate-spin" /> Loading CampusZen…
           </span>
@@ -68,42 +70,26 @@ export default function AppLayout({ children }) {
     <div className="min-h-dvh bg-[var(--cz-bg)] text-[var(--cz-text-primary)]">
       {/* top bar mobile */}
       <header className="lg:hidden sticky top-0 z-20 flex items-center justify-between border-b border-[var(--cz-border)] bg-[var(--cz-bg)]/90 backdrop-blur px-4 h-[56px]">
-        <LeftBrand collapsed={false} />
-        <span className="text-[11px] tracking-[0.06em] uppercase text-[var(--cz-text-secondary)]">App • MVP</span>
+        <LeftBrand />
+        <span className="text-[11px] tracking-[0.06em] uppercase text-[var(--cz-text-secondary)]">
+          App • MVP
+        </span>
       </header>
 
       <div className="mx-auto max-w-[1280px] px-0 lg:px-4">
-        <div className="grid lg:grid-cols-[272px_1fr_320px] md:grid-cols-[68px_1fr] grid-cols-1 gap-0 lg:gap-6">
-          {/* left nav desktop/tablet */}
-          <aside className="hidden md:flex flex-col sticky top-0 h-[100dvh] py-4 lg:py-6 gap-4 overflow-hidden">
-            {/* brand */}
-            <div className="px-2 lg:px-3">
-              {/* show full at lg, icon at md */}
-              <span className="hidden lg:block">
-                <LeftBrand collapsed={false} />
-              </span>
-              <span className="hidden md:block lg:hidden">
-                <LeftBrand collapsed={true} />
-              </span>
+        <div className="grid lg:grid-cols-[248px_minmax(0,1fr)_300px] md:grid-cols-[68px_1fr] grid-cols-1 gap-0 lg:gap-6">
+          {/* left nav desktop/tablet — single instance, collapses via CSS */}
+          <aside className="hidden md:flex flex-col items-center lg:items-stretch sticky top-0 h-[100dvh] py-5 gap-5 overflow-hidden">
+            <div className="px-0 lg:px-3">
+              <LeftBrand />
             </div>
 
-            {/* nav — Create Post lives inside LeftNav only */}
-            <div className="flex-1 overflow-y-auto px-2 lg:px-2 space-y-3">
-              <div className="hidden lg:block">
-                <LeftNav user={user} collapsed={false} />
-              </div>
-              <div className="hidden md:block lg:hidden">
-                <LeftNav user={user} collapsed={true} />
-              </div>
+            <div className="w-full px-0 lg:px-2">
+              <LeftNav />
             </div>
 
-            <div className="px-2 lg:px-3 mt-auto">
-              <div className="hidden lg:block">
-                <LeftUserCard user={user} collapsed={false} />
-              </div>
-              <div className="hidden md:block lg:hidden">
-                <LeftUserCard user={user} collapsed={true} />
-              </div>
+            <div className="px-0 lg:px-2 mt-auto w-full">
+              <LeftUserCard user={user} />
             </div>
           </aside>
 
@@ -116,7 +102,9 @@ export default function AppLayout({ children }) {
               </div>
             ) : null}
 
-            <div className="flex-1 px-3 sm:px-4 lg:px-6 py-4 pb-[72px] lg:pb-4">{children}</div>
+            <div className="flex-1 px-3 sm:px-4 lg:px-6 py-4 pb-[72px] lg:pb-4">
+              {children}
+            </div>
           </main>
 
           {/* right minimal desktop only */}

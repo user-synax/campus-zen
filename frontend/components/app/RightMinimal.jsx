@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { ArrowRight, Search } from "lucide-react";
 import Link from "next/link";
-import { Users, Search, Plus, ArrowRight } from "lucide-react";
+import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 
 function initialsFor(u) {
@@ -34,34 +34,65 @@ function SuggestRow({ user, onFollowed }) {
 
   return (
     <div className="flex items-center gap-2.5 py-2">
-      <Link href={`/u/${user.username}`} className="grid place-items-center h-9 w-9 rounded-full bg-[var(--cz-muted)] text-white text-[12px] font-semibold shrink-0 overflow-hidden">
+      <Link
+        href={`/u/${user.username}`}
+        className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-muted)] text-[12px] font-semibold text-white"
+      >
         {user.avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={user.avatarUrl} alt={user.username} className="h-full w-full object-cover" />
+          <img
+            src={user.avatarUrl}
+            alt={user.username}
+            className="h-full w-full object-cover"
+          />
         ) : (
           initialsFor(user)
         )}
       </Link>
       <Link href={`/u/${user.username}`} className="min-w-0 flex-1">
-        <span className="block text-[13px] font-medium leading-none truncate text-[var(--cz-text-primary)] hover:text-white transition-colors">
+        <span className="block truncate text-[13px] font-medium leading-tight text-[var(--cz-text-primary)]">
           {user.fullName || user.username}
         </span>
-        <span className="block text-[12px] leading-none text-[var(--cz-text-secondary)] truncate mt-1">
+        <span className="block truncate text-[12px] leading-tight text-[var(--cz-text-secondary)]">
           @{user.username}
           {user.college ? ` • ${user.college}` : ""}
         </span>
       </Link>
       <button
+        type="button"
         onClick={toggle}
         disabled={busy}
-        className={`shrink-0 inline-flex items-center justify-center rounded-full px-3 h-[28px] text-[12px] font-medium transition-colors disabled:opacity-50 ${
+        className={`inline-flex h-7 shrink-0 items-center justify-center rounded-full px-3 text-[12px] font-medium transition-colors disabled:opacity-50 ${
           following
-            ? "border border-[var(--cz-border)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] hover:border-[var(--cz-border-strong)]"
-            : "bg-[var(--cz-text-primary)] text-[var(--cz-text-inverse)] hover:bg-[#ffd9c0]"
+            ? "text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)]"
+            : "bg-[rgba(255,206,173,0.1)] text-[var(--cz-text-primary)] hover:bg-[rgba(255,206,173,0.16)]"
         }`}
       >
-        {busy ? <span className="h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin" /> : following ? "Following" : "Follow"}
+        {busy ? (
+          <span className="h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin" />
+        ) : following ? (
+          "Following"
+        ) : (
+          "Follow"
+        )}
       </button>
+    </div>
+  );
+}
+
+function Skeleton() {
+  return (
+    <div className="flex flex-col">
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} className="flex animate-pulse items-center gap-2.5 py-2">
+          <div className="h-8 w-8 rounded-full bg-[var(--cz-border)]" />
+          <div className="flex-1 space-y-1.5">
+            <div className="h-3 w-24 rounded bg-[var(--cz-border)]" />
+            <div className="h-2 w-16 rounded bg-[var(--cz-border)]/60" />
+          </div>
+          <div className="h-7 w-14 rounded-full bg-[var(--cz-border)]/60" />
+        </div>
+      ))}
     </div>
   );
 }
@@ -78,7 +109,9 @@ export function RightMinimal({ currentUser }) {
         if (cancelled) return;
         const users = res.data?.users || [];
         const me = currentUser?.username?.toLowerCase();
-        const filtered = users.filter((u) => u.username?.toLowerCase() !== me && !u.isFollowing).slice(0, 4);
+        const filtered = users
+          .filter((u) => u.username?.toLowerCase() !== me && !u.isFollowing)
+          .slice(0, 4);
         setSuggested(filtered);
       } catch {
         if (!cancelled) setSuggested([]);
@@ -93,83 +126,63 @@ export function RightMinimal({ currentUser }) {
 
   const handleFollowed = (id, isNowFollowing) => {
     // remove from suggestions once followed to keep rail fresh
-    if (isNowFollowing) setSuggested((prev) => prev.filter((u) => u._id !== id));
+    if (isNowFollowing)
+      setSuggested((prev) => prev.filter((u) => u._id !== id));
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Suggested students — live */}
-      <div className="rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)] overflow-hidden">
-        <div className="h-px w-full bg-gradient-to-r from-transparent via-[rgba(255,206,173,0.12)] to-transparent" />
-        <div className="p-4">
-          <h3 className="text-[11px] font-semibold tracking-[0.08em] uppercase text-[var(--cz-text-secondary)] flex items-center gap-1.5">
-            <Users className="h-3.5 w-3.5" /> Suggested students
-          </h3>
-
-          <div className="mt-1 divide-y divide-[var(--cz-border)]/50">
-            {loading ? (
-              Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="flex items-center gap-2.5 py-2 animate-pulse">
-                  <div className="h-9 w-9 rounded-full bg-[var(--cz-border)]" />
-                  <div className="flex-1 space-y-1.5">
-                    <div className="h-3 w-24 rounded bg-[var(--cz-border)]" />
-                    <div className="h-2 w-16 rounded bg-[var(--cz-border)]/60" />
-                  </div>
-                  <div className="h-[28px] w-[64px] rounded-full bg-[var(--cz-border)]/60" />
-                </div>
-              ))
-            ) : suggested.length === 0 ? (
-              <div className="py-3 text-center">
-                <p className="text-[13px] font-medium text-[var(--cz-text-primary)]">You&apos;re all caught up</p>
-                <p className="mt-1 text-[12px] leading-[16px] text-[var(--cz-text-secondary)]">
-                  No new students to suggest. Search by college or course to find more.
-                </p>
-                <Link
-                  href="/app/search"
-                  className="mt-3 inline-flex items-center justify-center gap-1 rounded-[10px] border border-[var(--cz-border)] px-3 h-[32px] text-[12px] font-medium text-[var(--cz-text-primary)] hover:bg-[rgba(255,206,173,0.06)] transition-colors"
-                >
-                  <Search className="h-3.5 w-3.5" /> Search students
-                </Link>
-              </div>
-            ) : (
-              suggested.map((u) => <SuggestRow key={u._id} user={u} onFollowed={handleFollowed} />)
-            )}
-          </div>
-
-          {suggested.length > 0 ? (
-            <Link
-              href="/u"
-              className="mt-2 inline-flex items-center gap-1 text-[12px] font-medium text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] transition-colors"
-            >
-              View all students <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          ) : null}
+    <div className="flex flex-col gap-7">
+      <section>
+        <h3 className="text-[11px] font-medium uppercase tracking-[0.12em] text-[var(--cz-text-secondary)]/70">
+          Suggested
+        </h3>
+        <div className="mt-1">
+          {loading ? (
+            <Skeleton />
+          ) : suggested.length === 0 ? (
+            <p className="py-2 text-[13px] leading-[19px] text-[var(--cz-text-secondary)]">
+              You&apos;re all caught up.{" "}
+              <Link
+                href="/app/search"
+                className="text-[var(--cz-text-primary)] underline-offset-4 hover:underline"
+              >
+                Search
+              </Link>{" "}
+              to find more students.
+            </p>
+          ) : (
+            suggested.map((u) => (
+              <SuggestRow key={u._id} user={u} onFollowed={handleFollowed} />
+            ))
+          )}
         </div>
-      </div>
+        {suggested.length > 0 ? (
+          <Link
+            href="/u"
+            className="mt-1 inline-flex items-center gap-1 text-[12px] font-medium text-[var(--cz-text-secondary)] transition-colors hover:text-[var(--cz-text-primary)]"
+          >
+            View all <ArrowRight className="h-3 w-3" />
+          </Link>
+        ) : null}
+      </section>
 
-      {/* Quick actions — real routes */}
-      <div className="rounded-[16px] border border-[var(--cz-border)] bg-[rgba(255,255,255,0.02)] p-4">
-        <h3 className="text-[11px] font-semibold tracking-[0.08em] uppercase text-[var(--cz-text-secondary)]">Explore</h3>
-        <div className="mt-3 grid gap-2">
-          <Link
-            href="/app/search"
-            className="flex items-center gap-2.5 rounded-[10px] border border-[var(--cz-border)] bg-transparent px-3 h-[36px] text-[13px] font-medium text-[var(--cz-text-primary)] hover:bg-[rgba(255,206,173,0.06)] transition-colors"
-          >
-            <Search className="h-4 w-4 text-[var(--cz-text-secondary)]" /> Search posts & students
+      <section className="border-t border-[var(--cz-border)] pt-5">
+        <Link
+          href="/app/search"
+          className="flex items-center gap-2 text-[13px] text-[var(--cz-text-secondary)] transition-colors hover:text-[var(--cz-text-primary)]"
+        >
+          <Search className="h-4 w-4" /> Search posts & students
+        </Link>
+        <div className="mt-4 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-[var(--cz-text-secondary)]/60">
+          <Link href="/terms" className="hover:text-[var(--cz-text-primary)]">
+            Terms
           </Link>
-          <Link
-            href="/app/create"
-            className="flex items-center gap-2.5 rounded-[10px] bg-[var(--cz-text-primary)] px-3 h-[36px] text-[13px] font-medium text-[var(--cz-text-inverse)] hover:bg-[#ffd9c0] transition-colors"
-          >
-            <Plus className="h-4 w-4" /> Share an update
+          <Link href="/privacy" className="hover:text-[var(--cz-text-primary)]">
+            Privacy
           </Link>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-[var(--cz-text-secondary)]/70">
-          <Link href="/terms" className="hover:text-[var(--cz-text-primary)]">Terms</Link>
-          <Link href="/privacy" className="hover:text-[var(--cz-text-primary)]">Privacy</Link>
           <span>© 2026 CampusZen</span>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

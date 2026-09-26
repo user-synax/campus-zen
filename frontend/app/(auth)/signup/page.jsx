@@ -9,7 +9,6 @@ import { PasswordStrength } from "@/components/auth/PasswordStrength";
 import { Label } from "@/components/ui/label";
 import { InputWrap, InputShell, ErrorMsg } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { api } from "@/lib/api";
 
 const EMAIL_ALLOW = ["gmail.com", "proton.me"];
@@ -36,7 +35,6 @@ export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
-  const [agree, setAgree] = useState(false);
   const [loading, setLoading] = useState(false);
   const [serverError, setServerError] = useState("");
 
@@ -96,7 +94,6 @@ export default function SignupPage() {
     else if (!isValidEmail(email)) e.email = `Use a gmail.com or proton.me email.`;
     if (!password) e.password = "Create a password.";
     else if (password.length < 8) e.password = "Minimum 8 characters.";
-    if (!agree) e.agree = "You must agree to Terms and Privacy.";
 
     setErrors(e);
     Object.keys(e).forEach((k) => triggerShake(k));
@@ -303,23 +300,17 @@ export default function SignupPage() {
           </InputWrap>
         </div>
 
-        <div className="flex items-start gap-2.5 pt-1">
-          <Checkbox id="agree" checked={agree} onChange={setAgree} label="" className="shrink-0 mt-[1px]" />
-          <div className="min-w-0 flex-1">
-            <p className="text-[12.5px] leading-[18px] text-[var(--cz-text-secondary)]">
-              I agree to the{" "}
-              <Link href="/terms" className="text-[var(--cz-text-primary)] underline decoration-[var(--cz-border-strong)] underline-offset-4 hover:decoration-[var(--cz-text-primary)]">
-                Terms
-              </Link>{" "}
-              and{" "}
-              <Link href="/privacy" className="text-[var(--cz-text-primary)] underline decoration-[var(--cz-border-strong)] underline-offset-4 hover:decoration-[var(--cz-text-primary)]">
-                Privacy Policy
-              </Link>
-              .
-            </p>
-            {errors.agree ? <p className="mt-1 text-[12px] leading-[16px] text-[var(--cz-error)]">{errors.agree}</p> : null}
-          </div>
-        </div>
+        <p className="text-center text-[12px] leading-[18px] text-[var(--cz-text-secondary)]">
+          By creating an account, you agree to our{" "}
+          <Link href="/terms" className="text-[var(--cz-text-primary)] underline decoration-[var(--cz-border-strong)] underline-offset-4 hover:decoration-[var(--cz-text-primary)]">
+            Terms
+          </Link>{" "}
+          and{" "}
+          <Link href="/privacy" className="text-[var(--cz-text-primary)] underline decoration-[var(--cz-border-strong)] underline-offset-4 hover:decoration-[var(--cz-text-primary)]">
+            Privacy Policy
+          </Link>
+          .
+        </p>
 
         <Button type="submit" disabled={loading} className="mt-2 w-full">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
