@@ -1,26 +1,75 @@
 const BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
+function toApiError(res, data) {
+  const msg = data.message || `Request failed (${res.status})`;
+  const err = new Error(msg);
+  err.status = res.status;
+  err.data = data;
+  err.details = data.details;
+  return err;
+}
+
+// Auth endpoints must never trigger a refresh — a 401 here means
+// bad credentials / expired OTP, not an expired access token.
+const NO_AUTO_RETRY = new Set([
+  "/api/auth/login",
+  "/api/auth/signup",
+  "/api/auth/refresh",
+  "/api/auth/logout",
+  "/api/auth/verify-email",
+  "/api/auth/resend-otp",
+  "/api/auth/forgot-password",
+  "/api/auth/reset-password",
+  "/api/auth/check-username",
+]);
+
+function shouldAutoRetry(path) {
+  return !NO_AUTO_RETRY.has(path.split("?")[0]);
+}
+
+// Single-flight session refresh: concurrent 401s share one rotation.
+let refreshPromise = null;
+function refreshSession() {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      try {
+        await request("/api/auth/refresh", { method: "POST", _skipRetry: true });
+      } finally {
+        refreshPromise = null;
+      }
+    })();
+  }
+  return refreshPromise;
+}
+
 async function request(
   path,
-  { method = "GET", body, credentials = "include", headers = {} } = {},
+  { method = "GET", body, form, credentials = "include", headers = {}, _retried = false, _skipRetry = false } = {},
 ) {
   const opts = {
     method,
-    headers: { "Content-Type": "application/json", ...headers },
+    headers: { ...headers },
     credentials,
   };
-  if (body !== undefined) opts.body = JSON.stringify(body);
+  if (form !== undefined) {
+    // multipart — browser sets Content-Type + boundary
+    opts.body = form;
+  } else {
+    opts.headers["Content-Type"] = "application/json";
+    if (body !== undefined) opts.body = JSON.stringify(body);
+  }
 
   const res = await fetch(`${BASE}${path}`, opts);
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const msg = data.message || `Request failed (${res.status})`;
-    const err = new Error(msg);
-    err.status = res.status;
-    err.data = data;
-    err.details = data.details;
-    throw err;
+  if (res.status === 401 && !_retried && !_skipRetry && shouldAutoRetry(path)) {
+    try {
+      await refreshSession();
+      return request(path, { method, body, form, credentials, headers, _retried: true });
+    } catch {
+      // refresh failed — fall through and throw the original 401
+    }
   }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw toApiError(res, data);
   return data;
 }
 
@@ -198,25 +247,12 @@ export const api = {
       { method: "GET" },
     );
   },
-  createPost: async (text, image) => {
+  createPost: (text, image) => {
     if (image) {
       const form = new FormData();
       if (text) form.append("text", text);
       form.append("image", image);
-      const res = await fetch(`${BASE}/api/posts`, {
-        method: "POST",
-        body: form,
-        credentials: "include",
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const msg = data.message || `Post failed (${res.status})`;
-        const err = new Error(msg);
-        err.status = res.status;
-        err.data = data;
-        throw err;
-      }
-      return data;
+      return request("/api/posts", { method: "POST", form });
     }
     return request("/api/posts", { method: "POST", body: { text } });
   },
@@ -317,41 +353,15 @@ export const api = {
       { method: "GET" },
     );
   },
-  uploadAvatar: async (file) => {
+  uploadAvatar: (file) => {
     const form = new FormData();
     form.append("avatar", file);
-    const res = await fetch(`${BASE}/api/users/me/avatar`, {
-      method: "POST",
-      body: form,
-      credentials: "include",
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      const msg = data.message || `Upload failed (${res.status})`;
-      const err = new Error(msg);
-      err.status = res.status;
-      err.data = data;
-      throw err;
-    }
-    return data;
+    return request("/api/users/me/avatar", { method: "POST", form });
   },
-  uploadCover: async (file) => {
+  uploadCover: (file) => {
     const form = new FormData();
     form.append("cover", file);
-    const res = await fetch(`${BASE}/api/users/me/cover`, {
-      method: "POST",
-      body: form,
-      credentials: "include",
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      const msg = data.message || `Upload failed (${res.status})`;
-      const err = new Error(msg);
-      err.status = res.status;
-      err.data = data;
-      throw err;
-    }
-    return data;
+    return request("/api/users/me/cover", { method: "POST", form });
   },
   pinPost: (postId) =>
     request("/api/users/me/pin", { method: "POST", body: { postId } }),

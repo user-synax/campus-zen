@@ -1,19 +1,21 @@
 "use client";
 
 import {
+  BadgeCheck,
   Bookmark,
+  ChevronRight,
   FileText,
   Loader2,
+  Lock,
   LogOut,
-  Settings,
   Shield,
   User,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { EmptyState } from "@/components/app/EmptyState";
 import { api } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 export default function MenuPage() {
   const router = useRouter();
@@ -23,6 +25,8 @@ export default function MenuPage() {
   const [blocked, setBlocked] = useState([]);
   const [loadingBlocked, setLoadingBlocked] = useState(true);
   const [unblocking, setUnblocking] = useState(null);
+
+  const [showBlocked, setShowBlocked] = useState(false);
 
   useEffect(() => {
     api
@@ -55,123 +59,165 @@ export default function MenuPage() {
     router.refresh();
   };
 
-  return (
-    <div className="mx-auto w-full max-w-[640px] space-y-4">
-      <h1 className="text-[18px] font-semibold tracking-[-0.02em]">Menu</h1>
+  const initial = (
+    user?.fullName?.[0] ||
+    user?.username?.[0] ||
+    "U"
+  ).toUpperCase();
+  const profileHref = "/app/profile";
 
-      <div className="rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)] overflow-hidden">
-        <div className="h-px w-full bg-gradient-to-r from-transparent via-[rgba(255,206,173,0.12)] to-transparent" />
-        <div className="p-4 flex items-center gap-3">
-          <span className="grid place-items-center h-11 w-11 rounded-full bg-[var(--cz-muted)] text-white font-semibold">
-            {(user?.fullName?.[0] || user?.username?.[0] || "U").toUpperCase()}
-          </span>
-          <span className="min-w-0 flex-1">
-            {loadingUser ? (
-              <span className="inline-flex items-center gap-1.5 text-[13px] text-[var(--cz-text-secondary)]">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…
-              </span>
-            ) : (
-              <>
-                <span className="block text-[14px] font-medium leading-none truncate">
+  const rowBase =
+    "flex w-full items-center gap-3 px-4 min-h-[56px] py-3 text-left transition-colors active:bg-[rgba(255,206,173,0.06)] hover:bg-[rgba(255,206,173,0.04)]";
+  const iconWrap =
+    "grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[rgba(255,206,173,0.08)] text-[var(--cz-text-primary)]";
+
+  return (
+    <div className="mx-auto w-full max-w-[520px] pb-2">
+      {/* Profile hero — single tap to profile */}
+      <Link
+        href={profileHref}
+        aria-label="View your profile"
+        className="group flex items-center gap-3 rounded-[20px] border border-[var(--cz-border)] bg-[var(--cz-surface)] p-4 transition-colors hover:border-[var(--cz-border-strong)] active:bg-[rgba(255,206,173,0.04)]"
+      >
+        <span className="relative grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-muted)] text-[18px] font-semibold text-white">
+          {user?.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={user.avatarUrl}
+              alt=""
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            initial
+          )}
+        </span>
+        <span className="min-w-0 flex-1">
+          {loadingUser ? (
+            <span className="block space-y-2" aria-hidden="true">
+              <span className="block h-4 w-32 animate-pulse rounded-full bg-[rgba(255,206,173,0.12)]" />
+              <span className="block h-3 w-24 animate-pulse rounded-full bg-[rgba(255,206,173,0.08)]" />
+            </span>
+          ) : (
+            <>
+              <span className="flex items-center gap-1.5 text-[16px] font-semibold leading-tight tracking-[-0.02em] truncate">
+                <span className="truncate">
                   {user?.fullName || "CampusZen Student"}
                 </span>
-                <span className="block text-[12px] leading-none text-[var(--cz-text-secondary)] mt-1 truncate">
-                  @{user?.username || "username"} • {user?.email || ""}
-                </span>
-                <span
-                  className={`mt-1.5 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium tracking-[0.04em] uppercase border ${user?.isEmailVerified ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-300" : "bg-amber-500/10 border-amber-500/20 text-amber-200"}`}
-                >
-                  {user?.isEmailVerified
-                    ? "Verified"
-                    : "Unverified — verify later"}
-                </span>
-              </>
-            )}
-          </span>
-        </div>
-
-        <div className="grid grid-cols-2 gap-0 border-t border-[var(--cz-border)]">
-          <Link
-            href="/app/menu"
-            className="flex items-center gap-2 px-4 h-[44px] border-r border-[var(--cz-border)] text-[13px] font-medium hover:bg-[rgba(255,206,173,0.06)]"
-          >
-            <User className="h-4 w-4 text-[var(--cz-muted)]" /> Profile
-          </Link>
-          <button
-            onClick={onLogout}
-            disabled={loggingOut}
-            className="flex items-center gap-2 px-4 h-[44px] text-[13px] font-medium hover:bg-[rgba(255,206,173,0.06)] text-[var(--cz-error)] disabled:opacity-50"
-          >
-            {loggingOut ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <LogOut className="h-4 w-4" />
-            )}{" "}
-            {loggingOut ? "Logging out…" : "Log out"}
-          </button>
-        </div>
-      </div>
-
-      <Link
-        href="/app/bookmarks"
-        className="flex items-center gap-3 rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)] px-4 h-[52px] hover:border-[var(--cz-border-strong)] transition-colors"
-      >
-        <Bookmark className="h-4 w-4 text-[var(--cz-muted)] shrink-0" />
-        <span className="flex-1 min-w-0">
-          <span className="block text-[13px] font-medium leading-tight">
-            Bookmarks
-          </span>
-          <span className="block text-[12px] leading-tight text-[var(--cz-text-secondary)]">
-            Your saved posts • private
-          </span>
+                {user?.isEmailVerified ? (
+                  <BadgeCheck
+                    className="h-4 w-4 shrink-0 text-emerald-300"
+                    aria-label="Verified"
+                  />
+                ) : null}
+              </span>
+              <span className="mt-0.5 block truncate text-[13px] leading-tight text-[var(--cz-text-secondary)]">
+                @{user?.username || "username"}
+              </span>
+            </>
+          )}
         </span>
-        <span
+        <ChevronRight
+          className="h-5 w-5 shrink-0 text-[var(--cz-text-secondary)] transition-transform group-active:translate-x-0.5"
           aria-hidden
-          className="text-[var(--cz-text-secondary)] text-[16px] leading-none"
-        >
-          →
-        </span>
+        />
       </Link>
 
-      <div className="grid gap-3">
-        <div className="rounded-[12px] border border-[var(--cz-border)] bg-[rgba(255,255,255,0.02)] p-4">
-          <h3 className="text-[13px] font-medium flex items-center gap-1.5">
-            <Settings className="h-4 w-4 text-[var(--cz-text-secondary)]" />{" "}
-            Account
-          </h3>
-          <p className="mt-1 text-[12px] leading-[16px] text-[var(--cz-text-secondary)]">
-            Edit profile, college/course/year per PRD §8 — coming after auth
-            stabilization.
-          </p>
-        </div>
-        <div className="rounded-[12px] border border-[var(--cz-border)] bg-[rgba(255,255,255,0.02)] p-4">
-          <h3 className="text-[13px] font-medium flex items-center gap-1.5">
-            <Shield className="h-4 w-4 text-[var(--cz-text-secondary)]" />{" "}
-            Safety
-          </h3>
-          <p className="mt-1 text-[12px] leading-[16px] text-[var(--cz-text-secondary)]">
-            Blocked accounts can&apos;t see you or interact with you, and vice
-            versa.
-          </p>
-          <div className="mt-3">
+      {/* Primary */}
+      <nav
+        aria-label="Menu"
+        className="mt-3 overflow-hidden rounded-[20px] border border-[var(--cz-border)] bg-[var(--cz-surface)] divide-y divide-[var(--cz-border)]/70"
+      >
+        <Link href={profileHref} className={rowBase}>
+          <span className={iconWrap}>
+            <User className="h-4 w-4" aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1 text-[14px] font-medium">
+            View profile
+          </span>
+          <ChevronRight
+            className="h-4 w-4 shrink-0 text-[var(--cz-text-secondary)]/70"
+            aria-hidden
+          />
+        </Link>
+        <Link href="/app/bookmarks" className={rowBase}>
+          <span className={iconWrap}>
+            <Bookmark className="h-4 w-4" aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[14px] font-medium leading-tight">
+              Bookmarks
+            </span>
+            <span className="block text-[12px] leading-tight text-[var(--cz-text-secondary)]">
+              Private to you
+            </span>
+          </span>
+          <ChevronRight
+            className="h-4 w-4 shrink-0 text-[var(--cz-text-secondary)]/70"
+            aria-hidden
+          />
+        </Link>
+      </nav>
+
+      {/* Safety + legal */}
+      <nav
+        aria-label="Settings and legal"
+        className="mt-3 overflow-hidden rounded-[20px] border border-[var(--cz-border)] bg-[var(--cz-surface)] divide-y divide-[var(--cz-border)]/70"
+      >
+        <button
+          type="button"
+          onClick={() => setShowBlocked((v) => !v)}
+          aria-expanded={showBlocked}
+          className={cn(rowBase, "cursor-pointer")}
+        >
+          <span className={iconWrap}>
+            <Shield className="h-4 w-4" aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1 text-[14px] font-medium">
+            Blocked
+          </span>
+          {loadingBlocked ? (
+            <Loader2
+              className="h-4 w-4 animate-spin text-[var(--cz-text-secondary)]"
+              aria-hidden
+            />
+          ) : blocked.length > 0 ? (
+            <span className="grid min-w-[22px] place-items-center rounded-full bg-[rgba(255,206,173,0.12)] px-1.5 text-[12px] font-semibold leading-[22px]">
+              {blocked.length}
+            </span>
+          ) : (
+            <span className="text-[12px] text-[var(--cz-text-secondary)]/70">
+              None
+            </span>
+          )}
+          <ChevronRight
+            className={cn(
+              "h-4 w-4 shrink-0 text-[var(--cz-text-secondary)]/70 transition-transform",
+              showBlocked && "rotate-90",
+            )}
+            aria-hidden
+          />
+        </button>
+
+        {showBlocked ? (
+          <div className="bg-[rgba(255,255,255,0.015)] px-4 py-2">
             {loadingBlocked ? (
-              <p className="inline-flex items-center gap-1.5 text-[12px] text-[var(--cz-text-secondary)]">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…
+              <p className="flex items-center gap-2 py-3 text-[13px] text-[var(--cz-text-secondary)]">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading…
               </p>
             ) : blocked.length === 0 ? (
-              <p className="text-[12px] text-[var(--cz-text-secondary)]/70">
+              <p className="py-3 text-[13px] text-[var(--cz-text-secondary)]/80">
                 No blocked accounts.
               </p>
             ) : (
-              <div className="divide-y divide-[var(--cz-border)]/60">
+              <ul className="divide-y divide-[var(--cz-border)]/60">
                 {blocked.map((u) => (
-                  <div key={u._id} className="flex items-center gap-2.5 py-2">
-                    <span className="grid place-items-center h-8 w-8 rounded-full bg-[var(--cz-muted)] text-white text-[11px] font-semibold shrink-0 overflow-hidden">
+                  <li key={u._id} className="flex items-center gap-3 py-2.5">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-muted)] text-[12px] font-semibold text-white">
                       {u.avatarUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={u.avatarUrl}
-                          alt={u.username}
+                          alt=""
                           className="h-full w-full object-cover"
                         />
                       ) : (
@@ -189,9 +235,10 @@ export default function MenuPage() {
                       </span>
                     </span>
                     <button
+                      type="button"
                       onClick={() => onUnblock(u._id)}
                       disabled={unblocking === u._id}
-                      className="shrink-0 inline-flex items-center justify-center rounded-full px-3 h-[30px] text-[12px] font-medium text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] border border-[var(--cz-border)] hover:border-[var(--cz-border-strong)] transition-colors disabled:opacity-50"
+                      className="inline-flex h-[32px] shrink-0 items-center justify-center rounded-full border border-[var(--cz-border)] px-3.5 text-[12px] font-medium text-[var(--cz-text-secondary)] transition-colors hover:border-[var(--cz-border-strong)] hover:text-[var(--cz-text-primary)] disabled:opacity-50"
                     >
                       {unblocking === u._id ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -199,40 +246,55 @@ export default function MenuPage() {
                         "Unblock"
                       )}
                     </button>
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ul>
             )}
           </div>
-        </div>
-      </div>
+        ) : null}
 
-      <EmptyState
-        icon={FileText}
-        title="More soon"
-        description="Menu will grow with Settings, Privacy, and Admin moderation entry points."
-      />
+        <Link href="/privacy" className={rowBase}>
+          <span className={iconWrap}>
+            <Lock className="h-4 w-4" aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1 text-[14px] font-medium">
+            Privacy
+          </span>
+          <ChevronRight
+            className="h-4 w-4 shrink-0 text-[var(--cz-text-secondary)]/70"
+            aria-hidden
+          />
+        </Link>
+        <Link href="/terms" className={rowBase}>
+          <span className={iconWrap}>
+            <FileText className="h-4 w-4" aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1 text-[14px] font-medium">Terms</span>
+          <ChevronRight
+            className="h-4 w-4 shrink-0 text-[var(--cz-text-secondary)]/70"
+            aria-hidden
+          />
+        </Link>
+      </nav>
 
-      <div className="flex flex-wrap gap-2 text-[11px]">
-        <Link
-          href="/terms"
-          className="rounded-full border border-[var(--cz-border)] px-3 py-1.5 text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)]"
-        >
-          Terms
-        </Link>
-        <Link
-          href="/privacy"
-          className="rounded-full border border-[var(--cz-border)] px-3 py-1.5 text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)]"
-        >
-          Privacy
-        </Link>
-        <Link
-          href="/"
-          className="rounded-full border border-[var(--cz-border)] px-3 py-1.5 text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)]"
-        >
-          Landing
-        </Link>
-      </div>
+      {/* Destructive */}
+      <button
+        type="button"
+        onClick={onLogout}
+        disabled={loggingOut}
+        className="mt-3 flex min-h-[56px] w-full items-center justify-center gap-2 rounded-[20px] border border-[rgba(255,90,106,0.25)] bg-[rgba(255,90,106,0.06)] px-4 py-3 text-[14px] font-semibold text-[var(--cz-error)] transition-colors hover:bg-[rgba(255,90,106,0.10)] active:bg-[rgba(255,90,106,0.12)] disabled:opacity-50"
+      >
+        {loggingOut ? (
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+        ) : (
+          <LogOut className="h-4 w-4" aria-hidden />
+        )}
+        {loggingOut ? "Logging out…" : "Log out"}
+      </button>
+
+      <p className="mt-4 text-center text-[11px] tracking-[0.04em] text-[var(--cz-text-secondary)]/60">
+        campuszen
+      </p>
     </div>
   );
 }

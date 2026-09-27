@@ -4,7 +4,7 @@ function baseCookieOpts(maxAge) {
   return {
     httpOnly: true,
     secure: isProd ? true : env.COOKIE_SECURE, // true in prod
-    sameSite: "lax",
+    sameSite: env.COOKIE_SAMESITE,
     path: "/",
     maxAge,
   };
@@ -20,6 +20,7 @@ export function setAuthCookies(res, { accessToken, refreshToken, remember = true
 }
 
 export function clearAuthCookies(res) {
-  res.clearCookie("accessToken", { httpOnly: true, secure: isProd ? true : env.COOKIE_SECURE, sameSite: "lax", path: "/" });
-  res.clearCookie("refreshToken", { httpOnly: true, secure: isProd ? true : env.COOKIE_SECURE, sameSite: "lax", path: "/" });
+  const opts = { httpOnly: true, secure: isProd ? true : env.COOKIE_SECURE, sameSite: env.COOKIE_SAMESITE, path: "/" };
+  res.clearCookie("accessToken", opts);
+  res.clearCookie("refreshToken", opts);
 }

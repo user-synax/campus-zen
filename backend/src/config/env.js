@@ -18,6 +18,10 @@ export const env = {
   JWT_REFRESH_DEFAULT_EXPIRES: process.env.JWT_REFRESH_DEFAULT_EXPIRES || "1d",
   FRONTEND_URL: process.env.FRONTEND_URL || "http://localhost:3000",
   COOKIE_SECURE: process.env.COOKIE_SECURE === "true",
+  // lax for same-origin prod, "none" when frontend and API live on different hosts
+  COOKIE_SAMESITE: ["lax", "strict", "none"].includes(process.env.COOKIE_SAMESITE)
+    ? process.env.COOKIE_SAMESITE
+    : "lax",
   // Email (Gmail SMTP — needs an App Password, not the login password)
   SMTP_HOST: process.env.SMTP_HOST || "smtp.gmail.com",
   SMTP_PORT: Number(process.env.SMTP_PORT || 587),
@@ -28,3 +32,17 @@ export const env = {
 };
 
 export const isProd = env.NODE_ENV === "production";
+
+// Fail fast: never boot prod with missing or placeholder signing keys,
+// and never combine SameSite=None with non-secure cookies (browsers reject it).
+if (isProd) {
+  for (const k of ["JWT_ACCESS_SECRET", "JWT_REFRESH_SECRET"]) {
+    const v = process.env[k];
+    if (!v || v.length < 32 || v.includes("please_change") || v.startsWith("dev_")) {
+      throw new Error(`Refusing to boot: set a strong ${k} (32+ random chars) in production`);
+    }
+  }
+  if (env.COOKIE_SAMESITE === "none" && !env.COOKIE_SECURE) {
+    throw new Error("Refusing to boot: COOKIE_SAMESITE=none requires COOKIE_SECURE=true");
+  }
+}
