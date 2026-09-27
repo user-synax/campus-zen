@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandMark } from "@/components/BrandLogo";
 import { LandingRedirect } from "@/components/landing/LandingRedirect";
 
 const steps = [
@@ -54,9 +55,7 @@ export default function Home() {
       <header className="sticky top-0 z-10 border-b border-[var(--cz-border)] bg-[var(--cz-bg)]/85 backdrop-blur">
         <div className="mx-auto flex h-[60px] max-w-[1080px] items-center justify-between px-4 sm:px-6">
           <Link href="/" className="inline-flex items-center gap-2.5">
-            <span className="grid h-8 w-8 place-items-center rounded-[9px] bg-[var(--cz-text-primary)] text-[13px] font-bold tracking-[-0.04em] text-[var(--cz-text-inverse)]">
-              CZ
-            </span>
+            <BrandMark size={32} priority />
             <span className="text-[15px] font-semibold tracking-[-0.03em]">
               campuszen
             </span>
@@ -199,9 +198,7 @@ export default function Home() {
       <footer className="border-t border-[var(--cz-border)]">
         <div className="mx-auto flex max-w-[1080px] flex-col gap-3 px-4 py-6 text-[12px] sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <span className="inline-flex items-center gap-2">
-            <span className="grid h-6 w-6 place-items-center rounded-[7px] bg-[var(--cz-text-primary)] text-[10px] font-bold text-[var(--cz-text-inverse)]">
-              CZ
-            </span>
+            <BrandMark size={24} />
             <span className="text-[var(--cz-text-secondary)]">
               &copy; 2026 CampusZen
             </span>

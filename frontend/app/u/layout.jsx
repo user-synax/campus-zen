@@ -3,6 +3,7 @@
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { BrandMark } from "@/components/BrandLogo";
 
 function isProfilePath(pathname) {
   const segs = pathname.split("/").filter(Boolean);
@@ -44,9 +45,7 @@ export default function PublicLayout({ children }) {
       <header className="sticky top-0 z-20 border-b border-[var(--cz-border)] bg-[var(--cz-bg)]/90 backdrop-blur">
         <div className="mx-auto max-w-[1100px] px-4 sm:px-6 h-[56px] flex items-center justify-between gap-4">
           <Link href="/" className="inline-flex items-center gap-2.5 shrink-0">
-            <span className="grid place-items-center h-8 w-8 rounded-[10px] bg-[var(--cz-text-primary)] text-[var(--cz-text-inverse)] font-bold text-[13px] tracking-[-0.04em]">
-              CZ
-            </span>
+            <BrandMark size={32} />
             <span className="hidden sm:block text-[14px] font-semibold tracking-[-0.03em]">
               campuszen
             </span>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandMark } from "@/components/BrandLogo";
 
 export const metadata = {
   title: "Terms — CampusZen",
@@ -20,7 +21,7 @@ export default function TermsPage() {
       <header className="sticky top-0 z-10 border-b border-[var(--cz-border)] bg-[var(--cz-bg)]/80 backdrop-blur">
         <div className="mx-auto max-w-[880px] px-4 sm:px-6 h-[56px] flex items-center justify-between">
           <Link href="/" className="inline-flex items-center gap-2">
-            <span className="grid place-items-center h-7 w-7 rounded-[8px] bg-[var(--cz-text-primary)] text-[var(--cz-text-inverse)] font-bold text-[12px]">CZ</span>
+            <BrandMark size={28} />
             <span className="text-[14px] font-semibold tracking-[-0.03em]">campuszen</span>
           </Link>
           <nav className="flex items-center gap-4 text-[13px]">

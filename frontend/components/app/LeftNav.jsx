@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AnimatedNumber } from "@/components/app/AnimatedNumber";
+import { BrandMark } from "@/components/BrandLogo";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -124,9 +125,7 @@ export function LeftBrand() {
       aria-label="CampusZen home"
       className="inline-flex items-center gap-2.5 justify-center lg:justify-start"
     >
-      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] bg-[var(--cz-text-primary)] text-[13px] font-bold tracking-[-0.04em] text-[var(--cz-text-inverse)]">
-        CZ
-      </span>
+      <BrandMark size={32} />
       <span className="hidden text-[14px] font-semibold leading-none tracking-[-0.03em] text-[var(--cz-text-primary)] lg:block">
         campuszen
       </span>

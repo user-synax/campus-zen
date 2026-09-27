@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { BrandMark } from "@/components/BrandLogo";
 
 export function AuthShell({ children, title, subtitle }) {
   return (
@@ -10,9 +11,7 @@ export function AuthShell({ children, title, subtitle }) {
         <div className="flex flex-col h-full w-full max-w-[600px] mx-auto px-12 xl:px-16 py-10">
           {/* mark */}
           <Link href="/" className="inline-flex items-center gap-2.5 w-fit">
-            <span className="grid place-items-center h-8 w-8 rounded-lg bg-[var(--cz-text-primary)] text-[var(--cz-text-inverse)] font-bold text-[13px] tracking-tight">
-              CZ
-            </span>
+            <BrandMark size={32} />
             <span className="text-[15px] font-semibold tracking-[-0.02em] text-[var(--cz-text-primary)]">
               campuszen
             </span>
@@ -84,9 +83,7 @@ export function AuthShell({ children, title, subtitle }) {
         {/* mobile header */}
         <div className="lg:hidden sticky top-0 z-10 flex items-center justify-between border-b border-[var(--cz-border)] bg-[var(--cz-bg)]/80 backdrop-blur supports-[backdrop-filter]:bg-[var(--cz-bg)]/60 px-4 h-[56px]">
           <Link href="/" className="inline-flex items-center gap-2">
-            <span className="grid place-items-center h-7 w-7 rounded-[8px] bg-[var(--cz-text-primary)] text-[var(--cz-text-inverse)] font-bold text-[12px]">
-              CZ
-            </span>
+            <BrandMark size={28} />
             <span className="text-[14px] font-semibold tracking-[-0.03em]">
               campuszen
             </span>

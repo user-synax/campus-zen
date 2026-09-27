@@ -7,6 +7,7 @@ import { BottomNav } from "@/components/app/BottomNav";
 import { LeftBrand, LeftNav, LeftUserCard } from "@/components/app/LeftNav";
 import { RightMinimal } from "@/components/app/RightMinimal";
 import { VerifyBanner } from "@/components/app/VerifyBanner";
+import { BrandMark } from "@/components/BrandLogo";
 import { api } from "@/lib/api";
 
 export default function AppLayout({ children }) {
@@ -53,9 +54,7 @@ export default function AppLayout({ children }) {
     return (
       <div className="min-h-dvh bg-[var(--cz-bg)] grid place-items-center px-4">
         <div className="flex flex-col items-center gap-3">
-          <span className="grid place-items-center h-10 w-10 rounded-[12px] bg-[var(--cz-text-primary)] text-[var(--cz-text-inverse)] font-bold text-[14px] animate-pulse">
-            CZ
-          </span>
+          <BrandMark size={40} />
           <span className="inline-flex items-center gap-2 text-[13px] text-[var(--cz-text-secondary)]">
             <Loader2 className="h-4 w-4 animate-spin" /> Loading CampusZen…
           </span>
