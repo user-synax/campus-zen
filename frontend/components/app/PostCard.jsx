@@ -2,6 +2,7 @@
 
 import {
   Bookmark,
+  Check,
   Flag,
   Heart,
   Loader2,
@@ -12,11 +13,12 @@ import {
   PinOff,
   Repeat2,
   Send,
+  Share2,
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatedNumber } from "@/components/app/AnimatedNumber";
 import {
   MentionSuggest,
@@ -71,6 +73,14 @@ export function PostCard({
   const [editText, setEditText] = useState(initialPost.text);
   const [editLoading, setEditLoading] = useState(false);
   const [pinLoading, setPinLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const copyTimer = useRef(null);
+  useEffect(
+    () => () => {
+      if (copyTimer.current) clearTimeout(copyTimer.current);
+    },
+    [],
+  );
   const replyRef = useRef(null);
   const editRef = useRef(null);
   const replyMention = useMentionAutocomplete({
@@ -185,6 +195,53 @@ export function PostCard({
       await api.deletePost(post._id);
       onDelete?.(post._id);
     } catch {}
+  };
+
+  const flashCopied = () => {
+    setCopied(true);
+    if (copyTimer.current) clearTimeout(copyTimer.current);
+    copyTimer.current = setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleShare = async () => {
+    const url = `${window.location.origin}/app/p/${post._id}`;
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({
+          title: `Post by @${post.author?.username || "campuszen"}`,
+          text: (post.text || "").slice(0, 120) || "Check out this post on CampusZen",
+          url,
+        });
+      } catch {
+        // user dismissed the sheet or share failed — stay silent
+      }
+      return;
+    }
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = url;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+      flashCopied();
+    } catch {}
+  };
+
+  const handleShareFromMenu = async () => {
+    if (typeof navigator !== "undefined" && navigator.share) {
+      setMenuOpen(false);
+      handleShare();
+      return;
+    }
+    // clipboard path — stay open so the row flips to "Link copied"
+    await handleShare();
   };
 
   const handlePinToggle = async () => {
@@ -402,6 +459,27 @@ export function PostCard({
                   />
                   <div className="relative w-full max-w-[420px] rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)] shadow-[0_16px_40px_rgba(0,0,0,0.5)] overflow-hidden animate-[t-panel-slide] p-2">
                     <div className="mx-auto h-1 w-8 rounded-full bg-[var(--cz-border)] mb-2" />
+                    <button
+                      onClick={handleBookmark}
+                      className="w-full flex items-center gap-3 px-3 h-[44px] text-[14px] hover:bg-[rgba(255,206,173,0.06)] rounded-[10px] text-left"
+                    >
+                      <Bookmark
+                        className="h-4 w-4"
+                        fill={saved ? "currentColor" : "none"}
+                      />{" "}
+                      {saved ? "Saved" : "Save"}
+                    </button>
+                    <button
+                      onClick={handleShareFromMenu}
+                      className="w-full flex items-center gap-3 px-3 h-[44px] text-[14px] hover:bg-[rgba(255,206,173,0.06)] rounded-[10px] text-left"
+                    >
+                      {copied ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <Share2 className="h-4 w-4" />
+                      )}{" "}
+                      {copied ? "Link copied" : "Share post"}
+                    </button>
                     {isOwn ? (
                       <>
                         <button
@@ -505,7 +583,7 @@ export function PostCard({
         <button
           onClick={handleBookmark}
           data-saved={saved ? "true" : "false"}
-          className="inline-flex hover:cursor-pointer items-center justify-center rounded-full h-[32px] w-[32px] hover:bg-[rgba(255,206,173,0.08)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] data-[saved=true]:text-[var(--cz-text-primary)] transition-colors"
+          className="hidden sm:inline-flex hover:cursor-pointer items-center justify-center rounded-full h-[32px] w-[32px] hover:bg-[rgba(255,206,173,0.08)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] data-[saved=true]:text-[var(--cz-text-primary)] transition-colors"
           aria-label={saved ? "Remove bookmark" : "Bookmark"}
           aria-pressed={saved}
         >
@@ -513,6 +591,19 @@ export function PostCard({
             className="h-[16px] w-[16px]"
             fill={saved ? "currentColor" : "none"}
           />
+        </button>
+
+        <button
+          onClick={handleShare}
+          className="hidden sm:inline-flex hover:cursor-pointer items-center justify-center rounded-full h-[32px] w-[32px] hover:bg-[rgba(255,206,173,0.08)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] transition-colors"
+          aria-label={copied ? "Link copied" : "Share post"}
+          title={copied ? "Link copied" : "Share post"}
+        >
+          {copied ? (
+            <Check className="h-[16px] w-[16px]" />
+          ) : (
+            <Share2 className="h-[16px] w-[16px]" />
+          )}
         </button>
 
         <button
