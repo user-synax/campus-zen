@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { FileText, Users, Loader2 } from "lucide-react";
+import { ArrowUp, FileText, Users, Loader2 } from "lucide-react";
 import { EmptyState } from "@/components/app/EmptyState";
 import { PostComposer } from "@/components/app/PostComposer";
 import { PostCard } from "@/components/app/PostCard";
@@ -15,8 +15,15 @@ export default function AppHome() {
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [pending, setPending] = useState([]);
   const sentinelRef = useRef(null);
   const observerRef = useRef(null);
+  const checkingRef = useRef(false);
+  // mirrors for the poller (avoids stale closures without re-creating the timer)
+  const postsRef = useRef([]);
+  postsRef.current = posts;
+  const pendingRef = useRef([]);
+  pendingRef.current = pending;
 
   // fetch user for composer
   useEffect(() => {
@@ -48,6 +55,7 @@ export default function AppHome() {
 
   // reset when tab changes
   useEffect(() => {
+    setPending([]);
     fetchPage(1, true);
   }, [fetchPage]);
 
@@ -70,6 +78,59 @@ export default function AppHome() {
   const handleCreated = (newPost) => {
     // optimistic top insertion with card-resize feel
     setPosts((prev) => [newPost, ...prev]);
+  };
+
+  // background freshness check — fetch latest page-1, stash unseen posts
+  const checkForNew = useCallback(async () => {
+    if (checkingRef.current || document.hidden) return;
+    checkingRef.current = true;
+    try {
+      const fn = tab === "following" ? api.getFeed : api.getPublicFeed;
+      const res = await fn({ page: 1, limit: 20 });
+      const fresh = res.data?.posts || [];
+      const known = new Set([
+        ...postsRef.current.map((p) => p._id),
+        ...pendingRef.current.map((p) => p._id),
+      ]);
+      const unseen = fresh.filter((p) => !known.has(p._id));
+      if (unseen.length > 0) {
+        setPending((prev) => {
+          const prevIds = new Set(prev.map((p) => p._id));
+          return [...unseen.filter((p) => !prevIds.has(p._id)), ...prev];
+        });
+      }
+    } catch {
+      // silent — next poll retries
+    } finally {
+      checkingRef.current = false;
+    }
+  }, [tab]);
+
+  // poll every 30s (same cadence as unread-count) + on focus/visible
+  useEffect(() => {
+    if (loading) return;
+    const id = setInterval(checkForNew, 30000);
+    const onFocus = () => checkForNew();
+    const onVisible = () => {
+      if (!document.hidden) checkForNew();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [checkForNew, loading]);
+
+  const showNewPosts = () => {
+    setPosts((prev) => {
+      const ids = new Set(prev.map((p) => p._id));
+      const fresh = pending.filter((p) => !ids.has(p._id));
+      return fresh.length > 0 ? [...fresh, ...prev] : prev;
+    });
+    setPending([]);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleDelete = (id) => setPosts((prev) => prev.filter((p) => p._id !== id));
@@ -100,6 +161,23 @@ export default function AppHome() {
       </div>
 
       <PostComposer user={user} onCreated={handleCreated} />
+
+      {pending.length > 0 && !loading ? (
+        <div className="sticky top-[64px] lg:top-4 z-10 flex justify-center pointer-events-none">
+          <button
+            onClick={showNewPosts}
+            aria-live="polite"
+            className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-[var(--cz-text-primary)] text-[var(--cz-text-inverse)] pl-3 pr-4 h-[36px] text-[13px] font-medium shadow-[0_8px_24px_rgba(0,0,0,0.45)] hover:brightness-110 active:scale-[0.97] transition"
+          >
+            <ArrowUp className="h-4 w-4" />
+            {pending.length > 20
+              ? "20+ new posts"
+              : pending.length === 1
+                ? "1 new post"
+                : `${pending.length} new posts`}
+          </button>
+        </div>
+      ) : null}
 
       {loading ? (
         <div className="space-y-3">
