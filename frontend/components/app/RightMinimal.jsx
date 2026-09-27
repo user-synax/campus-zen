@@ -55,7 +55,11 @@ function SuggestRow({ user, onFollowed }) {
         </span>
         <span className="block truncate text-[12px] leading-tight text-[var(--cz-text-secondary)]">
           @{user.username}
-          {user.college ? ` • ${user.college}` : ""}
+          {user.suggestReason
+            ? ` • ${user.suggestReason}`
+            : user.college
+              ? ` • ${user.college}`
+              : ""}
         </span>
       </Link>
       <button
@@ -107,7 +111,7 @@ export function RightMinimal({ currentUser }) {
     let cancelled = false;
     (async () => {
       try {
-        const res = await api.listUsers({ limit: 6 });
+        const res = await api.getSuggestions({ limit: 6 });
         if (cancelled) return;
         const users = res.data?.users || [];
         const me = currentUser?.username?.toLowerCase();
@@ -116,7 +120,22 @@ export function RightMinimal({ currentUser }) {
           .slice(0, 4);
         setSuggested(filtered);
       } catch {
-        if (!cancelled) setSuggested([]);
+        if (!cancelled) {
+          // ranked endpoint unavailable — fall back to recent users
+          try {
+            const res = await api.listUsers({ limit: 6 });
+            if (cancelled) return;
+            const users = res.data?.users || [];
+            const me = currentUser?.username?.toLowerCase();
+            setSuggested(
+              users
+                .filter((u) => u.username?.toLowerCase() !== me && !u.isFollowing)
+                .slice(0, 4)
+            );
+          } catch {
+            if (!cancelled) setSuggested([]);
+          }
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }

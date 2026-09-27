@@ -49,6 +49,81 @@ export const userService = {
     };
   },
 
+  // Ranked "Suggested students" for the discovery rail (PRD §12, V1).
+  // Affinity order: same college > mutual follows > same course > same year.
+  // Tiebreak prefers newer accounts so fresh faces stay discoverable.
+  async suggestions(viewerId, { limit = 6 } = {}) {
+    const lim = Math.max(1, Math.min(20, Number(limit) || 6));
+    const { Follow } = await import("../models/Follow.js");
+
+    const viewer = await User.findById(viewerId).select("college course academicYear").lean();
+    if (!viewer) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+
+    const [myFollowing, hidden] = await Promise.all([
+      Follow.find({ follower: viewerId }).select("following").lean(),
+      blockService.blockedIdsFor(viewerId),
+    ]);
+    const myFollowingIds = myFollowing.map((f) => f.following);
+    const excluded = [viewerId, ...myFollowingIds, ...hidden];
+
+    // oversample recent users, then rank in memory (single extra agg for mutuals)
+    const poolSize = Math.min(100, Math.max(lim * 10, 30));
+    const candidates = await User.find({ _id: { $nin: excluded } })
+      .sort({ createdAt: -1 })
+      .limit(poolSize)
+      .select("fullName username avatarUrl bio college course academicYear followersCount createdAt")
+      .lean();
+
+    let mutualCounts = {};
+    if (myFollowingIds.length > 0 && candidates.length > 0) {
+      const rows = await Follow.aggregate([
+        {
+          $match: {
+            follower: { $in: myFollowingIds },
+            following: { $in: candidates.map((c) => c._id) },
+          },
+        },
+        { $group: { _id: "$following", count: { $sum: 1 } } },
+      ]);
+      mutualCounts = Object.fromEntries(rows.map((r) => [String(r._id), r.count]));
+    }
+
+    const norm = (s) => String(s || "").trim().toLowerCase();
+    const scored = candidates.map((c) => {
+      let score = 0;
+      const reasons = [];
+      const mutuals = mutualCounts[String(c._id)] || 0;
+      if (mutuals > 0) {
+        score += Math.min(mutuals, 3) * 2;
+        reasons.push({ w: 3, t: mutuals === 1 ? "1 mutual" : `${mutuals} mutuals` });
+      }
+      if (viewer.college && c.college && norm(viewer.college) === norm(c.college)) {
+        score += 10;
+        reasons.push({ w: 4, t: "Same college" });
+      }
+      if (viewer.course && c.course && norm(viewer.course) === norm(c.course)) {
+        score += 5;
+        reasons.push({ w: 2, t: "Same course" });
+      }
+      if (viewer.academicYear && c.academicYear && viewer.academicYear === c.academicYear) {
+        score += 3;
+        reasons.push({ w: 1, t: "Same year" });
+      }
+      reasons.sort((a, b) => b.w - a.w);
+      return { user: c, score, suggestReason: reasons[0]?.t || "New here" };
+    });
+
+    scored.sort((a, b) => b.score - a.score || b.user.createdAt - a.user.createdAt);
+
+    return {
+      users: scored.slice(0, lim).map(({ user, suggestReason }) => ({
+        ...user,
+        isFollowing: false,
+        suggestReason,
+      })),
+    };
+  },
+
   async getByUsername(username, viewerId = null) {
     const clean = username.toLowerCase().trim();
     const user = await User.findOne({ username: clean }).populate({

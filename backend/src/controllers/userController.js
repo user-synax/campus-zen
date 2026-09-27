@@ -63,6 +63,11 @@ export const userController = {
     res.json({ success: true, data: result });
   }),
 
+  suggestions: asyncHandler(async (req, res) => {
+    const result = await userService.suggestions(req.user._id, { limit: req.query.limit });
+    res.json({ success: true, data: result });
+  }),
+
   updateMe: asyncHandler(async (req, res) => {
     const user = await userService.updateMe(req.user._id, req.body);
     res.json({ success: true, message: "Profile updated", data: { user } });

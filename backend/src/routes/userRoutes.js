@@ -85,6 +85,11 @@ router.get("/:id/following", meLimiter, optionalAuth, validate(idParam, "params"
 // block — before /:username to avoid param clash
 router.get("/me/blocks", protect, blockController.list);
 router.get("/me/bookmarks", protect, userController.myBookmarks);
+
+const suggestionsQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(20).optional().default(6),
+});
+router.get("/me/suggestions", meLimiter, protect, validate(suggestionsQuery, "query"), userController.suggestions);
 router.post("/:id/block", blockLimiter, protect, validate(idParam, "params"), blockController.block);
 router.delete("/:id/block", blockLimiter, protect, validate(idParam, "params"), blockController.unblock);
 

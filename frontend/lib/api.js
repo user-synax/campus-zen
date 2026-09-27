@@ -155,6 +155,17 @@ export const api = {
   unblockUser: (id) =>
     request(`/api/users/${encodeURIComponent(id)}/block`, { method: "DELETE" }),
   getBlocks: () => request("/api/users/me/blocks", { method: "GET" }),
+  getSuggestions: (params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "")
+        qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(`/api/users/me/suggestions${q ? `?${q}` : ""}`, {
+      method: "GET",
+    });
+  },
   fileReport: (payload) =>
     request("/api/reports", { method: "POST", body: payload }),
   getFollowers: (id, params = {}) => {
