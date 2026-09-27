@@ -8,7 +8,7 @@ import { PostCard } from "@/components/app/PostCard";
 import { api } from "@/lib/api";
 
 export default function AppHome() {
-  const [tab, setTab] = useState("following"); // following | discovery
+  const [tab, setTab] = useState("discovery"); // following | discovery
   const [user, setUser] = useState(null);
   const [posts, setPosts] = useState([]);
   const [page, setPage] = useState(1);
@@ -82,14 +82,14 @@ export default function AppHome() {
         <h1 className="text-[18px] font-semibold tracking-[-0.02em]">Home</h1>
         <div className="inline-flex items-center gap-1 rounded-full border border-[var(--cz-border)] bg-[var(--cz-surface)] p-1">
           {[
-            { id: "following", label: "Following" },
             { id: "discovery", label: "Discovery" },
+            { id: "following", label: "Following" },
           ].map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
               aria-selected={tab === t.id}
-              className={`px-3 h-[28px] rounded-full text-[12px] font-medium transition-colors ${
+              className={`px-3 h-[28px] hover:cursor-pointer rounded-full text-[12px] font-medium transition-colors ${
                 tab === t.id ? "bg-[var(--cz-text-primary)] text-[var(--cz-text-inverse)] shadow-sm" : "text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)]"
               }`}
             >
