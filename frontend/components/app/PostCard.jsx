@@ -285,19 +285,19 @@ export function PostCard({
           </span>
         </Link>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center gap-x-1.5 gap-y-0.5 min-w-0 flex-wrap">
             <Link
               href={`/u/${author.username}`}
-              className="text-[13px] font-semibold leading-none hover:underline underline-offset-4 text-[var(--cz-text-primary)] truncate"
+              className="text-[13px] font-semibold leading-none hover:underline underline-offset-4 text-[var(--cz-text-primary)] truncate min-w-0 max-w-[130px] sm:max-w-[220px] shrink-0"
             >
               {author.fullName || author.username}
             </Link>
-            <span className="text-[12px] leading-none text-[var(--cz-text-secondary)] truncate">
+            <span className="text-[12px] leading-none text-[var(--cz-text-secondary)] truncate min-w-0 max-w-[110px] sm:max-w-[200px]">
               @{author.username}
             </span>
             <Link
               href={`/app/p/${post._id}`}
-              className="text-[11px] leading-none text-[var(--cz-text-secondary)]/60 hover:text-[var(--cz-text-primary)] hover:underline underline-offset-4"
+              className="text-[11px] leading-none text-[var(--cz-text-secondary)]/60 hover:text-[var(--cz-text-primary)] hover:underline underline-offset-4 shrink-0 whitespace-nowrap"
             >
               · {timeAgo(post.createdAt)} {post.edited ? "· edited" : ""}
             </Link>
@@ -550,11 +550,11 @@ export function PostCard({
         ) : null}
       </div>
 
-      <div className="flex items-center gap-1 px-2 sm:px-3 pb-2">
+      <div className="flex items-center gap-0.5 sm:gap-1 px-2 sm:px-3 pb-2 min-w-0">
         <button
           onClick={handleLike}
           data-liked={liked ? "true" : "false"}
-          className="t-like inline-flex hover:cursor-pointer items-center gap-1.5 rounded-full px-2.5 h-[32px] text-[12px] font-medium hover:bg-[rgba(244,0,81,0.08)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] data-[liked=true]:text-[var(--like-color)] transition-colors"
+          className="t-like inline-flex hover:cursor-pointer items-center gap-1.5 rounded-full px-2 sm:px-2.5 h-[32px] text-[12px] font-medium hover:bg-[rgba(244,0,81,0.08)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] data-[liked=true]:text-[var(--like-color)] transition-colors shrink-0"
           aria-label={liked ? "Unlike" : "Like"}
         >
           <span className="t-like-icon grid place-items-center">
@@ -565,7 +565,7 @@ export function PostCard({
 
         <button
           onClick={() => setShowReply((v) => !v)}
-          className="inline-flex items-center hover:cursor-pointer gap-1.5 rounded-full px-2.5 h-[32px] text-[12px] font-medium hover:bg-[rgba(125,130,217,0.12)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] transition-colors"
+          className="inline-flex items-center hover:cursor-pointer gap-1.5 rounded-full px-2 sm:px-2.5 h-[32px] text-[12px] font-medium hover:bg-[rgba(125,130,217,0.12)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] transition-colors shrink-0"
         >
           <MessageCircle className="h-[16px] w-[16px]" />
           <AnimatedNumber value={replyCount} />
@@ -574,7 +574,7 @@ export function PostCard({
         <button
           onClick={handleRepost}
           data-reposted={reposted ? "true" : "false"}
-          className="inline-flex hover:cursor-pointer items-center gap-1.5 rounded-full px-2.5 h-[32px] text-[12px] font-medium hover:bg-[rgba(125,130,217,0.12)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] data-[reposted=true]:text-[var(--cz-muted)] transition-colors"
+          className="inline-flex hover:cursor-pointer items-center gap-1.5 rounded-full px-2 sm:px-2.5 h-[32px] text-[12px] font-medium hover:bg-[rgba(125,130,217,0.12)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] data-[reposted=true]:text-[var(--cz-muted)] transition-colors shrink-0"
         >
           <Repeat2 className="h-[16px] w-[16px]" />
           <AnimatedNumber value={repostCount} />
@@ -608,7 +608,7 @@ export function PostCard({
 
         <button
           onClick={loadReplies}
-          className="ml-auto hover:cursor-pointer text-[11px] font-medium tracking-[0.04em] uppercase text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] px-2"
+          className="ml-auto hover:cursor-pointer text-[10px] sm:text-[11px] font-medium tracking-[0.04em] uppercase text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] px-2 shrink-0 whitespace-nowrap"
         >
           {showReplies
             ? "Hide replies"
@@ -690,7 +690,7 @@ export function PostCard({
                   <span className="text-[11px] text-[var(--cz-text-secondary)] truncate">
                     @{c.author?.username}
                   </span>
-                  <span className="text-[10px] text-[var(--cz-text-secondary)]/60">
+                  <span className="text-[10px] text-[var(--cz-text-secondary)]/60 shrink-0 whitespace-nowrap">
                     · {timeAgo(c.createdAt)}
                   </span>
                 </div>

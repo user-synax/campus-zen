@@ -11,7 +11,7 @@ const querySchema = z.object({
   q: z.string().trim().min(1, "Search query required").max(100),
   page: z.coerce.number().int().min(1).optional().default(1),
   limit: z.coerce.number().int().min(1).max(50).optional().default(20),
-  type: z.enum(["all", "users", "posts"]).optional().default("all"),
+  type: z.enum(["all", "users", "posts", "colleges"]).optional().default("all"),
 });
 
 const limiter = rateLimit({

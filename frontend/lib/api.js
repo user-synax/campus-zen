@@ -366,4 +366,39 @@ export const api = {
   pinPost: (postId) =>
     request("/api/users/me/pin", { method: "POST", body: { postId } }),
   unpinPost: () => request("/api/users/me/pin", { method: "DELETE" }),
+  getCollege: (slug) =>
+    request(`/api/colleges/${encodeURIComponent(slug)}`, { method: "GET" }),
+  listColleges: (params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "")
+        qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(`/api/colleges${q ? `?${q}` : ""}`, { method: "GET" });
+  },
+  getCollegeMembers: (slug, params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "")
+        qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(
+      `/api/colleges/${encodeURIComponent(slug)}/members${q ? `?${q}` : ""}`,
+      { method: "GET" },
+    );
+  },
+  getCollegePosts: (slug, params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "")
+        qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(
+      `/api/colleges/${encodeURIComponent(slug)}/posts${q ? `?${q}` : ""}`,
+      { method: "GET" },
+    );
+  },
 };

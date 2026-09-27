@@ -52,6 +52,7 @@ const userSchema = new mongoose.Schema(
     pinnedPost: { type: mongoose.Schema.Types.ObjectId, ref: "Post", default: null },
     bio: { type: String, default: null, maxlength: 160 },
     college: { type: String, default: null, trim: true },
+    collegeSlug: { type: String, default: null, trim: true, lowercase: true, index: true },
     course: { type: String, default: null, trim: true }, // branch
     academicYear: {
       type: String,

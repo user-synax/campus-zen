@@ -8,6 +8,7 @@ import {
   Loader2,
   Lock,
   LogOut,
+  School,
   Shield,
   User,
   Users,
@@ -138,6 +139,23 @@ export default function MenuPage() {
             </span>
             <span className="block text-[12px] leading-tight text-[var(--cz-text-secondary)]">
               Students by college & course
+            </span>
+          </span>
+          <ChevronRight
+            className="h-4 w-4 shrink-0 text-[var(--cz-text-secondary)]/70"
+            aria-hidden
+          />
+        </Link>
+        <Link href="/c" className={rowBase}>
+          <span className={iconWrap}>
+            <School className="h-4 w-4" aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[14px] font-medium leading-tight">
+              Discover colleges
+            </span>
+            <span className="block text-[12px] leading-tight text-[var(--cz-text-secondary)]">
+              Browse all campuses
             </span>
           </span>
           <ChevronRight

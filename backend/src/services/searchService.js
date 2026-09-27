@@ -9,7 +9,7 @@ export const searchService = {
   async search({ q, page = 1, limit = 20, type = "all", viewerId }) {
     const query = String(q || "").trim();
     if (!query || query.length < 1) {
-      return { users: [], posts: [], totalUsers: 0, totalPosts: 0, page: Number(page), limit: Number(limit), hasMoreUsers: false, hasMorePosts: false };
+      return { users: [], posts: [], colleges: [], totalUsers: 0, totalPosts: 0, totalColleges: 0, page: Number(page), limit: Number(limit), hasMoreUsers: false, hasMorePosts: false, hasMoreColleges: false };
     }
     if (query.length > 100) {
       // truncate
@@ -22,6 +22,7 @@ export const searchService = {
 
     const wantUsers = type === "all" || type === "users";
     const wantPosts = type === "all" || type === "posts";
+    const wantColleges = type === "all" || type === "colleges";
 
     // escape regex
     const esc = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -145,17 +146,35 @@ export const searchService = {
       })();
     }
 
-    const [uRes, pRes] = await Promise.all([usersPromise, postsPromise]);
+    const [uRes, pRes, cRes] = await Promise.all([usersPromise, postsPromise, (async () => {
+      if (!wantColleges) return { colleges: [], total: 0 };
+      try {
+        const { College } = await import("../models/College.js");
+        const escC = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const reC = new RegExp(escC, "i");
+        const collegeLim = type === "all" ? 5 : lim;
+        const collegeSkip = type === "all" ? 0 : skip;
+        const filterC = { $or: [{ name: reC }, { slug: reC }] };
+        const [colleges, total] = await Promise.all([
+          College.find(filterC).sort({ memberCount: -1, name: 1 }).skip(collegeSkip).limit(collegeLim).lean(),
+          College.countDocuments(filterC),
+        ]);
+        return { colleges, total };
+      } catch { return { colleges: [], total: 0 }; }
+    })()]);
 
     return {
       users: uRes.users || [],
       posts: pRes.posts || [],
+      colleges: cRes.colleges || [],
       totalUsers: uRes.total || 0,
       totalPosts: pRes.total || 0,
+      totalColleges: cRes.total || 0,
       page: pg,
       limit: lim,
       hasMoreUsers: skip + lim < (uRes.total || 0),
       hasMorePosts: skip + lim < (pRes.total || 0),
+      hasMoreColleges: skip + lim < (cRes.total || 0),
     };
   },
 };

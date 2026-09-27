@@ -12,6 +12,7 @@ import {
 import { EmptyState } from "@/components/app/EmptyState";
 import { UserCard } from "@/components/app/UserCard";
 import { PostCard } from "@/components/app/PostCard";
+import Link from "next/link";
 import { api } from "@/lib/api";
 
 export default function SearchPage() {
@@ -23,6 +24,7 @@ export default function SearchPage() {
   const [type, setType] = useState("all"); // all | users | posts
   const [users, setUsers] = useState([]);
   const [posts, setPosts] = useState([]);
+  const [colleges, setColleges] = useState([]);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(1);
@@ -54,6 +56,7 @@ export default function SearchPage() {
     if (!query || query.trim().length < 1) {
       setUsers([]);
       setPosts([]);
+      setColleges([]);
       setHasMore(false);
       return;
     }
@@ -71,11 +74,14 @@ export default function SearchPage() {
           setUsers((prev) => [...prev, ...(d.users || [])]);
         if (tab === "all" || tab === "posts")
           setPosts((prev) => [...prev, ...(d.posts || [])]);
+        if (tab === "all" || tab === "colleges")
+          setColleges((prev) => [...prev, ...(d.colleges || [])]);
       } else {
         setUsers(d.users || []);
         setPosts(d.posts || []);
+        setColleges(d.colleges || []);
       }
-      setHasMore(Boolean(d.hasMoreUsers || d.hasMorePosts));
+      setHasMore(Boolean(d.hasMoreUsers || d.hasMorePosts || d.hasMoreColleges));
       setPage(p);
     } catch (e) {
       if (e.name === "AbortError") return;
@@ -100,7 +106,8 @@ export default function SearchPage() {
     ? debouncedQ.trim().replace(/^#+/, "").toLowerCase()
     : "";
   const isEmpty =
-    !loading && debouncedQ && users.length === 0 && posts.length === 0;
+    !loading && debouncedQ && users.length === 0 && posts.length === 0 && colleges.length === 0;
+  const showColleges = (type === "all" || type === "colleges") && colleges.length > 0;
   const showUsers = (type === "all" || type === "users") && users.length > 0;
   const showPosts = (type === "all" || type === "posts") && posts.length > 0;
 
@@ -141,6 +148,7 @@ export default function SearchPage() {
             { id: "all", label: "All" },
             { id: "users", label: "Students" },
             { id: "posts", label: "Posts" },
+            { id: "colleges", label: "Colleges" },
           ].map((t) => (
             <button
               key={t.id}
@@ -234,6 +242,33 @@ export default function SearchPage() {
         />
       ) : (
         <div className="space-y-6">
+          {showColleges ? (
+            <div className="space-y-3">
+              <h2 className="text-[12px] font-semibold tracking-[0.06em] uppercase text-[var(--cz-text-secondary)]">
+                Colleges • {colleges.length}
+              </h2>
+              <div className="grid sm:grid-cols-2 gap-3">
+                {colleges.map((c) => (
+                  <Link
+                    key={c._id || c.slug}
+                    href={`/c/${encodeURIComponent(c.slug)}`}
+                    className="flex items-center gap-3 rounded-[12px] border border-[var(--cz-border)] bg-[var(--cz-surface)] p-3 hover:border-[var(--cz-border-strong)] transition-colors"
+                  >
+                    <span className="grid place-items-center h-10 w-10 rounded-[10px] bg-[var(--cz-surface-strong)] border border-[var(--cz-border)] text-[15px] font-semibold shrink-0">
+                      {(c.name || c.slug || "C").trim().slice(0, 1).toUpperCase()}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[13px] font-semibold truncate">{c.name}</span>
+                      <span className="block text-[11px] font-mono text-[var(--cz-text-secondary)] truncate">
+                        /c/{c.slug} • {c.memberCount ?? 0} students
+                      </span>
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           {showUsers ? (
             <div className="space-y-3">
               <h2 className="text-[12px] font-semibold tracking-[0.06em] uppercase text-[var(--cz-text-secondary)]">

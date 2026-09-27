@@ -241,6 +241,34 @@ export const userService = {
       update.fullName = v;
     }
 
+    // Phase 0 colleges: maintain collegeSlug + College doc on change
+    if (update.college !== undefined) {
+      const { slugifyCollege } = await import("../utils/college.js");
+      const prev = await User.findById(userId).select("collegeSlug").lean();
+      const prevSlug = prev?.collegeSlug || null;
+      const nextSlug = update.college ? slugifyCollege(update.college) : null;
+      update.collegeSlug = nextSlug;
+      // normalize display: collapse whitespace
+      if (update.college) update.college = String(update.college).trim().replace(/\s+/g, " ").slice(0, 120);
+      const user = await User.findByIdAndUpdate(userId, { $set: update }, { new: true, runValidators: true });
+      if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+      if (prevSlug !== nextSlug) {
+        try {
+          const { College } = await import("../models/College.js");
+          const { collegeService } = await import("./collegeService.js");
+          if (nextSlug) {
+            await collegeService.ensureCollege(user.college);
+            await College.updateOne({ slug: nextSlug }, { $inc: { memberCount: 1 } });
+          }
+          if (prevSlug) {
+            await College.updateOne({ slug: prevSlug }, { $inc: { memberCount: -1 } });
+            await College.updateOne({ slug: prevSlug, memberCount: { $lt: 0 } }, { $set: { memberCount: 0 } });
+          }
+        } catch {}
+      }
+      return user.toSafeObject();
+    }
+
     const user = await User.findByIdAndUpdate(userId, { $set: update }, { new: true, runValidators: true });
     if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
     return user.toSafeObject();

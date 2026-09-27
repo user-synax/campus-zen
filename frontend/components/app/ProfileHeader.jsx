@@ -13,9 +13,11 @@ import {
   Twitter,
 } from "lucide-react";
 import { useState } from "react";
+import Link from "next/link";
 import { AnimatedNumber } from "@/components/app/AnimatedNumber";
 import { Button } from "@/components/ui/button";
 import { accentFor } from "@/lib/accents";
+import { collegeHrefFor } from "@/lib/college";
 
 export function ProfileHeader({
   user,
@@ -199,10 +201,20 @@ export function ProfileHeader({
           {collegeLine ? (
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {user.college ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--cz-surface-strong)] border border-[var(--cz-border)] px-2.5 py-1 text-[12px] leading-none text-[var(--cz-text-secondary)]">
-                  <MapPin className="h-3.5 w-3.5 text-[var(--cz-text-primary)] shrink-0" />{" "}
-                  {user.college}
-                </span>
+                collegeHrefFor(user) ? (
+                  <Link
+                    href={collegeHrefFor(user)}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-[var(--cz-surface-strong)] border border-[var(--cz-border)] px-2.5 py-1 text-[12px] leading-none text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] hover:border-[var(--cz-border-strong)] transition-colors"
+                  >
+                    <MapPin className="h-3.5 w-3.5 text-[var(--cz-text-primary)] shrink-0" />{" "}
+                    {user.college}
+                  </Link>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--cz-surface-strong)] border border-[var(--cz-border)] px-2.5 py-1 text-[12px] leading-none text-[var(--cz-text-secondary)]">
+                    <MapPin className="h-3.5 w-3.5 text-[var(--cz-text-primary)] shrink-0" />{" "}
+                    {user.college}
+                  </span>
+                )
               ) : null}
               {user.course || user.academicYear ? (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--cz-surface-strong)] border border-[var(--cz-border)] px-2.5 py-1 text-[12px] leading-none text-[var(--cz-text-secondary)]">

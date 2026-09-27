@@ -6,6 +6,7 @@ import { MapPin, GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AnimatedNumber } from "@/components/app/AnimatedNumber";
 import { api } from "@/lib/api";
+import { collegeHrefFor } from "@/lib/college";
 
 export function UserCard({ user: initialUser, isOwn, isGuest }) {
   const [user, setUser] = useState(initialUser);
@@ -34,9 +35,18 @@ export function UserCard({ user: initialUser, isOwn, isGuest }) {
       {(user.college || user.course || user.academicYear) && (
         <div className="flex flex-wrap gap-1.5">
           {user.college ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-[var(--cz-bg)] border border-[var(--cz-border)] px-2 py-1 text-[11px] leading-none text-[var(--cz-text-secondary)]">
-              <MapPin className="h-3 w-3 text-[var(--cz-text-primary)]" /> {user.college}
-            </span>
+            collegeHrefFor(user) ? (
+              <Link
+                href={collegeHrefFor(user)}
+                className="inline-flex items-center gap-1 rounded-full bg-[var(--cz-bg)] border border-[var(--cz-border)] px-2 py-1 text-[11px] leading-none text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] transition-colors"
+              >
+                <MapPin className="h-3 w-3 text-[var(--cz-text-primary)]" /> {user.college}
+              </Link>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--cz-bg)] border border-[var(--cz-border)] px-2 py-1 text-[11px] leading-none text-[var(--cz-text-secondary)]">
+                <MapPin className="h-3 w-3 text-[var(--cz-text-primary)]" /> {user.college}
+              </span>
+            )
           ) : null}
           {user.course ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-[var(--cz-bg)] border border-[var(--cz-border)] px-2 py-1 text-[11px] leading-none text-[var(--cz-text-secondary)]">
