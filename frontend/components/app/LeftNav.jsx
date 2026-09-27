@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Bookmark, Home, Plus, Search, User } from "lucide-react";
+import { Bell, Bookmark, Home, Plus, Search, User, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 const items = [
   { href: "/app", label: "Home", icon: Home, exact: true },
   { href: "/app/search", label: "Search", icon: Search },
+  { href: "/u", label: "Discover", icon: Users },
   { href: "/app/bookmarks", label: "Bookmarks", icon: Bookmark },
   { href: "/app/notifications", label: "Notifications", icon: Bell },
   { href: "/app/profile", label: "Profile", icon: User },
@@ -57,7 +58,7 @@ export function LeftNav() {
 
   return (
     <nav aria-label="Primary" className="flex flex-col gap-1">
-      {items.slice(0, 2).map((it) => {
+      {items.slice(0, 3).map((it) => {
         const on = isActive(it);
         return (
           <Link
@@ -83,7 +84,7 @@ export function LeftNav() {
         <span className="hidden lg:inline">{createItem.label}</span>
       </Link>
 
-      {items.slice(2).map((it) => {
+      {items.slice(3).map((it) => {
         const on = isActive(it);
         const isNotif = it.href === "/app/notifications";
         return (

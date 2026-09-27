@@ -10,6 +10,7 @@ import {
   LogOut,
   Shield,
   User,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -127,6 +128,23 @@ export default function MenuPage() {
         aria-label="Menu"
         className="mt-3 overflow-hidden rounded-[20px] border border-[var(--cz-border)] bg-[var(--cz-surface)] divide-y divide-[var(--cz-border)]/70"
       >
+        <Link href="/u" className={rowBase}>
+          <span className={iconWrap}>
+            <Users className="h-4 w-4" aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[14px] font-medium leading-tight">
+              Discover friends
+            </span>
+            <span className="block text-[12px] leading-tight text-[var(--cz-text-secondary)]">
+              Students by college & course
+            </span>
+          </span>
+          <ChevronRight
+            className="h-4 w-4 shrink-0 text-[var(--cz-text-secondary)]/70"
+            aria-hidden
+          />
+        </Link>
         <Link href={profileHref} className={rowBase}>
           <span className={iconWrap}>
             <User className="h-4 w-4" aria-hidden />
