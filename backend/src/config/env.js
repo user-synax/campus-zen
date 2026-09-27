@@ -29,6 +29,10 @@ export const env = {
   SMTP_PASS: requireEnv("SMTP_PASS"),
   EMAIL_FROM: process.env.EMAIL_FROM || process.env.SMTP_USER,
   EMAIL_FROM_NAME: process.env.EMAIL_FROM_NAME || "CampusZen",
+  // Transactional email over HTTPS (preferred on Render — SMTP to Gmail
+  // often fails from datacenter IPs). When set, sendMail uses Resend
+  // instead of SMTP. No new dependency: plain fetch, no SDK needed.
+  RESEND_API_KEY: process.env.RESEND_API_KEY || "",
 };
 
 export const isProd = env.NODE_ENV === "production";

@@ -108,6 +108,22 @@ export const TEMPLATES = {
 };
 
 export async function sendMail({ to, subject, html, text }) {
+  // Prefer Resend HTTP API when configured: port 443 is never blocked
+  // on Render, unlike Gmail SMTP (587) which routinely fails or hangs
+  // from datacenter IPs even with correct credentials.
+  if (env.RESEND_API_KEY) {
+    try {
+      await sendViaResend({ to, subject, html, text });
+      console.log(`[email] sent via resend "${subject.split(":")[0]}" -> ${maskEmail(to)}`);
+      return;
+    } catch (err) {
+      console.error(
+        `[email] resend failed -> ${maskEmail(to)}:`,
+        err.message,
+      );
+      throw new AppError("Couldn't send email right now. Please try again.", 500, "EMAIL_SEND_FAILED");
+    }
+  }
   try {
     await getTransporter().sendMail({
       from: `"${env.EMAIL_FROM_NAME}" <${env.EMAIL_FROM}>`,
@@ -116,11 +132,39 @@ export async function sendMail({ to, subject, html, text }) {
       html,
       text,
     });
-    console.log(`[email] sent "${subject.split(":")[0]}" -> ${maskEmail(to)}`);
+    console.log(`[email] sent via smtp "${subject.split(":")[0]}" -> ${maskEmail(to)}`);
   } catch (err) {
-    // fail closed: caller decides, but never leak SMTP details to client
-    console.error(`[email] send failed -> ${maskEmail(to)}:`, err.message);
+    // fail closed: caller decides, but never leak SMTP details to client.
+    // Log code + response (not just message) so Render logs show the
+    // real SMTP reason: auth (535), timeout (ETIMEDOUT), refused, etc.
+    console.error(
+      `[email] send failed -> ${maskEmail(to)}:`,
+      err.message,
+      `| code=${err.code || "-"} responseCode=${err.responseCode || "-"} response=${err.response || "-"}`
+    );
     throw new AppError("Couldn't send email right now. Please try again.", 500, "EMAIL_SEND_FAILED");
+  }
+}
+
+async function sendViaResend({ to, subject, html, text }) {
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: `${env.EMAIL_FROM_NAME} <${env.EMAIL_FROM}>`,
+      to: [to],
+      subject,
+      html,
+      text,
+    }),
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Resend ${res.status}: ${body.slice(0, 200)}`);
   }
 }
 
