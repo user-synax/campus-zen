@@ -14,12 +14,8 @@ function assertAllowedEmail(email) {
   if (!ALLOWED_DOMAINS.includes(domain)) throw new AppError("Email domain not allowed. Use gmail.com or proton.me", 400, "EMAIL_DOMAIN_NOT_ALLOWED");
 }
 
-async function createAndSendOtp({ email, type }) {
+async function persistOtp({ email, type }) {
   const plain = generateOtp();
-
-  // fail closed: email must send BEFORE anything is persisted,
-  // otherwise a user could be stuck with an undelivered code
-  await sendOtpEmail({ to: email, type, otp: plain });
 
   // delete previous OTPs of same type to keep 1 active
   await Otp.deleteMany({ email, type });
@@ -28,6 +24,23 @@ async function createAndSendOtp({ email, type }) {
   const expiresAt = otpExpiresAt(10);
 
   await Otp.create({ email, otpHash, type, expiresAt, attempts: 0 });
+  return plain;
+}
+
+async function createAndSendOtp({ email, type }) {
+  const plain = await persistOtp({ email, type });
+  await sendOtpEmail({ to: email, type, otp: plain });
+}
+
+// Fire-and-forget delivery for signup: the 201 must not wait on SMTP
+// (Gmail handshake from Render free hosts routinely takes 5–20s).
+// The returned promise never rejects — failures are logged only —
+// because an unhandled rejection would crash the process (see server.js).
+// If delivery fails the user still exists and can use resend-otp.
+function sendOtpInBackground({ email, type, otp }) {
+  sendOtpEmail({ to: email, type, otp }).catch((err) => {
+    console.error(`[email] background send failed -> ${email}:`, err.message);
+  });
 }
 
 export const authService = {
@@ -52,7 +65,7 @@ export const authService = {
     if (userByUsername) throw new AppError("Username is already taken", 409, "USERNAME_TAKEN");
     if (userByEmail) throw new AppError("Email is already registered", 409, "EMAIL_TAKEN");
 
-    const passwordHash = await bcrypt.hash(password, 12);
+    const passwordHash = await bcrypt.hash(password, 10);
     const user = await User.create({
       fullName: fullName.trim(),
       username: cleanUsername,
@@ -61,13 +74,11 @@ export const authService = {
       isEmailVerified: false,
     });
 
-    // fail closed: roll back the account if the verification email can't send
-    try {
-      await createAndSendOtp({ email: cleanEmail, type: "verify" });
-    } catch (err) {
-      await User.deleteOne({ _id: user._id }).catch(() => {});
-      throw err;
-    }
+    // Respond 201 immediately — OTP delivery happens in background.
+    // Blocking the response on Gmail SMTP is what made signup take
+    // 10–60s on Render. If delivery fails, resend-otp still works.
+    const plainOtp = await persistOtp({ email: cleanEmail, type: "verify" });
+    sendOtpInBackground({ email: cleanEmail, type: "verify", otp: plainOtp });
 
     return user.toSafeObject();
   },
@@ -213,7 +224,7 @@ export const authService = {
     const user = await User.findOne({ email: cleanEmail }).select("+passwordHash +refreshTokenHash");
     if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
 
-    user.passwordHash = await bcrypt.hash(newPassword, 12);
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
     // revoke existing sessions for security
     user.refreshTokenHash = null;
     await user.save();
