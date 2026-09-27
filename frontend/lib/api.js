@@ -144,6 +144,12 @@ export const api = {
     }),
   markAllNotificationsRead: () =>
     request("/api/notifications/read-all", { method: "PATCH" }),
+  deleteNotification: (id) =>
+    request(`/api/notifications/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    }),
+  clearReadNotifications: () =>
+    request("/api/notifications/clear-read", { method: "DELETE" }),
   followUser: (id) =>
     request(`/api/users/${encodeURIComponent(id)}/follow`, { method: "POST" }),
   unfollowUser: (id) =>

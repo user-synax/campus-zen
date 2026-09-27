@@ -21,12 +21,13 @@ export const notificationService = {
     return notif;
   },
 
-  async list(recipientId, { page = 1, limit = 20, filter = "all" }) {
+  async list(recipientId, { page = 1, limit = 20, filter = "all", type }) {
     const lim = Math.max(1, Math.min(50, Number(limit)));
     const pg = Math.max(1, Number(page));
     const skip = (pg - 1) * lim;
     const query = { recipient: recipientId };
     if (filter === "unread") query.read = false;
+    if (type) query.type = type;
 
     const [notifications, total, unreadCount] = await Promise.all([
       Notification.find(query)
@@ -72,5 +73,21 @@ export const notificationService = {
   async markAllRead(recipientId) {
     await Notification.updateMany({ recipient: recipientId, read: false }, { $set: { read: true } });
     return { message: "All marked as read" };
+  },
+
+  async deleteOne(recipientId, notifId) {
+    const res = await Notification.deleteOne({ _id: notifId, recipient: recipientId });
+    if (res.deletedCount === 0) {
+      const err = new Error("Notification not found");
+      err.statusCode = 404;
+      err.code = "NOT_FOUND";
+      throw err;
+    }
+    return { message: "Notification deleted" };
+  },
+
+  async clearRead(recipientId) {
+    const res = await Notification.deleteMany({ recipient: recipientId, read: true });
+    return { message: "Read notifications cleared", deleted: res.deletedCount };
   },
 };

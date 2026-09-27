@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Bell,
@@ -12,6 +12,7 @@ import {
   Loader2,
   CheckCheck,
   Check,
+  Trash2,
 } from "lucide-react";
 import { EmptyState } from "@/components/app/EmptyState";
 import { api } from "@/lib/api";
@@ -66,6 +67,51 @@ function NotifIcon({ type }) {
   }
 }
 
+// Marks an unread card read after ~1s in view. Fires once per card.
+function AutoRead({ id, active, onRead, children }) {
+  const ref = useRef(null);
+  const firedRef = useRef(false);
+  const onReadRef = useRef(onRead);
+  onReadRef.current = onRead;
+
+  useEffect(() => {
+    if (!active || firedRef.current) return;
+    const el = ref.current;
+    if (!el) return;
+    let timer = null;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !document.hidden) {
+          if (!timer) timer = setTimeout(() => {
+            firedRef.current = true;
+            onReadRef.current(id);
+          }, 1000);
+        } else if (timer) {
+          clearTimeout(timer);
+          timer = null;
+        }
+      },
+      { threshold: 0.6 },
+    );
+    obs.observe(el);
+    return () => {
+      obs.disconnect();
+      if (timer) clearTimeout(timer);
+    };
+  }, [active, id]);
+
+  return <div ref={ref}>{children}</div>;
+}
+
+const TYPE_TABS = [
+  { id: "all", label: "All" },
+  { id: "follow", label: "Follows" },
+  { id: "like", label: "Likes" },
+  { id: "reply", label: "Replies" },
+  { id: "repost", label: "Reposts" },
+  { id: "mention", label: "Mentions" },
+];
+
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState([]);
   const [page, setPage] = useState(1);
@@ -73,13 +119,19 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [filter, setFilter] = useState("all"); // all | unread
+  const [typeFilter, setTypeFilter] = useState("all"); // all | follow | like | reply | repost | mention
   const [markingAll, setMarkingAll] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const listRef = useRef([]);
+  const checkingRef = useRef(false);
 
-  const fetchPage = async (p, f, append = false) => {
+  const fetchPage = async (p, f, t, append = false) => {
     if (append) setLoadingMore(true);
     else setLoading(true);
     try {
-      const res = await api.getNotifications({ page: p, limit: 20, filter: f });
+      const params = { page: p, limit: 20, filter: f };
+      if (t && t !== "all") params.type = t;
+      const res = await api.getNotifications(params);
       const d = res.data;
       if (append)
         setNotifications((prev) => [...prev, ...(d.notifications || [])]);
@@ -92,10 +144,52 @@ export default function NotificationsPage() {
   };
 
   useEffect(() => {
-    fetchPage(1, filter, false);
-  }, [filter]);
+    fetchPage(1, filter, typeFilter, false);
+  }, [filter, typeFilter]);
 
-  const markRead = async (id) => {
+  // live updates — poll latest page-1, prepend unseen (same cadence as unread badge)
+  const checkForUpdates = useCallback(async () => {
+    if (checkingRef.current || document.hidden) return;
+    checkingRef.current = true;
+    try {
+      const params = { page: 1, limit: 20, filter };
+      if (typeFilter !== "all") params.type = typeFilter;
+      const res = await api.getNotifications(params);
+      const fresh = res.data?.notifications || [];
+      const known = new Set(listRef.current.map((n) => n._id));
+      const unseen = fresh.filter((n) => !known.has(n._id));
+      if (unseen.length > 0) {
+        setNotifications((prev) => {
+          const ids = new Set(prev.map((n) => n._id));
+          const add = unseen.filter((n) => !ids.has(n._id));
+          return add.length > 0 ? [...add, ...prev] : prev;
+        });
+      }
+    } catch {}
+    checkingRef.current = false;
+  }, [filter, typeFilter]);
+
+  useEffect(() => {
+    if (loading) return;
+    const id = setInterval(checkForUpdates, 30000);
+    const onFocus = () => checkForUpdates();
+    const onVisible = () => {
+      if (!document.hidden) checkForUpdates();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [checkForUpdates, loading]);
+
+  useEffect(() => {
+    listRef.current = notifications;
+  }, [notifications]);
+
+  const markRead = useCallback(async (id) => {
     try {
       await api.markNotificationRead(id);
       setNotifications((prev) =>
@@ -103,7 +197,7 @@ export default function NotificationsPage() {
       );
       window.dispatchEvent(new Event("cz:notif-read"));
     } catch {}
-  };
+  }, []);
 
   const markAll = async () => {
     setMarkingAll(true);
@@ -115,7 +209,27 @@ export default function NotificationsPage() {
     setMarkingAll(false);
   };
 
+  const deleteOne = async (id) => {
+    try {
+      await api.deleteNotification(id);
+      setNotifications((prev) => prev.filter((n) => n._id !== id));
+      window.dispatchEvent(new Event("cz:notif-read"));
+    } catch {}
+  };
+
+  const clearRead = async () => {
+    if (!confirm("Delete all read notifications?")) return;
+    setClearing(true);
+    try {
+      await api.clearReadNotifications();
+      setNotifications((prev) => prev.filter((n) => !n.read));
+      window.dispatchEvent(new Event("cz:notif-read"));
+    } catch {}
+    setClearing(false);
+  };
+
   const unreadInView = notifications.filter((n) => !n.read).length;
+  const readInView = notifications.length - unreadInView;
 
   return (
     <div className="mx-auto w-full max-w-[640px] space-y-4">
@@ -155,7 +269,41 @@ export default function NotificationsPage() {
               Mark all read
             </Button>
           ) : null}
+          {readInView > 0 ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearRead}
+              disabled={clearing}
+              className="h-[32px] px-3 text-[12px] hidden sm:inline-flex"
+            >
+              {clearing ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Trash2 className="h-3.5 w-3.5" />
+              )}
+              Clear read
+            </Button>
+          ) : null}
         </div>
+      </div>
+
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mb-1">
+        {TYPE_TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTypeFilter(t.id)}
+            aria-selected={typeFilter === t.id}
+            className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 h-[30px] text-[12px] font-medium transition-colors ${
+              typeFilter === t.id
+                ? "border-[var(--cz-border-strong)] bg-[rgba(255,206,173,0.1)] text-[var(--cz-text-primary)]"
+                : "border-[var(--cz-border)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)]"
+            }`}
+          >
+            {t.id !== "all" ? <NotifIcon type={t.id} /> : null}
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {unreadInView > 0 ? (
@@ -173,6 +321,24 @@ export default function NotificationsPage() {
               <CheckCheck className="h-3.5 w-3.5" />
             )}
             Mark all read ({unreadInView})
+          </Button>
+        </div>
+      ) : null}
+      {readInView > 0 ? (
+        <div className="sm:hidden flex justify-end">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearRead}
+            disabled={clearing}
+            className="h-[32px] px-3 text-[12px] w-full"
+          >
+            {clearing ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Trash2 className="h-3.5 w-3.5" />
+            )}
+            Clear read ({readInView})
           </Button>
         </div>
       ) : null}
@@ -198,17 +364,19 @@ export default function NotificationsPage() {
         <EmptyState
           icon={Bell}
           title={
-            filter === "unread"
-              ? "No unread notifications"
-              : "No notifications yet"
+            typeFilter !== "all"
+              ? `No ${typeFilter} notifications`
+              : filter === "unread"
+                ? "No unread notifications"
+                : "No notifications yet"
           }
-          description="You’ll get notified when someone follows you, likes, replies, reposts or mentions you. Manual read only, duplicates ignored within 1h."
+          description="You’ll get notified when someone follows you, likes, replies, reposts or mentions you. Cards mark themselves read as you view them."
         />
       ) : (
         <div className="space-y-3">
           {notifications.map((n) => (
+            <AutoRead key={n._id} id={n._id} active={!n.read} onRead={markRead}>
             <div
-              key={n._id}
               className={`group relative overflow-hidden rounded-[16px] border bg-[var(--cz-surface)] p-3 sm:p-4 flex gap-3 hover:border-[var(--cz-border-strong)] transition-colors ${n.read ? "border-[var(--cz-border)]" : "border-[var(--cz-muted)]/30 bg-[var(--cz-surface-strong)]"}`}
             >
               {!n.read ? (
@@ -284,18 +452,24 @@ export default function NotificationsPage() {
                       <Check className="h-3.5 w-3.5" /> Read
                     </button>
                   ) : (
-                    <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-[var(--cz-surface-strong)] border border-[var(--cz-border)] px-2.5 h-[28px] text-[11px] font-medium text-[var(--cz-text-secondary)]/60">
-                      <Check className="h-3.5 w-3.5" /> Read
-                    </span>
+                    <button
+                      onClick={() => deleteOne(n._id)}
+                      className="shrink-0 inline-flex items-center justify-center rounded-full h-[28px] w-[28px] text-[var(--cz-text-secondary)]/50 hover:text-[var(--cz-error)] hover:bg-[rgba(255,90,106,0.08)] transition-colors"
+                      aria-label="Delete notification"
+                      title="Delete notification"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                   )}
                 </div>
               </div>
             </div>
+            </AutoRead>
           ))}
 
           {hasMore ? (
             <button
-              onClick={() => fetchPage(page + 1, filter, true)}
+              onClick={() => fetchPage(page + 1, filter, typeFilter, true)}
               disabled={loadingMore}
               className="w-full rounded-[12px] border border-[var(--cz-border)] bg-transparent h-[40px] text-[13px] font-medium hover:bg-[var(--cz-surface)] transition-colors disabled:opacity-50"
             >
@@ -309,8 +483,7 @@ export default function NotificationsPage() {
             </button>
           ) : (
             <p className="text-center text-[11px] text-[var(--cz-text-secondary)]/60 py-2">
-              End • {notifications.length} notifications • keep only read (no
-              delete)
+              End • {notifications.length} notifications
             </p>
           )}
         </div>
