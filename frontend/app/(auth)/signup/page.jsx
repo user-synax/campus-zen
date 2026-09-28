@@ -1,14 +1,22 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import {
+  AlertCircle,
+  Check,
+  Eye,
+  EyeOff,
+  Loader2,
+  Sparkles,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Check, Loader2, Sparkles, AlertCircle } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { AuthShell } from "@/components/auth/AuthShell";
+import { GuestGuard } from "@/components/auth/GuestGuard";
 import { PasswordStrength } from "@/components/auth/PasswordStrength";
-import { Label } from "@/components/ui/label";
-import { InputWrap, InputShell, ErrorMsg } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { ErrorMsg, InputShell, InputWrap } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
 
 const EMAIL_ALLOW = ["gmail.com", "proton.me"];
@@ -23,7 +31,8 @@ function isValidEmail(v) {
 function usernameFormatStatus(v) {
   if (!v) return { state: "idle", msg: "" };
   if (v.length < 3) return { state: "error", msg: "Minimum 3 characters." };
-  if (!/^[a-z0-9_]+$/.test(v)) return { state: "error", msg: "Only lowercase letters, numbers and _" };
+  if (!/^[a-z0-9_]+$/.test(v))
+    return { state: "error", msg: "Only lowercase letters, numbers and _" };
   if (v.length > 20) return { state: "error", msg: "Maximum 20 characters." };
   return null; // needs backend check
 }
@@ -67,7 +76,11 @@ export default function SignupPage() {
       try {
         const res = await api.checkUsername(username);
         const d = res.data;
-        setUserAvail(d.available ? { state: "available", msg: "Available" } : { state: "taken", msg: d.reason || "Username is taken" });
+        setUserAvail(
+          d.available
+            ? { state: "available", msg: "Available" }
+            : { state: "taken", msg: d.reason || "Username is taken" },
+        );
       } catch {
         setUserAvail({ state: "idle", msg: "" });
       } finally {
@@ -84,14 +97,21 @@ export default function SignupPage() {
 
   const validate = () => {
     const e = {};
-    if (!fullName.trim() || fullName.trim().length < 2) e.fullName = "Enter your full name (at least 2 characters).";
+    if (!fullName.trim() || fullName.trim().length < 2)
+      e.fullName = "Enter your full name (at least 2 characters).";
     if (!username.trim()) e.username = "Choose a username.";
-    else if (userAvail.state === "error" || userAvail.state === "taken") e.username = userAvail.msg;
-    else if (userAvail.state === "available" && usernameFormatStatus(username) === null) {
+    else if (userAvail.state === "error" || userAvail.state === "taken")
+      e.username = userAvail.msg;
+    else if (
+      userAvail.state === "available" &&
+      usernameFormatStatus(username) === null
+    ) {
       // ok
-    } else if (usernameFormatStatus(username)) e.username = usernameFormatStatus(username).msg;
+    } else if (usernameFormatStatus(username))
+      e.username = usernameFormatStatus(username).msg;
     if (!email.trim()) e.email = "Enter your email.";
-    else if (!isValidEmail(email)) e.email = `Use a gmail.com or proton.me email.`;
+    else if (!isValidEmail(email))
+      e.email = `Use a gmail.com or proton.me email.`;
     if (!password) e.password = "Create a password.";
     else if (password.length < 8) e.password = "Minimum 8 characters.";
 
@@ -153,177 +173,237 @@ export default function SignupPage() {
       } else if (!details || Object.keys(details || {}).length === 0) {
         setServerError(data.message || err.message || "Signup failed");
       }
-      if (err.status === 429) setServerError(data.message || "Too many attempts. Try later.");
+      if (err.status === 429)
+        setServerError(data.message || "Too many attempts. Try later.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <AuthShell title="Create your account" subtitle="Join CampusZen — minimal signup, no college details needed yet.">
-      <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
-        {serverError ? (
-          <div className="flex items-start gap-2 rounded-[10px] border border-[var(--cz-error)]/20 bg-[rgba(255,90,106,0.08)] px-3 py-2.5 text-[13px] leading-[18px] text-[var(--cz-error)]">
-            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" /> <span>{serverError}</span>
-          </div>
-        ) : null}
+    <GuestGuard>
+      <AuthShell
+        title="Create your account"
+        subtitle="Join CampusZen — minimal signup, no college details needed yet."
+      >
+        <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+          {serverError ? (
+            <div className="flex items-start gap-2 rounded-[10px] border border-[var(--cz-error)]/20 bg-[rgba(255,90,106,0.08)] px-3 py-2.5 text-[13px] leading-[18px] text-[var(--cz-error)]">
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />{" "}
+              <span>{serverError}</span>
+            </div>
+          ) : null}
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="fullName">
-            Full name <span className="text-[var(--cz-error)]">*</span>
-          </Label>
-          <InputWrap error={!!errors.fullName}>
-            <InputShell error={!!errors.fullName} shaking={!!shake.fullName}>
-              <input
-                ref={nameRef}
-                id="fullName"
-                autoComplete="name"
-                placeholder="Ayush Sharma"
-                value={fullName}
-                onChange={(e) => {
-                  setFullName(e.target.value);
-                  if (errors.fullName) setErrors((p) => ({ ...p, fullName: undefined }));
-                  setServerError("");
-                }}
-                className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 text-[var(--cz-text-primary)] h-full"
-              />
-            </InputShell>
-            <ErrorMsg>{errors.fullName}</ErrorMsg>
-          </InputWrap>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="username">
-              Username <span className="text-[var(--cz-error)]">*</span>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="fullName">
+              Full name <span className="text-[var(--cz-error)]">*</span>
             </Label>
-            <span className="text-[11px] tracking-wide text-[var(--cz-text-secondary)]/70">campuszen.app/@username</span>
+            <InputWrap error={!!errors.fullName}>
+              <InputShell error={!!errors.fullName} shaking={!!shake.fullName}>
+                <input
+                  ref={nameRef}
+                  id="fullName"
+                  autoComplete="name"
+                  placeholder="Ayush Sharma"
+                  value={fullName}
+                  onChange={(e) => {
+                    setFullName(e.target.value);
+                    if (errors.fullName)
+                      setErrors((p) => ({ ...p, fullName: undefined }));
+                    setServerError("");
+                  }}
+                  className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 text-[var(--cz-text-primary)] h-full"
+                />
+              </InputShell>
+              <ErrorMsg>{errors.fullName}</ErrorMsg>
+            </InputWrap>
           </div>
-          <InputWrap error={!!errors.username}>
-            <InputShell error={!!errors.username} shaking={!!shake.username}>
-              <span className="text-[14px] text-[var(--cz-text-secondary)] select-none">@</span>
-              <input
-                ref={userRef}
-                id="username"
-                autoComplete="username"
-                placeholder="user_synax"
-                value={username}
-                onChange={(e) => {
-                  const v = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "");
-                  setUsername(v);
-                  if (errors.username) setErrors((p) => ({ ...p, username: undefined }));
-                  setServerError("");
-                }}
-                className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 text-[var(--cz-text-primary)] h-full"
-                maxLength={20}
-              />
-              {username ? (
-                <span
-                  className={`inline-flex items-center gap-1 text-[11px] font-medium shrink-0 ${
-                    userAvail.state === "available" ? "text-emerald-400" : userAvail.state === "taken" || userAvail.state === "error" ? "text-[var(--cz-error)]" : "text-[var(--cz-text-secondary)]"
-                  }`}
-                >
-                  {checkingUser ? <Loader2 className="h-3 w-3 animate-spin" /> : userAvail.state === "available" ? <Check className="h-3 w-3" /> : null}
-                  {checkingUser ? "Checking…" : userAvail.state === "available" ? "Available" : userAvail.state === "taken" ? "Taken" : userAvail.state === "error" ? "Invalid" : ""}
+
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="username">
+                Username <span className="text-[var(--cz-error)]">*</span>
+              </Label>
+              <span className="text-[11px] tracking-wide text-[var(--cz-text-secondary)]/70">
+                campuszen.app/@username
+              </span>
+            </div>
+            <InputWrap error={!!errors.username}>
+              <InputShell error={!!errors.username} shaking={!!shake.username}>
+                <span className="text-[14px] text-[var(--cz-text-secondary)] select-none">
+                  @
                 </span>
+                <input
+                  ref={userRef}
+                  id="username"
+                  autoComplete="username"
+                  placeholder="user_synax"
+                  value={username}
+                  onChange={(e) => {
+                    const v = e.target.value
+                      .toLowerCase()
+                      .replace(/[^a-z0-9_]/g, "");
+                    setUsername(v);
+                    if (errors.username)
+                      setErrors((p) => ({ ...p, username: undefined }));
+                    setServerError("");
+                  }}
+                  className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 text-[var(--cz-text-primary)] h-full"
+                  maxLength={20}
+                />
+                {username ? (
+                  <span
+                    className={`inline-flex items-center gap-1 text-[11px] font-medium shrink-0 ${
+                      userAvail.state === "available"
+                        ? "text-emerald-400"
+                        : userAvail.state === "taken" ||
+                            userAvail.state === "error"
+                          ? "text-[var(--cz-error)]"
+                          : "text-[var(--cz-text-secondary)]"
+                    }`}
+                  >
+                    {checkingUser ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : userAvail.state === "available" ? (
+                      <Check className="h-3 w-3" />
+                    ) : null}
+                    {checkingUser
+                      ? "Checking…"
+                      : userAvail.state === "available"
+                        ? "Available"
+                        : userAvail.state === "taken"
+                          ? "Taken"
+                          : userAvail.state === "error"
+                            ? "Invalid"
+                            : ""}
+                  </span>
+                ) : null}
+              </InputShell>
+              <ErrorMsg>
+                {errors.username ||
+                  (userAvail.state !== "available" &&
+                  userAvail.state !== "idle" &&
+                  !checkingUser
+                    ? userAvail.msg
+                    : "")}
+              </ErrorMsg>
+              {!errors.username && userAvail.state === "available" ? (
+                <p className="text-[11px] leading-[14px] text-emerald-400/90 mt-1">
+                  Nice — this username is free.
+                </p>
               ) : null}
-            </InputShell>
-            <ErrorMsg>{errors.username || (userAvail.state !== "available" && userAvail.state !== "idle" && !checkingUser ? userAvail.msg : "")}</ErrorMsg>
-            {!errors.username && userAvail.state === "available" ? <p className="text-[11px] leading-[14px] text-emerald-400/90 mt-1">Nice — this username is free.</p> : null}
-          </InputWrap>
-        </div>
+            </InputWrap>
+          </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="email">
-            Email <span className="text-[var(--cz-error)]">*</span>
-          </Label>
-          <InputWrap error={!!errors.email}>
-            <InputShell error={!!errors.email} shaking={!!shake.email}>
-              <input
-                ref={emailRef}
-                id="email"
-                type="email"
-                autoComplete="email"
-                placeholder="you@gmail.com"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  if (errors.email) setErrors((p) => ({ ...p, email: undefined }));
-                  setServerError("");
-                }}
-                className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 text-[var(--cz-text-primary)] h-full"
-              />
-            </InputShell>
-            <ErrorMsg>{errors.email}</ErrorMsg>
-            <p className="text-[11px] leading-[14px] text-[var(--cz-text-secondary)]/70 mt-1">Allowed: gmail.com, proton.me</p>
-          </InputWrap>
-        </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="email">
+              Email <span className="text-[var(--cz-error)]">*</span>
+            </Label>
+            <InputWrap error={!!errors.email}>
+              <InputShell error={!!errors.email} shaking={!!shake.email}>
+                <input
+                  ref={emailRef}
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="you@gmail.com"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (errors.email)
+                      setErrors((p) => ({ ...p, email: undefined }));
+                    setServerError("");
+                  }}
+                  className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 text-[var(--cz-text-primary)] h-full"
+                />
+              </InputShell>
+              <ErrorMsg>{errors.email}</ErrorMsg>
+              <p className="text-[11px] leading-[14px] text-[var(--cz-text-secondary)]/70 mt-1">
+                Allowed: gmail.com, proton.me
+              </p>
+            </InputWrap>
+          </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="password">
-            Password <span className="text-[var(--cz-error)]">*</span>
-          </Label>
-          <InputWrap error={!!errors.password}>
-            <InputShell error={!!errors.password} shaking={!!shake.password}>
-              <input
-                ref={pwRef}
-                id="password"
-                type={showPw ? "text" : "password"}
-                autoComplete="new-password"
-                placeholder="Minimum 8 characters"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  if (errors.password) setErrors((p) => ({ ...p, password: undefined }));
-                  setServerError("");
-                }}
-                className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 text-[var(--cz-text-primary)] h-full"
-              />
-              <button
-                type="button"
-                aria-label={showPw ? "Hide password" : "Show password"}
-                onClick={() => setShowPw((v) => !v)}
-                className="grid place-items-center h-7 w-7 rounded-[8px] hover:bg-[rgba(255,206,173,0.08)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] transition-colors shrink-0"
-              >
-                <span className="t-icon-swap" data-state={showPw ? "b" : "a"}>
-                  <span className="t-icon" data-icon="a">
-                    <Eye className="h-4 w-4" />
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="password">
+              Password <span className="text-[var(--cz-error)]">*</span>
+            </Label>
+            <InputWrap error={!!errors.password}>
+              <InputShell error={!!errors.password} shaking={!!shake.password}>
+                <input
+                  ref={pwRef}
+                  id="password"
+                  type={showPw ? "text" : "password"}
+                  autoComplete="new-password"
+                  placeholder="Minimum 8 characters"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (errors.password)
+                      setErrors((p) => ({ ...p, password: undefined }));
+                    setServerError("");
+                  }}
+                  className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 text-[var(--cz-text-primary)] h-full"
+                />
+                <button
+                  type="button"
+                  aria-label={showPw ? "Hide password" : "Show password"}
+                  onClick={() => setShowPw((v) => !v)}
+                  className="grid place-items-center h-7 w-7 rounded-[8px] hover:bg-[rgba(255,206,173,0.08)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] transition-colors shrink-0"
+                >
+                  <span className="t-icon-swap" data-state={showPw ? "b" : "a"}>
+                    <span className="t-icon" data-icon="a">
+                      <Eye className="h-4 w-4" />
+                    </span>
+                    <span className="t-icon" data-icon="b">
+                      <EyeOff className="h-4 w-4" />
+                    </span>
                   </span>
-                  <span className="t-icon" data-icon="b">
-                    <EyeOff className="h-4 w-4" />
-                  </span>
-                </span>
-              </button>
-            </InputShell>
-            <ErrorMsg>{errors.password}</ErrorMsg>
-            <PasswordStrength password={password} />
-          </InputWrap>
-        </div>
+                </button>
+              </InputShell>
+              <ErrorMsg>{errors.password}</ErrorMsg>
+              <PasswordStrength password={password} />
+            </InputWrap>
+          </div>
 
-        <p className="text-center text-[12px] leading-[18px] text-[var(--cz-text-secondary)]">
-          By creating an account, you agree to our{" "}
-          <Link href="/terms" className="text-[var(--cz-text-primary)] underline decoration-[var(--cz-border-strong)] underline-offset-4 hover:decoration-[var(--cz-text-primary)]">
-            Terms
-          </Link>{" "}
-          and{" "}
-          <Link href="/privacy" className="text-[var(--cz-text-primary)] underline decoration-[var(--cz-border-strong)] underline-offset-4 hover:decoration-[var(--cz-text-primary)]">
-            Privacy Policy
-          </Link>
-          .
-        </p>
+          <p className="text-center text-[12px] leading-[18px] text-[var(--cz-text-secondary)]">
+            By creating an account, you agree to our{" "}
+            <Link
+              href="/terms"
+              className="text-[var(--cz-text-primary)] underline decoration-[var(--cz-border-strong)] underline-offset-4 hover:decoration-[var(--cz-text-primary)]"
+            >
+              Terms
+            </Link>{" "}
+            and{" "}
+            <Link
+              href="/privacy"
+              className="text-[var(--cz-text-primary)] underline decoration-[var(--cz-border-strong)] underline-offset-4 hover:decoration-[var(--cz-text-primary)]"
+            >
+              Privacy Policy
+            </Link>
+            .
+          </p>
 
-        <Button type="submit" disabled={loading} className="mt-2 w-full">
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-          {loading ? "Creating account..." : "Create account"}
-        </Button>
+          <Button type="submit" disabled={loading} className="mt-2 w-full">
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="h-4 w-4" />
+            )}
+            {loading ? "Creating account..." : "Create account"}
+          </Button>
 
-        <p className="text-center text-[13px] leading-[18px] text-[var(--cz-text-secondary)]">
-          Already have an account?{" "}
-          <Link href="/login" className="font-medium text-[var(--cz-text-primary)] underline decoration-[var(--cz-border-strong)] underline-offset-4 hover:decoration-[var(--cz-text-primary)] transition-colors">
-            Log in
-          </Link>
-        </p>
-      </form>
-    </AuthShell>
+          <p className="text-center text-[13px] leading-[18px] text-[var(--cz-text-secondary)]">
+            Already have an account?{" "}
+            <Link
+              href="/login"
+              className="font-medium text-[var(--cz-text-primary)] underline decoration-[var(--cz-border-strong)] underline-offset-4 hover:decoration-[var(--cz-text-primary)] transition-colors"
+            >
+              Log in
+            </Link>
+          </p>
+        </form>
+      </AuthShell>
+    </GuestGuard>
   );
 }

@@ -1,6 +1,7 @@
 import { User } from "../models/User.js";
 import { AppError } from "../utils/AppError.js";
 import { blockService } from "./blockService.js";
+import { cache, CacheKeys, TTL } from "../utils/cache.js";
 
 export const userService = {
   async listUsers({ q, college, course, academicYear, page = 1, limit = 20, viewerId }) {
@@ -54,6 +55,9 @@ export const userService = {
   // Tiebreak prefers newer accounts so fresh faces stay discoverable.
   async suggestions(viewerId, { limit = 6 } = {}) {
     const lim = Math.max(1, Math.min(20, Number(limit) || 6));
+    const cacheKey = CacheKeys.suggestions(viewerId);
+    const cached = cache.get(cacheKey);
+    if (cached) return cached;
     const { Follow } = await import("../models/Follow.js");
 
     const viewer = await User.findById(viewerId).select("college course academicYear").lean();
@@ -115,22 +119,31 @@ export const userService = {
 
     scored.sort((a, b) => b.score - a.score || b.user.createdAt - a.user.createdAt);
 
-    return {
+    const result = {
       users: scored.slice(0, lim).map(({ user, suggestReason }) => ({
         ...user,
         isFollowing: false,
         suggestReason,
       })),
     };
+    cache.set(cacheKey, result, TTL.SUGGESTIONS);
+    return result;
   },
 
   async getByUsername(username, viewerId = null) {
     const clean = username.toLowerCase().trim();
-    const user = await User.findOne({ username: clean }).populate({
-      path: "pinnedPost",
-      populate: { path: "author", select: "fullName username avatarUrl isEmailVerified" },
-    });
-    if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+    const cacheKey = CacheKeys.userProfile(clean);
+    let user = cache.get(cacheKey);
+
+    if (!user) {
+      user = await User.findOne({ username: clean }).populate({
+        path: "pinnedPost",
+        populate: { path: "author", select: "fullName username avatarUrl isEmailVerified" },
+      });
+      if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+      cache.set(cacheKey, user, TTL.USER_PROFILE);
+    }
+
     if (viewerId && String(viewerId) !== String(user._id)) {
       const rel = await blockService.relationOf(viewerId, user._id);
       if (rel) {
@@ -161,6 +174,8 @@ export const userService = {
     const { viewUrl } = await uploadToAppwrite(file.buffer, file.originalname, file.mimetype);
     const user = await User.findByIdAndUpdate(userId, { $set: { avatarUrl: viewUrl } }, { new: true, runValidators: true });
     if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+    cache.del(CacheKeys.userProfile(user.username));
+    cache.delPattern("user:*");
     return user.toSafeObject();
   },
 
@@ -189,6 +204,7 @@ export const userService = {
     if (!postId) {
       const user = await User.findByIdAndUpdate(userId, { $unset: { pinnedPost: 1 } }, { new: true });
       if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+      cache.del(CacheKeys.userProfile(user.username));
       return user.toSafeObject();
     }
     const { Post } = await import("../models/Post.js");
@@ -197,6 +213,7 @@ export const userService = {
     if (String(post.author) !== String(userId)) throw new AppError("You can only pin your own posts", 403, "FORBIDDEN");
     const user = await User.findByIdAndUpdate(userId, { $set: { pinnedPost: postId } }, { new: true, runValidators: true });
     if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+    cache.del(CacheKeys.userProfile(user.username));
     return user.toSafeObject();
   },
 
@@ -271,6 +288,7 @@ export const userService = {
 
     const user = await User.findByIdAndUpdate(userId, { $set: update }, { new: true, runValidators: true });
     if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+    cache.del(CacheKeys.userProfile(user.username));
     return user.toSafeObject();
   },
 };

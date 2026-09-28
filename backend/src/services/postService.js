@@ -10,6 +10,7 @@ import { blockService } from "./blockService.js";
 import { extractHashtags, normalizeHashtag } from "../utils/hashtags.js";
 import { extractMentions } from "../utils/mentions.js";
 import { AppError } from "../utils/AppError.js";
+import { cache, CacheKeys, TTL } from "../utils/cache.js";
 
 const EDIT_WINDOW_MS = 5 * 60 * 1000;
 
@@ -67,29 +68,45 @@ export const postService = {
     const post = await Post.create({ author: authorId, text: t || undefined, imageUrl, hashtags: extractHashtags(t), mentions: extractMentions(t) });
     await User.findByIdAndUpdate(authorId, { $inc: { postCount: 1 } });
     await notifyMentions(authorId, extractMentions(t), post._id);
+    // Invalidate caches that include this post
+    cache.delPattern("feed:*");
+    cache.delPattern("publicFeed:*");
+    cache.delPattern(`userPosts:${authorId}:*`);
+    cache.delPattern("trending:*");
+    cache.delPattern("hashtag:*");
+    cache.delPattern(`media:${authorId}:*`);
     const populated = await Post.findById(post._id).populate("author", "fullName username avatarUrl isEmailVerified");
     return populated;
   },
 
   async getById(postId, viewerId) {
-    const post = await Post.findById(postId).populate("author", "fullName username avatarUrl isEmailVerified").lean();
-    if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
+    const cacheKey = CacheKeys.post(postId);
+    let post = cache.get(cacheKey);
+
+    if (!post) {
+      post = await Post.findById(postId).populate("author", "fullName username avatarUrl isEmailVerified").lean();
+      if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
+      cache.set(cacheKey, post, TTL.POST);
+    }
+
     // blocked in either direction → indistinguishable from deleted
     if (viewerId) {
       const authorId = post.author?._id || post.author;
       if (await blockService.isBlocked(viewerId, authorId)) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
     }
+    // Clone to avoid mutating cached object
+    const result = { ...post };
     if (viewerId) {
       const [liked, reposted, bookmarked] = await Promise.all([
         Like.exists({ user: viewerId, post: postId }),
         Repost.exists({ user: viewerId, post: postId }),
         Bookmark.exists({ user: viewerId, post: postId }),
       ]);
-      post.isLiked = Boolean(liked);
-      post.isReposted = Boolean(reposted);
-      post.isBookmarked = Boolean(bookmarked);
+      result.isLiked = Boolean(liked);
+      result.isReposted = Boolean(reposted);
+      result.isBookmarked = Boolean(bookmarked);
     }
-    return post;
+    return result;
   },
 
   async update(postId, userId, text) {
@@ -108,6 +125,13 @@ export const postService = {
     await post.save();
     const added = newMentions.filter((m) => !oldMentions.has(m));
     await notifyMentions(userId, added, post._id);
+    // Invalidate caches
+    cache.del(CacheKeys.post(postId));
+    cache.delPattern("feed:*");
+    cache.delPattern("publicFeed:*");
+    cache.delPattern(`userPosts:${post.author}:*`);
+    cache.delPattern("hashtag:*");
+    cache.delPattern(`media:${post.author}:*`);
     const populated = await Post.findById(post._id).populate("author", "fullName username avatarUrl isEmailVerified");
     return populated;
   },
@@ -127,6 +151,14 @@ export const postService = {
     ]);
     // clamp
     await User.updateOne({ _id: userId, postCount: { $lt: 0 } }, { $set: { postCount: 0 } });
+    // Invalidate caches
+    cache.del(CacheKeys.post(postId));
+    cache.delPattern("feed:*");
+    cache.delPattern("publicFeed:*");
+    cache.delPattern(`userPosts:${userId}:*`);
+    cache.delPattern("hashtag:*");
+    cache.delPattern(`media:${userId}:*`);
+    cache.delPattern("trending:*");
     // cleanup image from Appwrite
     if (post.imageUrl) {
       try {
@@ -141,6 +173,10 @@ export const postService = {
   async feed(userId, { page = 1, limit = 20 }) {
     const lim = Math.max(1, Math.min(50, Number(limit)));
     const skip = (Math.max(1, Number(page)) - 1) * lim;
+    const cacheKey = CacheKeys.feed(userId, page, lim);
+    const cached = cache.get(cacheKey);
+    if (cached) return cached;
+
     // get following ids + self, minus blocked authors
     const follows = await Follow.find({ follower: userId }).select("following").lean();
     const ids = follows.map((f) => f.following);
@@ -171,12 +207,37 @@ export const postService = {
       });
       await attachBookmarked(posts, userId);
     }
-    return { posts, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
+    const result = { posts, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
+    cache.set(cacheKey, result, TTL.FEED);
+    return result;
   },
 
   async publicFeed({ page = 1, limit = 20 }, viewerId) {
     const lim = Math.max(1, Math.min(50, Number(limit)));
     const skip = (Math.max(1, Number(page)) - 1) * lim;
+    const cacheKey = CacheKeys.publicFeed(page, lim);
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      // Still need per-viewer data even on cache hit
+      if (viewerId && cached.posts.length) {
+        const posts = cached.posts.map(p => ({ ...p })); // shallow clone
+        const postIds = posts.map((p) => p._id);
+        const [likes, reposts] = await Promise.all([
+          Like.find({ user: viewerId, post: { $in: postIds } }).select("post").lean(),
+          Repost.find({ user: viewerId, post: { $in: postIds } }).select("post").lean(),
+        ]);
+        const likeSet = new Set(likes.map((l) => String(l.post)));
+        const repostSet = new Set(reposts.map((r) => String(r.post)));
+        posts.forEach((p) => {
+          p.isLiked = likeSet.has(String(p._id));
+          p.isReposted = repostSet.has(String(p._id));
+        });
+        await attachBookmarked(posts, viewerId);
+        return { ...cached, posts };
+      }
+      return cached;
+    }
+
     const hidden = viewerId ? await blockService.blockedIdsFor(viewerId) : [];
     const filter = hidden.length ? { author: { $nin: hidden } } : {};
     const [posts, total] = await Promise.all([
@@ -197,7 +258,9 @@ export const postService = {
       });
       await attachBookmarked(posts, viewerId);
     }
-    return { posts, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
+    const result = { posts, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
+    cache.set(cacheKey, result, TTL.PUBLIC_FEED);
+    return result;
   },
 
   async toggleLike(userId, postId) {
@@ -210,6 +273,12 @@ export const postService = {
       await Post.findByIdAndUpdate(postId, { $inc: { likeCount: -1 } });
       await Post.updateOne({ _id: postId, likeCount: { $lt: 0 } }, { $set: { likeCount: 0 } });
       const updated = await Post.findById(postId).select("likeCount");
+      // Invalidate caches that include this post's like count
+      cache.del(CacheKeys.post(postId));
+      cache.delPattern("feed:*");
+      cache.delPattern("publicFeed:*");
+      cache.delPattern(`userPosts:${post.author}:*`);
+      cache.delPattern("hashtag:*");
       return { liked: false, likeCount: updated.likeCount };
     } else {
       try {
@@ -225,6 +294,12 @@ export const postService = {
         } catch {}
       }
       const updated = await Post.findById(postId).select("likeCount");
+      // Invalidate caches that include this post's like count
+      cache.del(CacheKeys.post(postId));
+      cache.delPattern("feed:*");
+      cache.delPattern("publicFeed:*");
+      cache.delPattern(`userPosts:${post.author}:*`);
+      cache.delPattern("hashtag:*");
       return { liked: true, likeCount: updated.likeCount };
     }
   },
@@ -239,6 +314,11 @@ export const postService = {
       await Post.findByIdAndUpdate(postId, { $inc: { repostCount: -1 } });
       await Post.updateOne({ _id: postId, repostCount: { $lt: 0 } }, { $set: { repostCount: 0 } });
       const updated = await Post.findById(postId).select("repostCount");
+      cache.del(CacheKeys.post(postId));
+      cache.delPattern("feed:*");
+      cache.delPattern("publicFeed:*");
+      cache.delPattern(`userPosts:${post.author}:*`);
+      cache.delPattern("hashtag:*");
       return { reposted: false, repostCount: updated.repostCount };
     } else {
       try {
@@ -254,6 +334,11 @@ export const postService = {
         } catch {}
       }
       const updated = await Post.findById(postId).select("repostCount");
+      cache.del(CacheKeys.post(postId));
+      cache.delPattern("feed:*");
+      cache.delPattern("publicFeed:*");
+      cache.delPattern(`userPosts:${post.author}:*`);
+      cache.delPattern("hashtag:*");
       return { reposted: true, repostCount: updated.repostCount };
     }
   },
@@ -265,6 +350,11 @@ export const postService = {
     const existing = await Bookmark.findOne({ user: userId, post: postId });
     if (existing) {
       await Bookmark.deleteOne({ _id: existing._id });
+      cache.del(CacheKeys.post(postId));
+      cache.delPattern("feed:*");
+      cache.delPattern("publicFeed:*");
+      cache.delPattern(`userPosts:${post.author}:*`);
+      cache.delPattern("hashtag:*");
       return { bookmarked: false };
     }
     try {
@@ -273,6 +363,11 @@ export const postService = {
       if (e.code === 11000) throw new AppError("Already bookmarked", 409, "ALREADY_BOOKMARKED");
       throw e;
     }
+    cache.del(CacheKeys.post(postId));
+    cache.delPattern("feed:*");
+    cache.delPattern("publicFeed:*");
+    cache.delPattern(`userPosts:${post.author}:*`);
+    cache.delPattern("hashtag:*");
     return { bookmarked: true };
   },
 
@@ -280,13 +375,18 @@ export const postService = {
   async bookmarks(userId, { page = 1, limit = 20 }) {
     const lim = Math.max(1, Math.min(50, Number(limit)));
     const skip = (Math.max(1, Number(page)) - 1) * lim;
+    const cacheKey = CacheKeys.bookmarks(userId, page, lim);
+    const cached = cache.get(cacheKey);
+    if (cached) return cached;
     const [saves, total] = await Promise.all([
       Bookmark.find({ user: userId }).sort({ createdAt: -1 }).skip(skip).limit(lim).select("post").lean(),
       Bookmark.countDocuments({ user: userId }),
     ]);
     const postIds = saves.map((s) => s.post);
     if (postIds.length === 0) {
-      return { posts: [], total, page: Number(page), limit: lim, hasMore: false };
+      const result = { posts: [], total, page: Number(page), limit: lim, hasMore: false };
+      cache.set(cacheKey, result, TTL.BOOKMARKS);
+      return result;
     }
     const posts = await Post.find({ _id: { $in: postIds } })
       .populate("author", "fullName username avatarUrl isEmailVerified")
@@ -308,7 +408,9 @@ export const postService = {
         p.isBookmarked = true;
       });
     }
-    return { posts: ordered, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
+    const result = { posts: ordered, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
+    cache.set(cacheKey, result, TTL.BOOKMARKS);
+    return result;
   },
 
   async createComment(userId, postId, text) {
@@ -328,6 +430,13 @@ export const postService = {
     // mention notifications for everyone tagged except the post author
     // (they already get a reply notification above)
     await notifyMentions(userId, mentions, postId, post.author);
+    // Invalidate caches
+    cache.del(CacheKeys.post(postId));
+    cache.delPattern("feed:*");
+    cache.delPattern("publicFeed:*");
+    cache.delPattern(`userPosts:${post.author}:*`);
+    cache.delPattern("hashtag:*");
+    cache.delPattern(`comments:${postId}:*`);
     const populated = await Comment.findById(comment._id).populate("author", "fullName username avatarUrl isEmailVerified");
     const updatedPost = await Post.findById(postId).select("replyCount");
     return { comment: populated, replyCount: updatedPost.replyCount };
@@ -341,11 +450,16 @@ export const postService = {
     }
     const lim = Math.max(1, Math.min(50, Number(limit)));
     const skip = (Math.max(1, Number(page)) - 1) * lim;
+    const cacheKey = CacheKeys.comments(postId, page, lim);
+    const cached = cache.get(cacheKey);
+    if (cached) return cached;
     const [comments, total] = await Promise.all([
       Comment.find({ post: postId }).sort({ createdAt: 1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified").lean(),
       Comment.countDocuments({ post: postId }),
     ]);
-    return { comments, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
+    const result = { comments, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
+    cache.set(cacheKey, result, TTL.COMMENTS);
+    return result;
   },
 
   // single endpoint for profile tabs — author / likedBy / repostedBy
@@ -357,9 +471,16 @@ export const postService = {
     let postIds = null;
 
     if (likedBy) {
+      const cacheKey = CacheKeys.userLikes(likedBy, page, lim);
+      const cached = cache.get(cacheKey);
+      if (cached) return cached;
       const likes = await Like.find({ user: likedBy }).sort({ createdAt: -1 }).skip(skip).limit(lim).select("post").lean();
       postIds = likes.map((l) => l.post);
-      if (postIds.length === 0) return { posts: [], total: await Like.countDocuments({ user: likedBy }), page: Number(page), limit: lim, hasMore: false };
+      if (postIds.length === 0) {
+        const result = { posts: [], total: await Like.countDocuments({ user: likedBy }), page: Number(page), limit: lim, hasMore: false };
+        cache.set(cacheKey, result, TTL.USER_POSTS);
+        return result;
+      }
       filter = { _id: { $in: postIds } };
       // preserve like order
       const posts = await Post.find(filter).populate("author", "fullName username avatarUrl isEmailVerified").lean();
@@ -382,13 +503,22 @@ export const postService = {
         await attachBookmarked(ordered, viewerId);
       }
       const total = await Like.countDocuments({ user: likedBy });
-      return { posts: ordered, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
+      const result = { posts: ordered, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
+      cache.set(cacheKey, result, TTL.USER_POSTS);
+      return result;
     }
 
     if (repostedBy) {
+      const cacheKey = CacheKeys.userReposts(repostedBy, page, lim);
+      const cached = cache.get(cacheKey);
+      if (cached) return cached;
       const reposts = await Repost.find({ user: repostedBy }).sort({ createdAt: -1 }).skip(skip).limit(lim).select("post").lean();
       postIds = reposts.map((r) => r.post);
-      if (postIds.length === 0) return { posts: [], total: await Repost.countDocuments({ user: repostedBy }), page: Number(page), limit: lim, hasMore: false };
+      if (postIds.length === 0) {
+        const result = { posts: [], total: await Repost.countDocuments({ user: repostedBy }), page: Number(page), limit: lim, hasMore: false };
+        cache.set(cacheKey, result, TTL.USER_POSTS);
+        return result;
+      }
       filter = { _id: { $in: postIds } };
       const posts = await Post.find(filter).populate("author", "fullName username avatarUrl isEmailVerified").lean();
       const map = new Map(posts.map((p) => [String(p._id), p]));
@@ -409,11 +539,19 @@ export const postService = {
         await attachBookmarked(ordered, viewerId);
       }
       const total = await Repost.countDocuments({ user: repostedBy });
-      return { posts: ordered, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
+      const result = { posts: ordered, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
+      cache.set(cacheKey, result, TTL.USER_POSTS);
+      return result;
     }
 
     if (author) {
       filter.author = author;
+    }
+
+    const cacheKey = author ? CacheKeys.userPosts(author, page, lim) : null;
+    if (cacheKey) {
+      const cached = cache.get(cacheKey);
+      if (cached) return cached;
     }
 
     const [posts, total] = await Promise.all([
@@ -436,13 +574,18 @@ export const postService = {
       await attachBookmarked(posts, viewerId);
     }
 
-    return { posts, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
+    const result = { posts, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
+    if (cacheKey) cache.set(cacheKey, result, TTL.USER_POSTS);
+    return result;
   },
 
   // image-only posts by author for the profile Media tab — light payload for the grid
   async mediaByAuthor(authorId, { page = 1, limit = 20 }) {
     const lim = Math.max(1, Math.min(50, Number(limit)));
     const skip = (Math.max(1, Number(page)) - 1) * lim;
+    const cacheKey = CacheKeys.mediaByAuthor(authorId, page, lim);
+    const cached = cache.get(cacheKey);
+    if (cached) return cached;
     const filter = { author: authorId, imageUrl: { $ne: null } };
     const [posts, total] = await Promise.all([
       Post.find(filter)
@@ -453,12 +596,17 @@ export const postService = {
         .lean(),
       Post.countDocuments(filter),
     ]);
-    return { posts, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
+    const result = { posts, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
+    cache.set(cacheKey, result, TTL.MEDIA);
+    return result;
   },
 
   async listRepliesByUser(authorId, { page = 1, limit = 20 }) {
     const lim = Math.max(1, Math.min(50, Number(limit)));
     const skip = (Math.max(1, Number(page)) - 1) * lim;
+    const cacheKey = CacheKeys.repliesByUser(authorId, page, lim);
+    const cached = cache.get(cacheKey);
+    if (cached) return cached;
     const [comments, total] = await Promise.all([
       Comment.find({ author: authorId }).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("post", "text author createdAt").populate("author", "fullName username avatarUrl isEmailVerified").lean(),
       Comment.countDocuments({ author: authorId }),
@@ -473,7 +621,9 @@ export const postService = {
         return c;
       })
     );
-    return { comments: populated, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
+    const result = { comments: populated, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
+    cache.set(cacheKey, result, TTL.REPLIES);
+    return result;
   },
 
   async byHashtag(rawTag, { page = 1, limit = 20 }, viewerId = null) {
@@ -481,6 +631,27 @@ export const postService = {
     if (!tag) throw new AppError("Invalid hashtag", 400, "INVALID_HASHTAG");
     const lim = Math.max(1, Math.min(50, Number(limit)));
     const skip = (Math.max(1, Number(page)) - 1) * lim;
+    const cacheKey = CacheKeys.hashtag(tag, page, lim);
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      if (viewerId && cached.posts.length) {
+        const posts = cached.posts.map(p => ({ ...p }));
+        const postIds = posts.map((p) => p._id);
+        const [likes, reposts] = await Promise.all([
+          Like.find({ user: viewerId, post: { $in: postIds } }).select("post").lean(),
+          Repost.find({ user: viewerId, post: { $in: postIds } }).select("post").lean(),
+        ]);
+        const likeSet = new Set(likes.map((l) => String(l.post)));
+        const repostSet = new Set(reposts.map((r) => String(r.post)));
+        posts.forEach((p) => {
+          p.isLiked = likeSet.has(String(p._id));
+          p.isReposted = repostSet.has(String(p._id));
+        });
+        await attachBookmarked(posts, viewerId);
+        return { ...cached, posts };
+      }
+      return cached;
+    }
     const hidden = viewerId ? await blockService.blockedIdsFor(viewerId) : [];
     const filter = { hashtags: tag };
     if (hidden.length) filter.author = { $nin: hidden };
@@ -502,12 +673,18 @@ export const postService = {
       });
       await attachBookmarked(posts, viewerId);
     }
-    return { tag, posts, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
+    const result = { tag, posts, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
+    cache.set(cacheKey, result, TTL.HASHTAG);
+    return result;
   },
 
   async trending({ limit = 10, hours = 24 } = {}) {
     const lim = Math.max(1, Math.min(30, Number(limit)));
     const hrs = Math.max(1, Math.min(168, Number(hours)));
+    const cacheKey = CacheKeys.trending(lim, hrs);
+    const cached = cache.get(cacheKey);
+    if (cached) return cached;
+
     const since = new Date(Date.now() - hrs * 60 * 60 * 1000);
     const rows = await Post.aggregate([
       { $match: { createdAt: { $gte: since }, hashtags: { $ne: [] } } },
@@ -517,6 +694,8 @@ export const postService = {
       { $limit: lim },
       { $project: { _id: 0, tag: "$_id", count: 1 } },
     ]);
-    return { tags: rows, windowHours: hrs };
+    const result = { tags: rows, windowHours: hrs };
+    cache.set(cacheKey, result, TTL.TRENDING);
+    return result;
   },
 };
