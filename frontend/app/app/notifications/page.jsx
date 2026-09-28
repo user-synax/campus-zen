@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Bell,
@@ -23,6 +23,7 @@ import {
   useMarkNotificationRead,
   useMarkAllNotificationsRead,
 } from "@/lib/hooks/queries";
+import { useSSE } from "@/lib/hooks/useSSE";
 
 function timeAgo(date) {
   const d = new Date(date);
@@ -105,12 +106,13 @@ export default function NotificationsPage() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [markingAll, setMarkingAll] = useState(false);
   const [clearing, setClearing] = useState(false);
-  const listRef = useRef([]);
-  const checkingRef = useRef(false);
 
   const queryClient = useQueryClient();
   const markReadMutation = useMarkNotificationRead();
   const markAllMutation = useMarkAllNotificationsRead();
+
+  // SSE for real-time notifications (replaces polling)
+  useSSE();
 
   const {
     data,
@@ -121,61 +123,6 @@ export default function NotificationsPage() {
   } = useNotifications(filter, typeFilter);
 
   const notifications = data?.pages?.flatMap((p) => p.data?.notifications || []) || [];
-  listRef.current = notifications;
-
-  // Live updates — poll latest page-1, prepend unseen
-  const checkForUpdates = useCallback(async () => {
-    if (checkingRef.current || document.hidden) return;
-    checkingRef.current = true;
-    try {
-      const params = { page: 1, limit: 20, filter };
-      if (typeFilter !== "all") params.type = typeFilter;
-      const res = await api.getNotifications(params);
-      const fresh = res.data?.notifications || [];
-      const known = new Set(listRef.current.map((n) => n._id));
-      const unseen = fresh.filter((n) => !known.has(n._id));
-      if (unseen.length > 0) {
-        queryClient.setQueryData(["notifications", filter, typeFilter], (old) => {
-          if (!old) return old;
-          const newPages = [...old.pages];
-          if (newPages.length > 0) {
-            const firstPage = newPages[0];
-            const existingIds = new Set(
-              (firstPage.data?.notifications || []).map((n) => n._id)
-            );
-            const add = unseen.filter((n) => !existingIds.has(n._id));
-            if (add.length > 0) {
-              newPages[0] = {
-                ...firstPage,
-                data: {
-                  ...firstPage.data,
-                  notifications: [...add, ...(firstPage.data?.notifications || [])],
-                },
-              };
-            }
-          }
-          return { ...old, pages: newPages };
-        });
-      }
-    } catch {}
-    checkingRef.current = false;
-  }, [filter, typeFilter, queryClient]);
-
-  useEffect(() => {
-    if (isPending) return;
-    const id = setInterval(checkForUpdates, 30000);
-    const onFocus = () => checkForUpdates();
-    const onVisible = () => {
-      if (!document.hidden) checkForUpdates();
-    };
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onVisible);
-    return () => {
-      clearInterval(id);
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, [checkForUpdates, isPending]);
 
   const markRead = useCallback(
     (id) => {

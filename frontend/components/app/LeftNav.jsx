@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { AnimatedNumber } from "@/components/app/AnimatedNumber";
 import { BrandMark } from "@/components/BrandLogo";
 import { useUnreadCount } from "@/lib/hooks/queries";
+import { useSSE } from "@/lib/hooks/useSSE";
 import { cn } from "@/lib/utils";
 
 // Single instance — icon rail on md, full labels on lg via CSS only.
@@ -29,6 +30,7 @@ export function LeftNav() {
   const pathname = usePathname();
   const { data } = useUnreadCount();
   const unread = data?.data?.count ?? 0;
+  useSSE();
 
   const isActive = (it) =>
     it.exact ? pathname === it.href : pathname.startsWith(it.href);

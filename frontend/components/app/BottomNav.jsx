@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Home, Search, Plus, Bell, Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUnreadCount } from "@/lib/hooks/queries";
+import { useSSE } from "@/lib/hooks/useSSE";
 import { AnimatedNumber } from "@/components/app/AnimatedNumber";
 
 // Mobile: 5 icons only, no labels — Menu stays at last
@@ -20,6 +21,7 @@ export function BottomNav() {
   const pathname = usePathname();
   const { data } = useUnreadCount();
   const unread = data?.data?.count ?? 0;
+  useSSE();
   return (
     <nav
       aria-label="Bottom"

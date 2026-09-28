@@ -12,6 +12,7 @@ import postRoutes from "./routes/postRoutes.js";
 import hashtagRoutes from "./routes/hashtagRoutes.js";
 import searchRoutes from "./routes/searchRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
+import sseRoutes from "./routes/sseRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
 import collegeRoutes from "./routes/collegeRoutes.js";
 import { notFound, errorHandler } from "./middleware/errorHandler.js";
@@ -56,6 +57,7 @@ app.use("/api/posts", postRoutes);
 app.use("/api/hashtags", hashtagRoutes);
 app.use("/api/search", searchRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/events", sseRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/colleges", collegeRoutes);
 

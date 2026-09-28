@@ -1,5 +1,6 @@
 import { Notification } from "../models/Notification.js";
 import { blockService } from "./blockService.js";
+import { pushNotification, pushUnreadCount } from "../routes/sseRoutes.js";
 
 export const notificationService = {
   async create({ recipient, actor, type, post = null }) {
@@ -18,6 +19,17 @@ export const notificationService = {
     });
     if (existing) return existing;
     const notif = await Notification.create({ recipient, actor, type, post: post || null });
+    // Push real-time event via SSE
+    const unreadCount = await Notification.countDocuments({ recipient, read: false });
+    pushNotification(recipient, {
+      _id: notif._id,
+      actor: notif.actor,
+      type: notif.type,
+      post: notif.post,
+      read: false,
+      createdAt: notif.createdAt,
+    });
+    pushUnreadCount(recipient, unreadCount);
     return notif;
   },
 
@@ -67,11 +79,16 @@ export const notificationService = {
     if (notif.read) return notif;
     notif.read = true;
     await notif.save();
+    // Push updated unread count via SSE
+    const unreadCount = await Notification.countDocuments({ recipient: recipientId, read: false });
+    pushUnreadCount(recipientId, unreadCount);
     return notif;
   },
 
   async markAllRead(recipientId) {
     await Notification.updateMany({ recipient: recipientId, read: false }, { $set: { read: true } });
+    // Push updated unread count via SSE
+    pushUnreadCount(recipientId, 0);
     return { message: "All marked as read" };
   },
 

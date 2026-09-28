@@ -154,8 +154,7 @@ export function useUnreadCount() {
   return useQuery({
     queryKey: queryKeys.unreadCount,
     queryFn: () => api.getUnreadCount(),
-    staleTime: 10_000,
-    refetchInterval: 30_000, // Fallback polling if SSE not active
+    staleTime: 30_000,
   });
 }
 
