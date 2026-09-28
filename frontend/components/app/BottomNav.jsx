@@ -2,10 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
 import { Home, Search, Plus, Bell, Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { api } from "@/lib/api";
+import { useUnreadCount } from "@/lib/hooks/queries";
 import { AnimatedNumber } from "@/components/app/AnimatedNumber";
 
 // Mobile: 5 icons only, no labels — Menu stays at last
@@ -19,27 +18,8 @@ const items = [
 
 export function BottomNav() {
   const pathname = usePathname();
-  const [unread, setUnread] = useState(0);
-  useEffect(() => {
-    let cancelled = false;
-    const fetchCount = async () => {
-      try {
-        const r = await api.getUnreadCount();
-        if (!cancelled) setUnread(r.data?.count ?? 0);
-      } catch {}
-    };
-    fetchCount();
-    const id = setInterval(fetchCount, 30000);
-    const onFocus = () => fetchCount();
-    window.addEventListener("focus", onFocus);
-    window.addEventListener("cz:notif-read", fetchCount);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-      window.removeEventListener("focus", onFocus);
-      window.removeEventListener("cz:notif-read", fetchCount);
-    };
-  }, []);
+  const { data } = useUnreadCount();
+  const unread = data?.data?.count ?? 0;
   return (
     <nav
       aria-label="Bottom"

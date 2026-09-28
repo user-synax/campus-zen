@@ -11,7 +11,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { BlockedProfile } from "@/components/app/BlockedProfile";
 import { EmptyState } from "@/components/app/EmptyState";
 import { FollowModal } from "@/components/app/FollowModal";
@@ -30,22 +31,20 @@ import {
   ContributionGraphTotalCount,
 } from "@/components/ui/contribution-graph";
 import { api } from "@/lib/api";
+import {
+  useMe,
+  useUser,
+  useUserPosts,
+  useUserReplies,
+  useUserLikes,
+  useUserReposts,
+} from "@/lib/hooks/queries";
 
 function TabPosts({ username, currentUser, pinnedPost, onPinChange }) {
-  const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    let c = false;
-    api
-      .getUserPosts(username, { page: 1, limit: 20 })
-      .then((r) => !c && setPosts(r.data?.posts || []))
-      .catch(() => {})
-      .finally(() => !c && setLoading(false));
-    return () => {
-      c = true;
-    };
-  }, [username]);
-  if (loading)
+  const { data, isPending } = useUserPosts(username, 1);
+  const posts = data?.data?.posts || [];
+
+  if (isPending)
     return (
       <div className="grid place-items-center py-8">
         <Loader2 className="h-5 w-5 animate-spin text-[var(--cz-text-secondary)]" />
@@ -57,7 +56,7 @@ function TabPosts({ username, currentUser, pinnedPost, onPinChange }) {
       <EmptyState
         icon={FileText}
         title="No posts yet"
-        description={`@${username} hasn’t posted.`}
+        description={`@${username} hasn't posted.`}
       />
     );
   return (
@@ -81,20 +80,10 @@ function TabPosts({ username, currentUser, pinnedPost, onPinChange }) {
   );
 }
 function TabReplies({ username }) {
-  const [replies, setReplies] = useState([]);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    let c = false;
-    api
-      .getUserReplies(username, { page: 1, limit: 20 })
-      .then((r) => !c && setReplies(r.data?.comments || []))
-      .catch(() => {})
-      .finally(() => !c && setLoading(false));
-    return () => {
-      c = true;
-    };
-  }, [username]);
-  if (loading)
+  const { data, isPending } = useUserReplies(username, 1);
+  const replies = data?.data?.comments || [];
+
+  if (isPending)
     return (
       <div className="grid place-items-center py-8">
         <Loader2 className="h-5 w-5 animate-spin text-[var(--cz-text-secondary)]" />
@@ -130,20 +119,10 @@ function TabReplies({ username }) {
   );
 }
 function TabLikes({ username, currentUser }) {
-  const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    let c = false;
-    api
-      .getUserLikes(username, { page: 1, limit: 20 })
-      .then((r) => !c && setPosts(r.data?.posts || []))
-      .catch(() => {})
-      .finally(() => !c && setLoading(false));
-    return () => {
-      c = true;
-    };
-  }, [username]);
-  if (loading)
+  const { data, isPending } = useUserLikes(username, 1);
+  const posts = data?.data?.posts || [];
+
+  if (isPending)
     return (
       <div className="grid place-items-center py-8">
         <Loader2 className="h-5 w-5 animate-spin text-[var(--cz-text-secondary)]" />
@@ -166,20 +145,10 @@ function TabLikes({ username, currentUser }) {
   );
 }
 function TabReposts({ username, currentUser }) {
-  const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    let c = false;
-    api
-      .getUserReposts(username, { page: 1, limit: 20 })
-      .then((r) => !c && setPosts(r.data?.posts || []))
-      .catch(() => {})
-      .finally(() => !c && setLoading(false));
-    return () => {
-      c = true;
-    };
-  }, [username]);
-  if (loading)
+  const { data, isPending } = useUserReposts(username, 1);
+  const posts = data?.data?.posts || [];
+
+  if (isPending)
     return (
       <div className="grid place-items-center py-8">
         <Loader2 className="h-5 w-5 animate-spin text-[var(--cz-text-secondary)]" />
@@ -204,14 +173,8 @@ function TabReposts({ username, currentUser }) {
 
 export default function PublicProfilePage() {
   const { username } = useParams();
-  const [user, setUser] = useState(null);
-  const [me, setMe] = useState(null);
-  const [isGuest, setIsGuest] = useState(true);
-  const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("posts");
-  const [error, setError] = useState("");
   const [followLoading, setFollowLoading] = useState(false);
-  const [isFollowing, setIsFollowing] = useState(false);
   const [followModal, setFollowModal] = useState({
     open: false,
     type: "followers",
@@ -220,71 +183,60 @@ export default function PublicProfilePage() {
   const [reportUserOpen, setReportUserOpen] = useState(false);
   const [blockLoading, setBlockLoading] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      try {
-        const [meRes, userRes] = await Promise.allSettled([
-          api.me(),
-          api.getUser(username),
-        ]);
-        if (cancelled) return;
-        if (meRes.status === "fulfilled") {
-          const m = meRes.value.data?.user;
-          setMe(m);
-          setIsGuest(false);
-          if (
-            userRes.status === "fulfilled" &&
-            userRes.value.data?.user?.isFollowing !== undefined
-          )
-            setIsFollowing(Boolean(userRes.value.data?.user.isFollowing));
-        } else {
-          setIsGuest(true);
-          setMe(null);
-        }
-        if (userRes.status === "fulfilled") {
-          const u = userRes.value.data?.user;
-          setUser(u);
-          if (u?.isFollowing !== undefined)
-            setIsFollowing(Boolean(u.isFollowing));
-        } else {
-          const e = userRes.reason;
-          if (e?.data?.code === "PROFILE_BLOCKED")
-            setBlocked(e.data?.details || { username });
-          else setError(e?.data?.message || e?.message || "Student not found");
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [username]);
+  const queryClient = useQueryClient();
+
+  const { data: meData } = useMe();
+  const me = meData?.data?.user || null;
+  const isGuest = !me;
+
+  const { data: userData, isPending, error } = useUser(username);
+  const user = userData?.data?.user || null;
+  const isFollowing = user?.isFollowing ?? false;
 
   const isOwn = me && user && me.username === user.username;
+
   const handleFollow = async () => {
     if (!user || isOwn || isGuest) return;
     setFollowLoading(true);
     try {
       if (isFollowing) {
         await api.unfollowUser(user._id);
-        setIsFollowing(false);
-        setUser((u) => ({
-          ...u,
-          followersCount: Math.max(0, (u.followersCount ?? 1) - 1),
-        }));
+        queryClient.setQueryData(["user", username], (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            data: {
+              ...old.data,
+              user: {
+                ...old.data.user,
+                isFollowing: false,
+                followersCount: Math.max(0, (old.data.user.followersCount ?? 1) - 1),
+              },
+            },
+          };
+        });
       } else {
         await api.followUser(user._id);
-        setIsFollowing(true);
-        setUser((u) => ({ ...u, followersCount: (u.followersCount ?? 0) + 1 }));
+        queryClient.setQueryData(["user", username], (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            data: {
+              ...old.data,
+              user: {
+                ...old.data.user,
+                isFollowing: true,
+                followersCount: (old.data.user.followersCount ?? 0) + 1,
+              },
+            },
+          };
+        });
       }
     } catch {}
     setFollowLoading(false);
   };
 
-  if (loading)
+  if (isPending)
     return (
       <div className="grid place-items-center py-16">
         <Loader2 className="h-6 w-6 animate-spin text-[var(--cz-text-secondary)]" />
@@ -304,7 +256,7 @@ export default function PublicProfilePage() {
         <EmptyState
           icon={UserX}
           title="Student not found"
-          description={error || `No student @${username}`}
+          description={error?.data?.message || error?.message || `No student @${username}`}
           actionLabel="Explore students"
           actionHref="/u"
         />
@@ -384,7 +336,15 @@ export default function PublicProfilePage() {
           username={user.username}
           currentUser={me}
           pinnedPost={user.pinnedPost}
-          onPinChange={(p) => setUser((u) => ({ ...u, pinnedPost: p }))}
+          onPinChange={(p) =>
+            queryClient.setQueryData(["user", username], (old) => {
+              if (!old) return old;
+              return {
+                ...old,
+                data: { ...old.data, user: { ...old.data.user, pinnedPost: p } },
+              };
+            })
+          }
         />
       ) : tab === "replies" ? (
         <TabReplies username={user.username} />
@@ -399,7 +359,7 @@ export default function PublicProfilePage() {
           <div className="rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)] p-4 overflow-hidden">
             <div className="flex items-center justify-between gap-2 mb-3">
               <h3 className="text-[13px] font-semibold flex items-center gap-1.5">
-                <Github className="h-4 w-4" /> {user.socialLinks.github}’s
+                <Github className="h-4 w-4" /> {user.socialLinks.github}'s
                 contributions
               </h3>
               <a
@@ -431,7 +391,7 @@ export default function PublicProfilePage() {
           <EmptyState
             icon={Github}
             title="No GitHub linked"
-            description={`@${user.username} hasn’t linked GitHub yet.`}
+            description={`@${user.username} hasn't linked GitHub yet.`}
           />
         )
       ) : null}

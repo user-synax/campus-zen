@@ -14,9 +14,15 @@ import {
   Check,
   Trash2,
 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { EmptyState } from "@/components/app/EmptyState";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import {
+  useNotifications,
+  useMarkNotificationRead,
+  useMarkAllNotificationsRead,
+} from "@/lib/hooks/queries";
 
 function timeAgo(date) {
   const d = new Date(date);
@@ -30,24 +36,6 @@ function timeAgo(date) {
   const days = Math.floor(h / 24);
   if (days < 7) return `${days}d`;
   return d.toLocaleDateString("en-IN", { month: "short", day: "numeric" });
-}
-
-function notifText(n) {
-  const name = n.actor?.fullName || n.actor?.username || "Someone";
-  switch (n.type) {
-    case "follow":
-      return `${name} followed you`;
-    case "like":
-      return `${name} liked your post`;
-    case "reply":
-      return `${name} replied to your post`;
-    case "repost":
-      return `${name} reposted your post`;
-    case "mention":
-      return `${name} mentioned you`;
-    default:
-      return `${name} interacted`;
-  }
 }
 
 function NotifIcon({ type }) {
@@ -113,41 +101,29 @@ const TYPE_TABS = [
 ];
 
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useState([]);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [filter, setFilter] = useState("all"); // all | unread
-  const [typeFilter, setTypeFilter] = useState("all"); // all | follow | like | reply | repost | mention
+  const [filter, setFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
   const [markingAll, setMarkingAll] = useState(false);
   const [clearing, setClearing] = useState(false);
   const listRef = useRef([]);
   const checkingRef = useRef(false);
 
-  const fetchPage = async (p, f, t, append = false) => {
-    if (append) setLoadingMore(true);
-    else setLoading(true);
-    try {
-      const params = { page: p, limit: 20, filter: f };
-      if (t && t !== "all") params.type = t;
-      const res = await api.getNotifications(params);
-      const d = res.data;
-      if (append)
-        setNotifications((prev) => [...prev, ...(d.notifications || [])]);
-      else setNotifications(d.notifications || []);
-      setHasMore(Boolean(d.hasMore));
-      setPage(p);
-    } catch {}
-    setLoading(false);
-    setLoadingMore(false);
-  };
+  const queryClient = useQueryClient();
+  const markReadMutation = useMarkNotificationRead();
+  const markAllMutation = useMarkAllNotificationsRead();
 
-  useEffect(() => {
-    fetchPage(1, filter, typeFilter, false);
-  }, [filter, typeFilter]);
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isPending,
+    isFetchingNextPage,
+  } = useNotifications(filter, typeFilter);
 
-  // live updates — poll latest page-1, prepend unseen (same cadence as unread badge)
+  const notifications = data?.pages?.flatMap((p) => p.data?.notifications || []) || [];
+  listRef.current = notifications;
+
+  // Live updates — poll latest page-1, prepend unseen
   const checkForUpdates = useCallback(async () => {
     if (checkingRef.current || document.hidden) return;
     checkingRef.current = true;
@@ -159,18 +135,34 @@ export default function NotificationsPage() {
       const known = new Set(listRef.current.map((n) => n._id));
       const unseen = fresh.filter((n) => !known.has(n._id));
       if (unseen.length > 0) {
-        setNotifications((prev) => {
-          const ids = new Set(prev.map((n) => n._id));
-          const add = unseen.filter((n) => !ids.has(n._id));
-          return add.length > 0 ? [...add, ...prev] : prev;
+        queryClient.setQueryData(["notifications", filter, typeFilter], (old) => {
+          if (!old) return old;
+          const newPages = [...old.pages];
+          if (newPages.length > 0) {
+            const firstPage = newPages[0];
+            const existingIds = new Set(
+              (firstPage.data?.notifications || []).map((n) => n._id)
+            );
+            const add = unseen.filter((n) => !existingIds.has(n._id));
+            if (add.length > 0) {
+              newPages[0] = {
+                ...firstPage,
+                data: {
+                  ...firstPage.data,
+                  notifications: [...add, ...(firstPage.data?.notifications || [])],
+                },
+              };
+            }
+          }
+          return { ...old, pages: newPages };
         });
       }
     } catch {}
     checkingRef.current = false;
-  }, [filter, typeFilter]);
+  }, [filter, typeFilter, queryClient]);
 
   useEffect(() => {
-    if (loading) return;
+    if (isPending) return;
     const id = setInterval(checkForUpdates, 30000);
     const onFocus = () => checkForUpdates();
     const onVisible = () => {
@@ -183,28 +175,51 @@ export default function NotificationsPage() {
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [checkForUpdates, loading]);
+  }, [checkForUpdates, isPending]);
 
-  useEffect(() => {
-    listRef.current = notifications;
-  }, [notifications]);
-
-  const markRead = useCallback(async (id) => {
-    try {
-      await api.markNotificationRead(id);
-      setNotifications((prev) =>
-        prev.map((n) => (n._id === id ? { ...n, read: true } : n)),
-      );
-      window.dispatchEvent(new Event("cz:notif-read"));
-    } catch {}
-  }, []);
+  const markRead = useCallback(
+    (id) => {
+      // Optimistic update
+      queryClient.setQueryData(["notifications", filter, typeFilter], (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page) => ({
+            ...page,
+            data: {
+              ...page.data,
+              notifications: (page.data?.notifications || []).map((n) =>
+                n._id === id ? { ...n, read: true } : n
+              ),
+            },
+          })),
+        };
+      });
+      markReadMutation.mutate(id);
+    },
+    [filter, typeFilter, queryClient, markReadMutation]
+  );
 
   const markAll = async () => {
     setMarkingAll(true);
     try {
-      await api.markAllNotificationsRead();
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-      window.dispatchEvent(new Event("cz:notif-read"));
+      await markAllMutation.mutateAsync();
+      queryClient.setQueryData(["notifications", filter, typeFilter], (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page) => ({
+            ...page,
+            data: {
+              ...page.data,
+              notifications: (page.data?.notifications || []).map((n) => ({
+                ...n,
+                read: true,
+              })),
+            },
+          })),
+        };
+      });
     } catch {}
     setMarkingAll(false);
   };
@@ -212,8 +227,21 @@ export default function NotificationsPage() {
   const deleteOne = async (id) => {
     try {
       await api.deleteNotification(id);
-      setNotifications((prev) => prev.filter((n) => n._id !== id));
-      window.dispatchEvent(new Event("cz:notif-read"));
+      queryClient.setQueryData(["notifications", filter, typeFilter], (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page) => ({
+            ...page,
+            data: {
+              ...page.data,
+              notifications: (page.data?.notifications || []).filter(
+                (n) => n._id !== id
+              ),
+            },
+          })),
+        };
+      });
     } catch {}
   };
 
@@ -222,8 +250,21 @@ export default function NotificationsPage() {
     setClearing(true);
     try {
       await api.clearReadNotifications();
-      setNotifications((prev) => prev.filter((n) => !n.read));
-      window.dispatchEvent(new Event("cz:notif-read"));
+      queryClient.setQueryData(["notifications", filter, typeFilter], (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page) => ({
+            ...page,
+            data: {
+              ...page.data,
+              notifications: (page.data?.notifications || []).filter(
+                (n) => !n.read
+              ),
+            },
+          })),
+        };
+      });
     } catch {}
     setClearing(false);
   };
@@ -343,7 +384,7 @@ export default function NotificationsPage() {
         </div>
       ) : null}
 
-      {loading ? (
+      {isPending ? (
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, i) => (
             <div
@@ -370,112 +411,112 @@ export default function NotificationsPage() {
                 ? "No unread notifications"
                 : "No notifications yet"
           }
-          description="You’ll get notified when someone follows you, likes, replies, reposts or mentions you. Cards mark themselves read as you view them."
+          description="You'll get notified when someone follows you, likes, replies, reposts or mentions you. Cards mark themselves read as you view them."
         />
       ) : (
         <div className="space-y-3">
           {notifications.map((n) => (
             <AutoRead key={n._id} id={n._id} active={!n.read} onRead={markRead}>
-            <div
-              className={`group relative overflow-hidden rounded-[16px] border bg-[var(--cz-surface)] p-3 sm:p-4 flex gap-3 hover:border-[var(--cz-border-strong)] transition-colors ${n.read ? "border-[var(--cz-border)]" : "border-[var(--cz-muted)]/30 bg-[var(--cz-surface-strong)]"}`}
-            >
-              {!n.read ? (
-                <span className="absolute left-0 top-0 bottom-0 w-[3px] bg-[var(--cz-muted)]" />
-              ) : null}
-              <Link href={`/u/${n.actor?.username || ""}`} className="shrink-0">
-                <span className="grid place-items-center h-9 w-9 rounded-full bg-[var(--cz-muted)] text-white text-[12px] font-semibold overflow-hidden">
-                  {n.actor?.avatarUrl ? (
-                    <img
-                      src={n.actor.avatarUrl}
-                      alt={n.actor.username}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    (n.actor?.username || "U").slice(0, 1).toUpperCase()
-                  )}
-                </span>
-              </Link>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13px] leading-[18px] text-[var(--cz-text-primary)]">
-                      <Link
-                        href={`/u/${n.actor?.username || ""}`}
-                        className="font-semibold hover:underline underline-offset-4"
-                      >
-                        {n.actor?.fullName || n.actor?.username}
-                      </Link>{" "}
-                      <span className="text-[var(--cz-text-secondary)]">
-                        {n.type === "follow"
-                          ? "followed you"
-                          : n.type === "like"
-                            ? "liked your post"
-                            : n.type === "reply"
-                              ? "replied to your post"
-                              : n.type === "mention"
-                                ? "mentioned you"
-                                : "reposted your post"}
-                      </span>
-                    </p>
-                    {n.post?.text ? (
-                      <Link
-                        href={`/app/p/${n.post._id || n.post}`}
-                        className="mt-1 block rounded-[10px] border border-[var(--cz-border)] bg-[rgba(255,255,255,0.03)] px-2.5 py-1.5 text-[12px] leading-[16px] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] hover:border-[var(--cz-border-strong)] transition-colors line-clamp-2"
-                      >
-                        {n.post.text.slice(0, 120)}
-                      </Link>
-                    ) : null}
-                    <div className="mt-1.5 flex items-center gap-2 text-[11px] leading-none">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-[var(--cz-bg)] border border-[var(--cz-border)] px-2 py-1 text-[11px] text-[var(--cz-text-secondary)]">
-                        <span className="grid place-items-center h-4 w-4 rounded-full bg-[var(--cz-surface-strong)] border border-[var(--cz-border)] text-[var(--cz-text-primary)]">
-                          <NotifIcon type={n.type} />
+              <div
+                className={`group relative overflow-hidden rounded-[16px] border bg-[var(--cz-surface)] p-3 sm:p-4 flex gap-3 hover:border-[var(--cz-border-strong)] transition-colors ${n.read ? "border-[var(--cz-border)]" : "border-[var(--cz-muted)]/30 bg-[var(--cz-surface-strong)]"}`}
+              >
+                {!n.read ? (
+                  <span className="absolute left-0 top-0 bottom-0 w-[3px] bg-[var(--cz-muted)]" />
+                ) : null}
+                <Link href={`/u/${n.actor?.username || ""}`} className="shrink-0">
+                  <span className="grid place-items-center h-9 w-9 rounded-full bg-[var(--cz-muted)] text-white text-[12px] font-semibold overflow-hidden">
+                    {n.actor?.avatarUrl ? (
+                      <img
+                        src={n.actor.avatarUrl}
+                        alt={n.actor.username}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      (n.actor?.username || "U").slice(0, 1).toUpperCase()
+                    )}
+                  </span>
+                </Link>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] leading-[18px] text-[var(--cz-text-primary)]">
+                        <Link
+                          href={`/u/${n.actor?.username || ""}`}
+                          className="font-semibold hover:underline underline-offset-4"
+                        >
+                          {n.actor?.fullName || n.actor?.username}
+                        </Link>{" "}
+                        <span className="text-[var(--cz-text-secondary)]">
+                          {n.type === "follow"
+                            ? "followed you"
+                            : n.type === "like"
+                              ? "liked your post"
+                              : n.type === "reply"
+                                ? "replied to your post"
+                                : n.type === "mention"
+                                  ? "mentioned you"
+                                  : "reposted your post"}
                         </span>
-                        {n.type}
-                      </span>
-                      <span className="text-[var(--cz-text-secondary)]/60">
-                        ·{" "}
-                        {new Date(n.createdAt).toLocaleString("en-IN", {
-                          month: "short",
-                          day: "numeric",
-                          hour: "numeric",
-                          minute: "2-digit",
-                        })}
-                      </span>
+                      </p>
+                      {n.post?.text ? (
+                        <Link
+                          href={`/app/p/${n.post._id || n.post}`}
+                          className="mt-1 block rounded-[10px] border border-[var(--cz-border)] bg-[rgba(255,255,255,0.03)] px-2.5 py-1.5 text-[12px] leading-[16px] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] hover:border-[var(--cz-border-strong)] transition-colors line-clamp-2"
+                        >
+                          {n.post.text.slice(0, 120)}
+                        </Link>
+                      ) : null}
+                      <div className="mt-1.5 flex items-center gap-2 text-[11px] leading-none">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[var(--cz-bg)] border border-[var(--cz-border)] px-2 py-1 text-[11px] text-[var(--cz-text-secondary)]">
+                          <span className="grid place-items-center h-4 w-4 rounded-full bg-[var(--cz-surface-strong)] border border-[var(--cz-border)] text-[var(--cz-text-primary)]">
+                            <NotifIcon type={n.type} />
+                          </span>
+                          {n.type}
+                        </span>
+                        <span className="text-[var(--cz-text-secondary)]/60">
+                          ·{" "}
+                          {new Date(n.createdAt).toLocaleString("en-IN", {
+                            month: "short",
+                            day: "numeric",
+                            hour: "numeric",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      </div>
                     </div>
+                    {!n.read ? (
+                      <button
+                        onClick={() => markRead(n._id)}
+                        className="shrink-0 inline-flex items-center gap-1 rounded-full border border-[var(--cz-border)] bg-transparent px-2.5 h-[28px] text-[11px] font-medium text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] hover:bg-[rgba(255,206,173,0.06)] transition-colors"
+                        aria-label="Mark read"
+                      >
+                        <Check className="h-3.5 w-3.5" /> Read
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => deleteOne(n._id)}
+                        className="shrink-0 inline-flex items-center justify-center rounded-full h-[28px] w-[28px] text-[var(--cz-text-secondary)]/50 hover:text-[var(--cz-error)] hover:bg-[rgba(255,90,106,0.08)] transition-colors"
+                        aria-label="Delete notification"
+                        title="Delete notification"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
-                  {!n.read ? (
-                    <button
-                      onClick={() => markRead(n._id)}
-                      className="shrink-0 inline-flex items-center gap-1 rounded-full border border-[var(--cz-border)] bg-transparent px-2.5 h-[28px] text-[11px] font-medium text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] hover:bg-[rgba(255,206,173,0.06)] transition-colors"
-                      aria-label="Mark read"
-                    >
-                      <Check className="h-3.5 w-3.5" /> Read
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => deleteOne(n._id)}
-                      className="shrink-0 inline-flex items-center justify-center rounded-full h-[28px] w-[28px] text-[var(--cz-text-secondary)]/50 hover:text-[var(--cz-error)] hover:bg-[rgba(255,90,106,0.08)] transition-colors"
-                      aria-label="Delete notification"
-                      title="Delete notification"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  )}
                 </div>
               </div>
-            </div>
             </AutoRead>
           ))}
 
-          {hasMore ? (
+          {hasNextPage ? (
             <button
-              onClick={() => fetchPage(page + 1, filter, typeFilter, true)}
-              disabled={loadingMore}
+              onClick={() => fetchNextPage()}
+              disabled={isFetchingNextPage}
               className="w-full rounded-[12px] border border-[var(--cz-border)] bg-transparent h-[40px] text-[13px] font-medium hover:bg-[var(--cz-surface)] transition-colors disabled:opacity-50"
             >
-              {loadingMore ? (
+              {isFetchingNextPage ? (
                 <span className="inline-flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+                  <Loader2 className="h-4 w-4 animate-spin" /> Loading...
                 </span>
               ) : (
                 "Load more"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   Search as SearchIcon,
@@ -13,7 +13,7 @@ import { EmptyState } from "@/components/app/EmptyState";
 import { UserCard } from "@/components/app/UserCard";
 import { PostCard } from "@/components/app/PostCard";
 import Link from "next/link";
-import { api } from "@/lib/api";
+import { useMe, useSearch } from "@/lib/hooks/queries";
 
 export default function SearchPage() {
   const router = useRouter();
@@ -22,28 +22,24 @@ export default function SearchPage() {
   const [q, setQ] = useState(initialQ);
   const [debouncedQ, setDebouncedQ] = useState(initialQ);
   const [type, setType] = useState("all"); // all | users | posts
-  const [users, setUsers] = useState([]);
-  const [posts, setPosts] = useState([]);
-  const [colleges, setColleges] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
-  const [page, setPage] = useState(1);
-  const [me, setMe] = useState(null);
-  const abortRef = useRef(null);
 
-  useEffect(() => {
-    api
-      .me()
-      .then((r) => setMe(r.data?.user))
-      .catch(() => {});
-  }, []);
+  const { data: meData } = useMe();
+  const me = meData?.data?.user || null;
 
-  // sync URL q
+  const { data, isPending, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    useSearch(debouncedQ, type);
+
+  const users = data?.pages?.flatMap((p) => p.data?.users || []) || [];
+  const posts = data?.pages?.flatMap((p) => p.data?.posts || []) || [];
+  const colleges = data?.pages?.flatMap((p) => p.data?.colleges || []) || [];
+
+  // Debounce search input
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQ(q), 300);
     return () => clearTimeout(t);
   }, [q]);
 
+  // Sync URL
   useEffect(() => {
     const params = new URLSearchParams();
     if (debouncedQ) params.set("q", debouncedQ);
@@ -52,61 +48,13 @@ export default function SearchPage() {
     router.replace(`/app/search${qs ? `?${qs}` : ""}`, { scroll: false });
   }, [debouncedQ, type, router]);
 
-  const fetchSearch = useCallback(async (query, tab, p = 1, append = false) => {
-    if (!query || query.trim().length < 1) {
-      setUsers([]);
-      setPosts([]);
-      setColleges([]);
-      setHasMore(false);
-      return;
-    }
-    // abort previous
-    if (abortRef.current) abortRef.current.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-    if (!append) setLoading(true);
-    try {
-      const res = await api.search({ q: query, page: p, limit: 20, type: tab });
-      if (controller.signal.aborted) return;
-      const d = res.data;
-      if (append) {
-        if (tab === "all" || tab === "users")
-          setUsers((prev) => [...prev, ...(d.users || [])]);
-        if (tab === "all" || tab === "posts")
-          setPosts((prev) => [...prev, ...(d.posts || [])]);
-        if (tab === "all" || tab === "colleges")
-          setColleges((prev) => [...prev, ...(d.colleges || [])]);
-      } else {
-        setUsers(d.users || []);
-        setPosts(d.posts || []);
-        setColleges(d.colleges || []);
-      }
-      setHasMore(Boolean(d.hasMoreUsers || d.hasMorePosts || d.hasMoreColleges));
-      setPage(p);
-    } catch (e) {
-      if (e.name === "AbortError") return;
-      // silent
-    } finally {
-      if (!append) setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchSearch(debouncedQ, type, 1, false);
-  }, [debouncedQ, type, fetchSearch]);
-
-  const handleLoadMore = () => {
-    if (!hasMore || loading) return;
-    fetchSearch(debouncedQ, type, page + 1, true);
-  };
-
   const showTabs = debouncedQ.trim().length > 0;
   const isHashtagSearch = debouncedQ.trim().startsWith("#");
   const hashtagTag = isHashtagSearch
     ? debouncedQ.trim().replace(/^#+/, "").toLowerCase()
     : "";
   const isEmpty =
-    !loading && debouncedQ && users.length === 0 && posts.length === 0 && colleges.length === 0;
+    !isPending && debouncedQ && users.length === 0 && posts.length === 0 && colleges.length === 0;
   const showColleges = (type === "all" || type === "colleges") && colleges.length > 0;
   const showUsers = (type === "all" || type === "users") && users.length > 0;
   const showPosts = (type === "all" || type === "posts") && posts.length > 0;
@@ -120,11 +68,11 @@ export default function SearchPage() {
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search students or posts…"
+          placeholder="Search students or posts..."
           autoFocus
           className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 text-[var(--cz-text-primary)] h-full"
         />
-        {loading ? (
+        {isPending ? (
           <Loader2 className="h-4 w-4 animate-spin text-[var(--cz-text-secondary)] shrink-0" />
         ) : null}
         {q ? (
@@ -137,7 +85,7 @@ export default function SearchPage() {
           </button>
         ) : (
           <span className="hidden sm:inline text-[11px] tracking-[0.04em] uppercase text-[var(--cz-text-secondary)]/60 shrink-0">
-            Fast • Indexed
+            Fast - Indexed
           </span>
         )}
       </div>
@@ -177,7 +125,7 @@ export default function SearchPage() {
             </span>
           </span>
           <span className="shrink-0 text-[11px] uppercase tracking-[0.06em] text-[var(--cz-text-secondary)]">
-            Open tag →
+            Open tag -&gt;
           </span>
         </a>
       ) : null}
@@ -204,7 +152,7 @@ export default function SearchPage() {
             </div>
           </div>
         </>
-      ) : loading ? (
+      ) : isPending ? (
         <div className="space-y-3">
           <div className="grid sm:grid-cols-2 gap-3">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -245,7 +193,7 @@ export default function SearchPage() {
           {showColleges ? (
             <div className="space-y-3">
               <h2 className="text-[12px] font-semibold tracking-[0.06em] uppercase text-[var(--cz-text-secondary)]">
-                Colleges • {colleges.length}
+                Colleges - {colleges.length}
               </h2>
               <div className="grid sm:grid-cols-2 gap-3">
                 {colleges.map((c) => (
@@ -260,7 +208,7 @@ export default function SearchPage() {
                     <span className="min-w-0 flex-1">
                       <span className="block text-[13px] font-semibold truncate">{c.name}</span>
                       <span className="block text-[11px] font-mono text-[var(--cz-text-secondary)] truncate">
-                        /c/{c.slug} • {c.memberCount ?? 0} students
+                        /c/{c.slug} - {c.memberCount ?? 0} students
                       </span>
                     </span>
                   </Link>
@@ -272,7 +220,7 @@ export default function SearchPage() {
           {showUsers ? (
             <div className="space-y-3">
               <h2 className="text-[12px] font-semibold tracking-[0.06em] uppercase text-[var(--cz-text-secondary)]">
-                Students • {users.length}
+                Students - {users.length}
               </h2>
               <div className="grid sm:grid-cols-2 gap-3">
                 {users.map((u) => (
@@ -290,7 +238,7 @@ export default function SearchPage() {
           {showPosts ? (
             <div className="space-y-3">
               <h2 className="text-[12px] font-semibold tracking-[0.06em] uppercase text-[var(--cz-text-secondary)]">
-                Posts • {posts.length}
+                Posts - {posts.length}
               </h2>
               <div className="space-y-3">
                 {posts.map((p) => (
@@ -300,16 +248,17 @@ export default function SearchPage() {
             </div>
           ) : null}
 
-          {hasMore ? (
+          {hasNextPage ? (
             <button
-              onClick={handleLoadMore}
-              className="w-full rounded-[12px] border border-[var(--cz-border)] bg-transparent h-[40px] text-[13px] font-medium hover:bg-[var(--cz-surface)] transition-colors"
+              onClick={() => fetchNextPage()}
+              disabled={isFetchingNextPage}
+              className="w-full rounded-[12px] border border-[var(--cz-border)] bg-transparent h-[40px] text-[13px] font-medium hover:bg-[var(--cz-surface)] transition-colors disabled:opacity-50"
             >
-              Load more
+              {isFetchingNextPage ? "Loading..." : "Load more"}
             </button>
           ) : (
             <p className="text-center text-[11px] text-[var(--cz-text-secondary)]/60 py-2">
-              End • {users.length + posts.length} results
+              End - {users.length + posts.length} results
             </p>
           )}
         </div>

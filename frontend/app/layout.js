@@ -1,5 +1,6 @@
 import { JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { QueryProvider } from "@/components/providers/query-provider";
 
 const jetbrains = JetBrains_Mono({
   variable: "--font-jetbrains",
@@ -86,7 +87,7 @@ export default function RootLayout({ children }) {
         <script type="application/ld+json">
           {JSON.stringify(orgJsonLd)}
         </script>
-        {children}
+        <QueryProvider>{children}</QueryProvider>
       </body>
     </html>
   );

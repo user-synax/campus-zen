@@ -3,10 +3,9 @@
 import { Bell, Bookmark, Home, Plus, School, Search, User, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
 import { AnimatedNumber } from "@/components/app/AnimatedNumber";
 import { BrandMark } from "@/components/BrandLogo";
-import { api } from "@/lib/api";
+import { useUnreadCount } from "@/lib/hooks/queries";
 import { cn } from "@/lib/utils";
 
 // Single instance — icon rail on md, full labels on lg via CSS only.
@@ -28,28 +27,8 @@ const linkBase =
 
 export function LeftNav() {
   const pathname = usePathname();
-  const [unread, setUnread] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    const fetchCount = async () => {
-      try {
-        const r = await api.getUnreadCount();
-        if (!cancelled) setUnread(r.data?.count ?? 0);
-      } catch {}
-    };
-    fetchCount();
-    const id = setInterval(fetchCount, 30000);
-    const onFocus = () => fetchCount();
-    window.addEventListener("focus", onFocus);
-    window.addEventListener("cz:notif-read", fetchCount);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-      window.removeEventListener("focus", onFocus);
-      window.removeEventListener("cz:notif-read", fetchCount);
-    };
-  }, []);
+  const { data } = useUnreadCount();
+  const unread = data?.data?.count ?? 0;
 
   const isActive = (it) =>
     it.exact ? pathname === it.href : pathname.startsWith(it.href);

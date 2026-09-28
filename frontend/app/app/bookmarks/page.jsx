@@ -1,72 +1,81 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useRef, useEffect } from "react";
 import { Bookmark, Loader2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { EmptyState } from "@/components/app/EmptyState";
 import { PostCard } from "@/components/app/PostCard";
-import { api } from "@/lib/api";
+import { useMe, useBookmarks } from "@/lib/hooks/queries";
 
 export default function BookmarksPage() {
-  const [user, setUser] = useState(null);
-  const [posts, setPosts] = useState([]);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const sentinelRef = useRef(null);
   const observerRef = useRef(null);
+  const queryClient = useQueryClient();
 
+  const { data: meData } = useMe();
+  const user = meData?.data?.user || null;
+
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isPending,
+    isFetchingNextPage,
+  } = useBookmarks();
+
+  const posts = data?.pages?.flatMap((p) => p.data?.posts || []) || [];
+
+  // Infinite scroll
   useEffect(() => {
-    api
-      .me()
-      .then((r) => setUser(r.data?.user))
-      .catch(() => {});
-  }, []);
-
-  const fetchPage = useCallback(async (p, reset = false) => {
-    if (reset) setLoading(true);
-    else setLoadingMore(true);
-    try {
-      const res = await api.getBookmarks({ page: p, limit: 20 });
-      const data = res.data;
-      setPosts((prev) =>
-        reset ? data.posts || [] : [...prev, ...(data.posts || [])],
-      );
-      setHasMore(Boolean(data.hasMore));
-      setPage(p);
-    } catch {
-      if (reset) setPosts([]);
-      setHasMore(false);
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchPage(1, true);
-  }, [fetchPage]);
-
-  useEffect(() => {
-    if (!hasMore || loading || loadingMore) return;
+    if (!hasNextPage || isPending || isFetchingNextPage) return;
     const el = sentinelRef.current;
     if (!el) return;
     observerRef.current?.disconnect();
     observerRef.current = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore)
-          fetchPage(page + 1);
+        if (entries[0].isIntersecting && hasNextPage && !isPending && !isFetchingNextPage) {
+          fetchNextPage();
+        }
       },
-      { rootMargin: "600px" },
+      { rootMargin: "600px" }
     );
     observerRef.current.observe(el);
     return () => observerRef.current?.disconnect();
-  }, [hasMore, loading, loadingMore, page, fetchPage]);
+  }, [hasNextPage, isPending, isFetchingNextPage, fetchNextPage]);
 
-  const handleDelete = (id) =>
-    setPosts((prev) => prev.filter((p) => p._id !== id));
-  const handleUpdate = (updated) =>
-    setPosts((prev) => prev.map((p) => (p._id === updated._id ? updated : p)));
+  const handleDelete = (id) => {
+    queryClient.setQueryData(["bookmarks"], (old) => {
+      if (!old) return old;
+      return {
+        ...old,
+        pages: old.pages.map((page) => ({
+          ...page,
+          data: {
+            ...page.data,
+            posts: (page.data?.posts || []).filter((p) => p._id !== id),
+          },
+        })),
+      };
+    });
+  };
+
+  const handleUpdate = (updated) => {
+    queryClient.setQueryData(["bookmarks"], (old) => {
+      if (!old) return old;
+      return {
+        ...old,
+        pages: old.pages.map((page) => ({
+          ...page,
+          data: {
+            ...page.data,
+            posts: (page.data?.posts || []).map((p) =>
+              p._id === updated._id ? updated : p
+            ),
+          },
+        })),
+      };
+    });
+  };
 
   return (
     <div className="mx-auto w-full max-w-[640px] space-y-4">
@@ -79,7 +88,7 @@ export default function BookmarksPage() {
         </span>
       </div>
 
-      {loading ? (
+      {isPending ? (
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <div
@@ -117,11 +126,11 @@ export default function BookmarksPage() {
             />
           ))}
           <div ref={sentinelRef} className="h-1" aria-hidden />
-          {loadingMore ? (
+          {isFetchingNextPage ? (
             <div className="flex items-center justify-center gap-2 py-4 text-[13px] text-[var(--cz-text-secondary)]">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loading more…
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading more...
             </div>
-          ) : !hasMore ? (
+          ) : !hasNextPage ? (
             <p className="text-center text-[11px] text-[var(--cz-text-secondary)]/60 py-4">
               End • {posts.length} saved
             </p>

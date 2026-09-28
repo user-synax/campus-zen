@@ -3,11 +3,10 @@
 import { ArrowLeft, Clock, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
 import { PostCard } from "@/components/app/PostCard";
 import { RichText } from "@/components/app/RichText";
-import { api } from "@/lib/api";
 import { isHiddenPost } from "@/lib/hiddenPosts";
+import { useMe, usePost, useReplies } from "@/lib/hooks/queries";
 
 function formatExact(date) {
   return new Date(date).toLocaleString("en-IN", {
@@ -23,63 +22,25 @@ function formatExact(date) {
 
 export default function PostDetailPage() {
   const { id } = useParams();
-  const [post, setPost] = useState(null);
-  const [me, setMe] = useState(null);
-  const [isGuest, setIsGuest] = useState(true);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [replies, setReplies] = useState([]);
-  const [repliesLoading, setRepliesLoading] = useState(true);
-  const [hasMore, setHasMore] = useState(true);
-  const [page, setPage] = useState(1);
 
-  useEffect(() => {
-    api
-      .me()
-      .then((r) => {
-        setMe(r.data?.user);
-        setIsGuest(false);
-      })
-      .catch(() => setIsGuest(true));
-  }, []);
+  const { data: meData } = useMe();
+  const me = meData?.data?.user || null;
+  const isGuest = !me;
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    api
-      .getPost(id)
-      .then((r) => {
-        if (!cancelled) setPost(r.data?.post);
-      })
-      .catch((e) => {
-        if (!cancelled)
-          setError(e.data?.message || e.message || "Post not found");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [id]);
+  const { data: postData, isPending, error } = usePost(id);
+  const post = postData?.data?.post || null;
 
-  const fetchReplies = async (p = 1) => {
-    setRepliesLoading(true);
-    try {
-      const res = await api.getReplies(id, { page: p, limit: 20 });
-      if (p === 1) setReplies(res.data?.comments || []);
-      else setReplies((prev) => [...prev, ...(res.data?.comments || [])]);
-      setHasMore(Boolean(res.data?.hasMore));
-      setPage(p);
-    } catch {}
-    setRepliesLoading(false);
-  };
+  const {
+    data: repliesData,
+    isPending: repliesLoading,
+    fetchNextPage: fetchNextRepliesPage,
+    hasNextPage: hasMoreReplies,
+    isFetchingNextPage: isFetchingNextReplies,
+  } = useReplies(id);
 
-  useEffect(() => {
-    fetchReplies(1);
-  }, [id]);
+  const replies = repliesData?.pages?.flatMap((p) => p.data?.comments || []) || [];
 
-  if (loading) {
+  if (isPending) {
     return (
       <div className="mx-auto w-full max-w-[640px] grid place-items-center py-16">
         <Loader2 className="h-6 w-6 animate-spin text-[var(--cz-text-secondary)]" />
@@ -99,7 +60,7 @@ export default function PostDetailPage() {
         <div className="rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)] p-6 text-center">
           <p className="text-[14px] font-medium">Post not found</p>
           <p className="text-[12px] text-[var(--cz-text-secondary)] mt-1">
-            {error}
+            {error?.data?.message || error?.message || "Post not found"}
           </p>
         </div>
       </div>
@@ -139,7 +100,14 @@ export default function PostDetailPage() {
         currentUser={me}
         isDetail
         onDelete={() => (window.location.href = "/app")}
-        onUpdate={(u) => setPost(u)}
+        onUpdate={(u) => {
+          // Update post in cache
+          const { queryClient } = require("@tanstack/react-query");
+          queryClient.setQueryData(["post", id], (old) => {
+            if (!old) return old;
+            return { ...old, data: { ...old.data, post: u } };
+          });
+        }}
       />
 
       <div className="rounded-[12px] border border-[var(--cz-border)] bg-[var(--cz-surface)] px-4 py-3 flex flex-wrap items-center gap-3 text-[11px] leading-[14px] text-[var(--cz-text-secondary)]">
@@ -242,12 +210,13 @@ export default function PostDetailPage() {
               </p>
             </div>
           ))}
-          {hasMore ? (
+          {hasMoreReplies ? (
             <button
-              onClick={() => fetchReplies(page + 1)}
-              className="w-full rounded-[12px] border border-[var(--cz-border)] bg-transparent h-[40px] text-[13px] font-medium hover:bg-[var(--cz-surface)]"
+              onClick={() => fetchNextRepliesPage()}
+              disabled={isFetchingNextReplies}
+              className="w-full rounded-[12px] border border-[var(--cz-border)] bg-transparent h-[40px] text-[13px] font-medium hover:bg-[var(--cz-surface)] disabled:opacity-50"
             >
-              Load more replies
+              {isFetchingNextReplies ? "Loading..." : "Load more replies"}
             </button>
           ) : (
             <p className="text-center text-[11px] text-[var(--cz-text-secondary)]/60 py-2">
@@ -258,7 +227,7 @@ export default function PostDetailPage() {
       )}
 
       <p className="text-center text-[11px] text-[var(--cz-text-secondary)]/60">
-        Post page • /app/p/{String(post._id).slice(0, 8)}… • Shareable
+        Post page • /app/p/{String(post._id).slice(0, 8)}... • Shareable
       </p>
     </div>
   );
