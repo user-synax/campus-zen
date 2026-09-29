@@ -58,10 +58,11 @@ Sign Up → Verify Email (OTP) → Login → Discover Students → Follow → Po
 | UI Library | React | 19.2.8 |
 | Language | JavaScript (JSX) | — |
 | Styling | Tailwind CSS v4 | ^4 |
-| UI Components | shadcn/ui (base-nova style) | ^4.21.0 |
+| UI Components | shadcn/ui | ^4.21.0 |
 | Animations | Framer Motion + Motion | ^13.4.3 / ^13.4.4 |
 | Icons | lucide-react | 0.511.0 |
 | Date utilities | date-fns | ^4.4.0 |
+| Query | @tanstack/react-query | ^5.104.0 |
 | Class utilities | clsx, tailwind-merge, cn, class-variance-authority | various |
 | Base UI | @base-ui/react | ^1.8.0 |
 | Linter/Formatter | Biome | 2.4.2 |
@@ -79,7 +80,7 @@ Sign Up → Verify Email (OTP) → Login → Discover Students → Follow → Po
 | Auth | JWT (jsonwebtoken) + bcryptjs | ^9.0.2 / ^2.4.3 |
 | File uploads | Multer | ^2.4.0 |
 | Email | Nodemailer (Gmail SMTP) | ^10.0.10 |
-| File storage | Appwrite (server-side SDK) | ^28.0.0 |
+| File storage | Appwrite (server-side SDK) | ^28.0.0 / node-appwrite ^29.0.0 |
 | Security | helmet, cors, hpp, express-mongo-sanitize, express-rate-limit | various |
 | Compression | compression | ^1.8.0 |
 | Package Manager | Bun | 1.4.2 |
@@ -173,7 +174,7 @@ D:\campus-zen\
 │   │   │   ├── env.js              # Environment variable validation
 │   │   │   ├── db.js               # MongoDB connection
 │   │   │   └── appwrite.js         # Appwrite storage (avatar uploads)
-│   │   ├── controllers/            # Request handlers (8 files)
+│   │   ├── controllers/            # Request handlers (10 files)
 │   │   │   ├── authController.js
 │   │   │   ├── userController.js
 │   │   │   ├── postController.js
@@ -181,14 +182,16 @@ D:\campus-zen\
 │   │   │   ├── blockController.js
 │   │   │   ├── notificationController.js
 │   │   │   ├── reportController.js
-│   │   │   └── searchController.js
+│   │   │   ├── searchController.js
+│   │   │   ├── hashtagController.js
+│   │   │   └── collegeController.js
 │   │   ├── middleware/
 │   │   │   ├── auth.js             # protect, optionalAuth, authorize
 │   │   │   ├── validate.js         # Zod validation middleware
 │   │   │   ├── rateLimiter.js      # Express rate limiters
 │   │   │   ├── errorHandler.js     # notFound + errorHandler
 │   │   │   └── upload.js           # Multer avatar upload
-│   │   ├── models/                 # Mongoose schemas (10 files)
+│   │   ├── models/                 # Mongoose schemas (12 files)
 │   │   │   ├── User.js
 │   │   │   ├── Post.js
 │   │   │   ├── Comment.js
@@ -198,15 +201,20 @@ D:\campus-zen\
 │   │   │   ├── Notification.js
 │   │   │   ├── Block.js
 │   │   │   ├── Report.js
-│   │   │   └── Otp.js
-│   │   ├── routes/                 # Express routers (6 files)
+│   │   │   ├── Otp.js
+│   │   │   ├── Bookmark.js
+│   │   │   └── College.js
+│   │   ├── routes/                 # Express routers (9 files)
 │   │   │   ├── authRoutes.js
 │   │   │   ├── userRoutes.js
 │   │   │   ├── postRoutes.js
+│   │   │   ├── hashtagRoutes.js
+│   │   │   ├── searchRoutes.js
 │   │   │   ├── notificationRoutes.js
 │   │   │   ├── reportRoutes.js
-│   │   │   └── searchRoutes.js
-│   │   ├── services/               # Business logic (8 files)
+│   │   │   ├── sseRoutes.js
+│   │   │   └── collegeRoutes.js
+│   │   ├── services/               # Business logic (9 files)
 │   │   │   ├── authService.js
 │   │   │   ├── userService.js
 │   │   │   ├── postService.js
@@ -214,14 +222,21 @@ D:\campus-zen\
 │   │   │   ├── blockService.js
 │   │   │   ├── notificationService.js
 │   │   │   ├── reportService.js
-│   │   │   └── searchService.js
-│   │   └── utils/                  # Shared utilities (6 files)
+│   │   │   ├── searchService.js
+│   │   │   └── collegeService.js
+│   │   └── utils/                  # Shared utilities (12 files)
 │   │       ├── AppError.js
 │   │       ├── asyncHandler.js
 │   │       ├── cookies.js
 │   │       ├── email.js
 │   │       ├── jwt.js
-│   │       └── otp.js
+│   │       ├── otp.js
+│   │       ├── cache.js
+│   │       ├── hashtags.js
+│   │       ├── mentions.js
+│   │       ├── college.js
+│   │       ├── backfill-hashtags.js
+│   │       └── backfill-mentions.js
 │   │
 │   ├── .env                        # All env vars
 │   ├── .env.example                # Template for env setup
@@ -384,42 +399,79 @@ The single source of truth for all API communication. Every endpoint has a corre
 import { api } from "@/lib/api";
 
 // Authentication
+api.checkUsername(username)
 api.signup({ username, email, password, fullName })
+api.verifyEmail({ email, otp })
+api.resendOtp({ email })
 api.login({ username, password })
 api.logout()
 api.me()
 api.refresh()
-api.verifyEmail({ email, otp })
-api.resendOtp({ email })
 api.forgotPassword({ email })
 api.resetPassword({ email, otp, newPassword })
 
 // Users
 api.getUser(username)
-api.updateUser(patchData)
+api.listUsers(params)
+api.updateMe(patchData)
+api.getUserPosts(username, params)
+api.getUserReplies(username, params)
+api.getUserLikes(username, params)
+api.getUserReposts(username, params)
+api.getUserMedia(username, params)
 api.uploadAvatar(file)
-api.followUser(userId)
-api.unfollowUser(userId)
-api.getBlockedUsers()
+api.uploadCover(file)
+api.followUser(id)
+api.unfollowUser(id)
+api.getFollowers(id, params)
+api.getFollowing(id, params)
+api.blockUser(id)
+api.unblockUser(id)
+api.getBlocks()
+api.getSuggestions(params)
+api.pinPost(postId)
+api.unpinPost()
+api.getBookmarks(params)
+api.bookmarkPost(id)
+api.unbookmarkPost(id)
 
 // Posts
-api.createPost({ content })
+api.createPost(text, image)
+api.getPost(id)
+api.updatePost(id, text)
+api.deletePost(id)
 api.getFeed({ tab, cursor, limit })
-api.getPost(postId)
-api.deletePost(postId)
-api.toggleLike(postId)
-api.toggleRepost(postId)
-api.createReply(postId, { content })
-api.getReplies(postId)
+api.getPublicFeed(params)
+api.likePost(id)
+api.unlikePost(id)
+api.repostPost(id)
+api.unrepostPost(id)
+api.createReply(id, text)
+api.getReplies(id, params)
 
 // Search
-api.search(query, type) // type: "users" | "posts"
+api.search(params) // q, type: "users" | "posts"
+
+// Hashtags
+api.getTrendingHashtags(params)
+api.getPostsByHashtag(tag, params)
 
 // Notifications
-api.getNotifications(cursor, limit)
-api.markNotificationRead(notificationId)
+api.getNotifications(params)
+api.markNotificationRead(id)
 api.markAllNotificationsRead()
-api.getUnreadNotificationCount()
+api.deleteNotification(id)
+api.clearReadNotifications()
+api.getUnreadCount()
+
+// Reports
+api.fileReport(payload)
+
+// Colleges
+api.getCollege(slug)
+api.listColleges(params)
+api.getCollegeMembers(slug, params)
+api.getCollegePosts(slug, params)
 ```
 
 **Key behaviors**:
@@ -634,12 +686,14 @@ Services contain all business logic. Controllers are thin wrappers.
 
 | Service | Responsibility |
 |---------|---------------|
-| `userService.js` | Profile CRUD, avatar upload, user stats |
+| `userService.js` | Profile CRUD, avatar/cover upload, user stats, bookmarks, pinning, suggestions |
 | `followService.js` | Follow/unfollow, follower/following lists, count updates |
 | `blockService.js` | Block/unblock, mutual hide, auto-unfollow |
-| `notificationService.js` | Create/fetch notifications, mark read |
+| `notificationService.js` | Create/fetch notifications, mark read, clear read |
 | `reportService.js` | Report users/posts |
 | `searchService.js` | Full-text search across users and posts |
+| `collegeService.js` | College CRUD, members, college posts |
+| `hashtagService.js` | Hashtag extraction, trending, posts by hashtag |
 
 ### Utility Modules
 
@@ -700,16 +754,16 @@ http://localhost:4000/api
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
+| `GET` | `/auth/check-username` | No | Check username availability |
 | `POST` | `/auth/signup` | No | Create account, send OTP |
+| `POST` | `/auth/verify-email` | No | Verify email with OTP |
+| `POST` | `/auth/resend-otp` | No | Resend OTP (30s throttle) |
 | `POST` | `/auth/login` | No | Login, set cookies |
 | `POST` | `/auth/logout` | Yes | Logout, clear cookies |
 | `GET` | `/auth/me` | Yes | Get current user |
 | `POST` | `/auth/refresh` | Cookie | Rotate tokens |
-| `POST` | `/auth/verify-email` | No | Verify email with OTP |
-| `POST` | `/auth/resend-otp` | No | Resend OTP (30s throttle) |
 | `POST` | `/auth/forgot-password` | No | Request password reset |
 | `POST` | `/auth/reset-password` | No | Reset password with OTP |
-| `GET` | `/auth/check-username` | No | Check username availability |
 
 ### User Endpoints
 
@@ -732,14 +786,26 @@ http://localhost:4000/api
 | `GET` | `/users/:username/likes` | Optional | User's liked posts |
 | `GET` | `/users/:username/reposts` | Optional | User's reposts |
 | `GET` | `/users/:username/media` | Optional | User's media posts |
+| `POST` | `/users/me/avatar` | Yes | Upload avatar (multipart) |
+| `POST` | `/users/me/cover` | Yes | Upload cover image (multipart) |
+| `POST` | `/users/me/pin` | Yes | Pin a post to profile |
+| `DELETE` | `/users/me/pin` | Yes | Unpin pinned post |
+| `GET` | `/users/me/suggestions` | Yes | Get suggested users to follow |
+| `GET` | `/users/me/bookmarks` | Yes | Get bookmarked posts |
+| `POST` | `/users/:id/follow` | Yes | Follow user |
+| `DELETE` | `/users/:id/follow` | Yes | Unfollow user |
+| `GET` | `/users/:id/followers` | Optional | List followers |
+| `GET` | `/users/:id/following` | Optional | List following |
+| `POST` | `/users/:id/block` | Yes | Block user |
+| `DELETE` | `/users/:id/block` | Yes | Unblock user |
+| `GET` | `/users/me/blocks` | Yes | List blocked users |
 
 ### Post Endpoints
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| `POST` | `/posts/` | Yes | Create post |
-| `GET` | `/posts/` | Yes | Get feed (tab=following/discovery) |
-| `GET` | `/posts/feed` | Yes | Alias for feed |
+| `POST` | `/posts/` | Yes | Create post (text + optional image) |
+| `GET` | `/posts/feed` | Yes | Get feed (tab=following/discovery) |
 | `GET` | `/posts/public` | No | Public feed (guests) |
 | `GET` | `/posts/:id` | Optional | Get single post |
 | `PATCH` | `/posts/:id` | Yes | Edit own post |
@@ -750,6 +816,10 @@ http://localhost:4000/api
 | `DELETE` | `/posts/:id/repost` | Yes | Remove repost |
 | `POST` | `/posts/:id/replies` | Yes | Create reply |
 | `GET` | `/posts/:id/replies` | Optional | Get replies |
+| `POST` | `/posts/:id/bookmark` | Yes | Bookmark post |
+| `DELETE` | `/posts/:id/bookmark` | Yes | Remove bookmark |
+| `POST` | `/posts/:id/bookmark` | Yes | Bookmark post |
+| `DELETE` | `/posts/:id/bookmark` | Yes | Remove bookmark |
 
 ### Search Endpoints
 
@@ -764,6 +834,8 @@ http://localhost:4000/api
 | `GET` | `/notifications/` | Yes | List notifications (paginated) |
 | `PATCH` | `/notifications/:id/read` | Yes | Mark single notification read |
 | `PATCH` | `/notifications/read-all` | Yes | Mark all notifications read |
+| `DELETE` | `/notifications/clear-read` | Yes | Clear read notifications |
+| `DELETE` | `/notifications/:id` | Yes | Delete notification |
 | `GET` | `/notifications/unread-count` | Yes | Get unread count |
 
 ### Report Endpoints
@@ -771,6 +843,22 @@ http://localhost:4000/api
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | `POST` | `/reports/` | Yes | Report a user or post |
+
+### Hashtag Endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/hashtags/trending` | Yes | Get trending hashtags |
+| `GET` | `/hashtags/:tag/posts` | Optional | Get posts by hashtag |
+
+### College Endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/colleges/` | Yes | List colleges |
+| `GET` | `/colleges/:slug` | Optional | Get college info |
+| `GET` | `/colleges/:slug/members` | Optional | Get college members |
+| `GET` | `/colleges/:slug/posts` | Optional | Get college posts |
 
 ### Health Endpoints
 
@@ -897,15 +985,16 @@ All visual properties are defined as CSS custom properties in `globals.css`:
 |-------|-------|-------|
 | `--cz-bg` | `#000000` | Page background |
 | `--cz-surface` | `#0c122c` | Card/panel background |
-| `--cz-surface-strong` | `#1a2340` | Elevated surface |
-| `--cz-text-primary` | `#ffffff` | Primary text |
-| `--cz-text-secondary` | `#8892b0` | Secondary/muted text |
-| `--cz-text-inverse` | `#000000` | Text on accent |
-| `--cz-border` | `#1e2a4a` | Borders/dividers |
-| `--cz-muted` | `#162040` | Muted backgrounds |
-| `--cz-accent` | `#ffcead` | Primary accent (peach) |
-| `--cz-error` | `#ff6b6b` | Error states |
-| `--cz-success` | `#51cf66` | Success states |
+| `--cz-surface-strong` | `#060b1e` | Elevated surface |
+| `--cz-muted` | `#7d82d9` | Muted backgrounds |
+| `--cz-text-primary` | `#ffcead` | Primary text (warm peach) |
+| `--cz-text-secondary` | `#b6a6b2` | Secondary/muted text |
+| `--cz-text-inverse` | `#0c0e10` | Text on accent |
+| `--cz-border` | `rgba(255, 206, 173, 0.12)` | Borders/dividers |
+| `--cz-border-strong` | `rgba(255, 206, 173, 0.22)` | Strong borders |
+| `--cz-border-focus` | `rgba(125, 130, 217, 0.6)` | Focus rings |
+| `--cz-error` | `#ff5a6a` | Error states |
+| `--cz-success` | `#7df0b2` | Success states |
 
 #### Typography
 
@@ -920,9 +1009,21 @@ All visual properties are defined as CSS custom properties in `globals.css`:
 | Class | Purpose |
 |-------|---------|
 | `.cz-card` | Card container with surface bg + border |
-| `.cz-input` | Form input styling |
-| `.cz-btn-primary` | Primary action button |
-| `.cz-btn-secondary` | Secondary action button |
+| `.cz-input` | Form input styling (with hover/focus states) |
+
+#### Animation Classes
+
+| Class | Purpose |
+|-------|---------|
+| `.t-input` / `.is-error` / `.is-shaking` | Input states with shake animation |
+| `.t-icon-swap` | Icon swap (eye/eye-off) |
+| `.t-check` | Custom checkbox with draw animation |
+| `.t-stagger-line` | Text reveal with stagger animation |
+| `.t-success-check` | Success checkmark animation |
+| `.t-modal` / `.is-open` / `.is-closing` | Modal animations |
+| `.t-digit-group` / `.t-digit` | Number pop-in animation |
+| `.t-panel-slide` | Panel slide-in animation |
+| `.t-like` / `.t-like-heart` / `.t-like-particles` | Like button with particle burst |
 
 ### Animations
 
@@ -939,6 +1040,19 @@ CSS keyframe animations for micro-interactions:
 | `success-check` | Success state checkmark |
 
 All animations respect `prefers-reduced-motion: reduce`.
+
+### Motion Tokens
+
+| Token | Value | Purpose |
+|-------|-------|----------|
+| `--duration-micro` | 80ms | Quick transitions |
+| `--duration-quick` | 150ms | Standard transitions |
+| `--duration-fast` | 250ms | Modal open/close |
+| `--duration-medium` | 350ms | Panel reveals |
+| `--duration-slow` | 400ms | Page transitions |
+| `--duration-very-slow` | 500ms | Stagger reveals |
+| `--like-pop` | 350ms | Like button pop |
+| `--like-particle-dur` | 600ms | Like particle burst |
 
 ### Accessibility
 
@@ -978,6 +1092,8 @@ All animations respect `prefers-reduced-motion: reduce`.
 | Loading skeletons | `animate-pulse` placeholder divs |
 | Empty states | Reusable `EmptyState` component |
 | Guest vs auth | `isGuest` flag controls UI (blur overlays, CTA banners) |
+| TanStack Query | Server state management with `query-provider.jsx` |
+| URL params | Query params for pagination filters (built into api.js) |
 
 ### Backend Patterns
 
@@ -992,6 +1108,8 @@ All animations respect `prefers-reduced-motion: reduce`.
 | Rate limiting per route | Different limits for signup, login, feed, etc. |
 | Zod validation | Reusable `validate(schema, source)` middleware |
 | Partial unique indexes | For Like/Follow/Repost to prevent duplicates |
+| SSE events | Server-Sent Events for real-time notifications at `/api/events` |
+| Cache layer | In-memory caching via `utils/cache.js` for frequently accessed data |
 
 ---
 

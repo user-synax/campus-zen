@@ -3,7 +3,7 @@
 **Product:** CampusZen  
 **Type:** Student-focused social media web application  
 **Inspiration:** X-style social networking, adapted for college students  
-**Status:** MVP planning  
+**Status:** MVP complete (September 2026)  
 **Primary goal:** Build a focused social platform where students can discover people, share thoughts, and interact around student life, technology, academics, and campus culture.
 
 ---
@@ -438,53 +438,88 @@ The navigation should remain compact and touch-friendly.
 
 # 17. Backend API
 
-Initial API structure:
+Current API structure (MVP complete):
 
 ```text
 /api/auth
-    POST   /signup
-    POST   /login
-    POST   /logout
-    GET    /me
-    POST   /forgot-password
-    POST   /reset-password
-    POST   /verify-email
+    GET    /check-username          Check username availability
+    POST   /signup                  Create account, send OTP
+    POST   /verify-email            Verify email with OTP
+    POST   /resend-otp              Resend OTP (30s throttle)
+    POST   /login                   Login, set HTTP-only cookies
+    POST   /logout                  Logout, clear cookies
+    GET    /me                      Get current user
+    POST   /refresh                 Rotate tokens
+    POST   /forgot-password         Request password reset OTP
+    POST   /reset-password          Reset password with OTP
 
 /api/users
-    GET    /:username
-    PATCH  /me
-    POST   /:id/follow
-    DELETE /:id/follow
-    GET    /:id/followers
-    GET    /:id/following
+    GET    /                        List users (directory)
+    GET    /:username               Get user profile
+    PATCH  /me                      Update own profile
+    PUT    /me                      Replace own profile
+    POST   /:id/follow              Follow user
+    DELETE /:id/follow              Unfollow user
+    GET    /:id/followers           List followers
+    GET    /:id/following           List following
+    POST   /:id/block               Block user
+    DELETE /:id/block               Unblock user
+    GET    /me/blocks               List blocked users
+    POST   /me/avatar               Upload avatar (multipart)
+    POST   /me/cover                Upload cover image (multipart)
+    POST   /me/pin                  Pin a post to profile
+    DELETE /me/pin                  Unpin pinned post
+    GET    /me/suggestions          Get suggested users
+    GET    /me/bookmarks            Get bookmarked posts
+    GET    /:username/posts         User's posts
+    GET    /:username/replies       User's replies
+    GET    /:username/likes         User's liked posts
+    GET    /:username/reposts       User's reposts
+    GET    /:username/media         User's media posts
 
 /api/posts
-    POST   /
-    GET    /feed
-    GET    /public
-    GET    /:id
-    PATCH  /:id
-    DELETE /:id
-
-/api/posts/:id
-    POST   /like
-    DELETE /like
-    POST   /repost
-    DELETE /repost
-    POST   /replies
+    POST   /                        Create post (text + optional image)
+    GET    /feed                    Get feed (tab=following/discovery)
+    GET    /public                  Public feed (guests)
+    GET    /:id                     Get single post
+    PATCH  /:id                     Edit own post
+    DELETE /:id                     Delete own post
+    POST   /:id/like                Like post
+    DELETE /:id/like                Unlike post
+    POST   /:id/repost              Repost
+    DELETE /:id/repost              Remove repost
+    POST   /:id/replies             Create reply
+    GET    /:id/replies             Get replies
+    POST   /:id/bookmark            Bookmark post
+    DELETE /:id/bookmark            Remove bookmark
 
 /api/search
-    GET    /?q=
+    GET    /?q=&type=              Search users (type=users) or posts (type=posts)
 
 /api/notifications
-    GET    /
-    PATCH  /:id/read
+    GET    /                        List notifications (paginated)
+    PATCH  /:id/read                Mark single notification read
+    PATCH  /read-all                Mark all notifications read
+    DELETE /clear-read              Clear read notifications
+    DELETE /:id                     Delete notification
+    GET    /unread-count            Get unread count
 
 /api/reports
-    POST   /
-```
+    POST   /                        Report a user or post
 
-The exact route structure can evolve during implementation.
+/api/hashtags
+    GET    /trending                Get trending hashtags
+    GET    /:tag/posts              Get posts by hashtag
+
+/api/colleges
+    GET    /                        List colleges
+    GET    /:slug                   Get college info
+    GET    /:slug/members           Get college members
+    GET    /:slug/posts             Get college posts
+
+/api/events
+    GET    /                        SSE stream for real-time notifications
+```
 
 ---
 
@@ -608,26 +643,38 @@ Validation should happen before business logic.
 
 ---
 
-# 22. MVP Success Criteria
+# 22. MVP Success Criteria (ALL COMPLETE)
 
 The MVP is considered functional when a new student can:
 
-1. Create an account.
-2. Log in.
-3. Complete their profile.
-4. Find another student.
-5. Follow them.
-6. See their posts.
-7. Create a post.
-8. Like a post.
-9. Reply to a post.
-10. Repost a post.
-11. Receive a notification.
-12. Search for another student or post.
-13. Report or block unwanted content/users.
-14. Log out and return later with their session intact.
+1. [x] Create an account.
+2. [x] Log in.
+3. [x] Complete their profile.
+4. [x] Find another student.
+5. [x] Follow them.
+6. [x] See their posts.
+7. [x] Create a post.
+8. [x] Like a post.
+9. [x] Reply to a post.
+10. [x] Repost a post.
+11. [x] Receive a notification.
+12. [x] Search for another student or post.
+13. [x] Report or block unwanted content/users.
+14. [x] Log out and return later with their session intact.
 
 The complete core social loop must work without manual database intervention.
+
+### Additional Features Completed
+
+- [x] Email verification via OTP
+- [x] Password reset flow
+- [x] Avatar and cover image uploads
+- [x] Bookmarks and pinned posts
+- [x] Hashtags with trending
+- [x] College system
+- [x] User suggestions
+- [x] SSE real-time notifications
+- [x] Guest access with blur
 
 ---
 
@@ -660,27 +707,35 @@ The following should NOT be required for the first release:
 
 > **Roadmap block**
 >
-> ### MVP — Core Social Network
+> ### MVP — Core Social Network (COMPLETE)
 >
 > **Goal:** Validate the fundamental student social experience.
 >
-> - Authentication
-> - Email verification
-> - Student profile
-> - Follow / unfollow
-> - Text posts
-> - Home feed
-> - Likes
-> - Replies
-> - Reposts
-> - User/post search
-> - Notifications
-> - Block
-> - Report
-> - Basic admin moderation
-> - Responsive desktop/mobile UI
-> - Secure Express API
-> - MongoDB persistence
+> - [x] Authentication (signup, login, logout, token refresh)
+> - [x] Email verification via OTP (Gmail SMTP)
+> - [x] Student profile (avatar, cover, display name, username, bio, college, course, year)
+> - [x] Follow / unfollow with follower/following lists
+> - [x] Text posts (500 char limit)
+> - [x] Home feed with Following + Discovery tabs, cursor pagination
+> - [x] Likes / unlike
+> - [x] Replies / reply threads
+> - [x] Reposts / unrepost
+> - [x] User/post search with full-text search
+> - [x] In-app notifications (follows, likes, replies, reposts)
+> - [x] Block / unblock with mutual hide
+> - [x] Report users/posts
+> - [x] Bookmarks
+> - [x] Pin posts to profile
+> - [x] Hashtags with trending and posts-by-hashtag
+> - [x] Colleges with members and posts
+> - [x] File uploads (avatar, cover) via Appwrite
+> - [x] Suggestions for users to follow
+> - [x] SSE real-time notifications
+> - [x] Responsive desktop/mobile UI (3-column + bottom nav)
+> - [x] Secure Express API (helmet, cors, rate limiting, sanitization)
+> - [x] MongoDB persistence with proper indexes
+> - [x] Password reset flow
+> - [x] Guest access with blur for unauthenticated users
 >
 > ---
 >
@@ -762,48 +817,60 @@ The following should NOT be required for the first release:
 
 # 25. Development Order
 
-Recommended implementation sequence:
+Actual implementation sequence (completed):
 
 ```text
-1. Project setup
+1. [x] Project setup (Next.js 16, Express, MongoDB, Bun)
    ↓
-2. Express server + MongoDB
+2. [x] Express server + MongoDB connection with graceful shutdown
    ↓
-3. Environment configuration
+3. [x] Environment configuration (env validation, multiple services)
    ↓
-4. Authentication
+4. [x] Authentication (JWT, bcrypt, HTTP-only cookies, token rotation)
    ↓
-5. User model + profiles
+5. [x] Email verification via OTP (Gmail SMTP, 10min expiry, 5 attempts)
    ↓
-6. Next.js frontend foundation
+6. [x] User model + profiles (avatar, cover, college, course, year)
    ↓
-7. Frontend ↔ Express API connection
+7. [x] Next.js frontend foundation (App Router, design tokens, animations)
    ↓
-8. Create/read posts
+8. [x] Frontend ↔ Express API connection (central api.js, error handling)
    ↓
-9. Home feed
+9. [x] Create/read posts (500 char limit, Zod validation)
    ↓
-10. Likes
+10. [x] Home feed (Following + Discovery tabs, cursor pagination)
    ↓
-11. Replies
+11. [x] Likes with toggle and count updates
    ↓
-12. Follow system
+12. [x] Replies with threaded view
    ↓
-13. Reposts
+13. [x] Follow system (follow/unfollow, followers/following lists)
    ↓
-14. Search
+14. [x] Reposts with toggle
    ↓
-15. Notifications
+15. [x] Search (users + posts, full-text search)
    ↓
-16. Block/report
+16. [x] Notifications (create, list, mark read, unread count)
    ↓
-17. Basic admin moderation
+17. [x] Block/report (mutual hide, auto-unfollow, report queue)
    ↓
-18. Security hardening
+18. [x] Bookmarks and pinned posts
    ↓
-19. Responsive UI polish
+19. [x] Hashtags (extraction, trending, posts by tag)
    ↓
-20. MVP release
+20. [x] Colleges (CRUD, members, posts)
+   ↓
+21. [x] File uploads (avatar, cover via Appwrite)
+   ↓
+22. [x] User suggestions
+   ↓
+23. [x] SSE real-time notifications
+   ↓
+24. [x] Security hardening (helmet, cors, rate limiting, sanitization)
+   ↓
+25. [x] Responsive UI polish (3-column desktop, bottom nav mobile)
+   ↓
+26. [x] MVP release (September 2026)
 ```
 
 ---

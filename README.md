@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/user-synax/campus-zen"><img src="https://img.shields.io/badge/status-MVP-blue?style=flat-square" alt="status" /></a>
+  <a href="https://github.com/user-synax/campus-zen"><img src="https://img.shields.io/badge/status-MVP-complete-blue?style=flat-square" alt="status" /></a>
   <img src="https://img.shields.io/badge/frontend-Next.js_16-black?style=flat-square&logo=next.js" alt="Next.js" />
   <img src="https://img.shields.io/badge/backend-Express_4-green?style=flat-square&logo=express" alt="Express" />
   <img src="https://img.shields.io/badge/database-MongoDB-47A248?style=flat-square&logo=mongodb" alt="MongoDB" />
@@ -129,7 +129,7 @@ campus-zen/
 
 ### Prerequisites
 
-- Bun ≥ 1.4.2, Node.js LTS, MongoDB (local or Atlas), Appwrite account (avatars)
+- Bun ≥ 1.4.2, Node.js LTS, MongoDB (local or Atlas), Appwrite account (avatars), Gmail SMTP (OTP emails)
 
 ```bash
 git clone https://github.com/user-synax/campus-zen.git
@@ -152,7 +152,9 @@ bun run dev            # node --watch src/server.js
 | `FRONTEND_URL` | `http://localhost:3000` |
 | `COOKIE_SECURE` | `false` locally, `true` in prod |
 | `SMTP_HOST/PORT/USER/PASS` | Gmail SMTP + App Password |
+| `EMAIL_FROM` | `noreply@campuszen.app` |
 | `APPWRITE_ENDPOINT/PROJECT_ID/API_KEY/BUCKET_ID` | avatar storage (server-side only) |
+| `APPWRITE_BUCKET.COVER_ID` | cover image storage bucket |
 
 ### 2. Frontend (`http://localhost:3000`)
 
@@ -167,7 +169,7 @@ bun run dev
 | ------ | ------------ |
 | Frontend `bun run dev / build / start` | `next dev / build / start` |
 | Frontend `bun run lint / format` | `biome check / biome format --write` |
-| Backend `bun run dev / start` | `node --watch src/server.js / node src/server.js` |
+| Backend `bun run dev / start / seed` | `node --watch src/server.js / node src/server.js / node src/utils/seed.js` |
 
 Verify: `GET /health` and `GET /api/health` on `:4000` should return `{ success: true }`.
 
