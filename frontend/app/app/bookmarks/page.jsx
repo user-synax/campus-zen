@@ -1,9 +1,14 @@
 "use client";
 
 import { useRef, useEffect } from "react";
-import { Bookmark, Loader2 } from "lucide-react";
+import { Bookmark } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { EmptyState } from "@/components/app/EmptyState";
+import {
+  EmptyState,
+  FeedFooter,
+  PostSkeleton,
+} from "@/components/app/EmptyState";
+import { PageHeader } from "@/components/app/PageHeader";
 import { PostCard } from "@/components/app/PostCard";
 import { useMe, useBookmarks } from "@/lib/hooks/queries";
 
@@ -78,44 +83,21 @@ export default function BookmarksPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-[640px] space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-[18px] font-semibold tracking-[-0.02em]">
-          Bookmarks
-        </h1>
-        <span className="inline-flex items-center gap-1.5 text-[12px] text-[var(--cz-text-secondary)]">
-          <Bookmark className="h-3.5 w-3.5" /> Private to you
-        </span>
-      </div>
+    <div>
+      <PageHeader title="Bookmarks" subtitle="Only you can see your bookmarks" />
 
       {isPending ? (
-        <div className="space-y-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div
-              key={i}
-              className="rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)] p-4 animate-pulse"
-            >
-              <div className="flex gap-3">
-                <div className="h-9 w-9 rounded-full bg-[var(--cz-border)]" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-3 w-32 rounded bg-[var(--cz-border)]" />
-                  <div className="h-4 w-full rounded bg-[var(--cz-border)]/60" />
-                  <div className="h-4 w-3/4 rounded bg-[var(--cz-border)]/40" />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+        <PostSkeleton rows={4} />
       ) : posts.length === 0 ? (
         <EmptyState
           icon={Bookmark}
           title="No bookmarks yet"
           description="Tap the bookmark icon on any post to save it here. Only you can see your bookmarks."
-          actionLabel="Discover posts"
+          actionLabel="Back to feed"
           actionHref="/app"
         />
       ) : (
-        <div className="space-y-3">
+        <div>
           {posts.map((p) => (
             <PostCard
               key={p._id}
@@ -126,15 +108,11 @@ export default function BookmarksPage() {
             />
           ))}
           <div ref={sentinelRef} className="h-1" aria-hidden />
-          {isFetchingNextPage ? (
-            <div className="flex items-center justify-center gap-2 py-4 text-[13px] text-[var(--cz-text-secondary)]">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loading more...
-            </div>
-          ) : !hasNextPage ? (
-            <p className="text-center text-[11px] text-[var(--cz-text-secondary)]/60 py-4">
-              End • {posts.length} saved
-            </p>
-          ) : null}
+          <FeedFooter
+            loading={isFetchingNextPage}
+            hasMore={hasNextPage}
+            emptyLabel={`${posts.length} saved ${posts.length === 1 ? "post" : "posts"}`}
+          />
         </div>
       )}
     </div>

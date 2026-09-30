@@ -15,7 +15,6 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { ACCENT_KEYS, ACCENTS, accentFor } from "@/lib/accents";
 import { api } from "@/lib/api";
 
 export function EditProfileModal({ open, onClose, user, onSaved }) {
@@ -35,11 +34,9 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
   const [coverFile, setCoverFile] = useState(null);
   const [coverPreview, setCoverPreview] = useState(user?.coverUrl || null);
   const [coverRemoved, setCoverRemoved] = useState(false);
-  const [accent, setAccent] = useState(user?.accent || "peach");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [show, setShow] = useState(false);
-  const [closing, setClosing] = useState(false);
   const modalRef = useRef(null);
   const fileRef = useRef(null);
   const coverRef = useRef(null);
@@ -61,7 +58,6 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
       setCoverPreview(user.coverUrl || null);
       setCoverFile(null);
       setCoverRemoved(false);
-      setAccent(user.accent || "peach");
     }
   }, [user]);
 
@@ -69,7 +65,6 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
   useEffect(() => {
     if (open) {
       setShow(true);
-      setClosing(false);
       // lock scroll
       document.body.style.overflow = "hidden";
       const t = setTimeout(() => {
@@ -79,10 +74,8 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
     } else if (show) {
       modalRef.current?.classList.remove("is-open");
       modalRef.current?.classList.add("is-closing");
-      setClosing(true);
       const t = setTimeout(() => {
         setShow(false);
-        setClosing(false);
         document.body.style.overflow = "";
       }, 160);
       return () => clearTimeout(t);
@@ -202,7 +195,6 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
         college: college.trim() || null,
         course: course.trim() || null,
         academicYear: academicYear || null,
-        accent: accent || null,
         // avatarUrl already updated via /me/avatar if file was uploaded; include only if no file or to keep consistent
         ...(avatarFile ? {} : { avatarUrl: avatarUrl || null }),
         ...(coverFile ? {} : { coverUrl: coverUrl || null }),
@@ -243,7 +235,7 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
       <button
         aria-label="Close"
         onClick={onClose}
-        className="absolute inset-0 bg-black/60 backdrop-blur-[2px] border-0 p-0 m-0"
+        className="absolute inset-0 cursor-default border-0 bg-[var(--cz-overlay)] p-0 backdrop-blur-[2px] m-0"
         tabIndex={-1}
       />
       {/* modal */}
@@ -252,35 +244,35 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
         role="dialog"
         aria-modal="true"
         aria-label="Edit profile"
-        className="t-modal relative w-full sm:max-w-[560px] max-h-[92dvh] sm:max-h-[88dvh] overflow-hidden rounded-t-[20px] sm:rounded-[20px] border border-[var(--cz-border)] bg-[var(--cz-surface)] shadow-[0_16px_48px_rgba(0,0,0,0.5)] flex flex-col"
+        className="t-modal relative flex w-full max-h-[92dvh] flex-col overflow-hidden rounded-t-[16px] border border-[var(--cz-border)] bg-[var(--cz-elevated)] shadow-[var(--shadow-sm)] sm:max-h-[88dvh] sm:max-w-[600px] sm:rounded-[16px]"
       >
         {/* header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--cz-border)] bg-[var(--cz-surface)] px-4 sm:px-5 h-[56px] shrink-0">
-          <h2 className="text-[15px] font-semibold tracking-[-0.02em]">
+        <div className="sticky top-0 z-10 flex h-[53px] shrink-0 items-center justify-between border-b border-[var(--cz-border)] bg-[var(--cz-elevated)] px-4">
+          <h2 className="text-[20px] leading-6 font-extrabold text-[var(--cz-text-primary)]">
             Edit profile
           </h2>
           <button
             onClick={onClose}
-            className="grid place-items-center h-8 w-8 rounded-[10px] hover:bg-[rgba(255,206,173,0.08)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] transition-colors"
+            className="-mr-1 grid h-[34px] w-[34px] place-items-center rounded-full text-[var(--cz-text-secondary)] transition-colors hover:bg-[var(--cz-surface-strong)] hover:text-[var(--cz-text-primary)]"
             aria-label="Close"
           >
-            <X className="h-4 w-4" />
+            <X className="h-[18px] w-[18px]" />
           </button>
         </div>
 
         <form
           onSubmit={onSubmit}
-          className="flex-1 overflow-y-auto px-4 sm:px-5 py-5 space-y-6"
+          className="flex-1 space-y-7 overflow-y-auto px-4 py-5"
         >
           {error ? (
-            <div className="rounded-[10px] border border-[var(--cz-error)]/20 bg-[rgba(255,90,106,0.08)] px-3 py-2.5 text-[13px] leading-[18px] text-[var(--cz-error)]">
+            <div className="rounded-[4px] bg-[color-mix(in_srgb,var(--cz-error)_10%,transparent)] px-3 py-2.5 text-[15px] leading-[20px] text-[var(--cz-error)]">
               {error}
             </div>
           ) : null}
 
           {/* avatar */}
           <div className="flex items-center gap-4">
-            <span className="relative grid place-items-center h-[72px] w-[72px] rounded-full overflow-hidden border-2 border-[var(--cz-border)] bg-[var(--cz-bg)] shrink-0">
+            <span className="grid h-[72px] w-[72px] shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] font-bold text-[20px] text-[var(--cz-text-primary)]">
               {avatarPreview ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -289,20 +281,18 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <span className="grid place-items-center h-full w-full bg-[var(--cz-muted)] text-white font-semibold text-[20px]">
-                  {(fullName || user?.username || "U")
-                    .trim()
-                    .slice(0, 1)
-                    .toUpperCase()}
-                </span>
+                (fullName || user?.username || "U")
+                  .trim()
+                  .slice(0, 1)
+                  .toUpperCase()
               )}
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-medium leading-none">
+              <p className="text-[15px] font-bold leading-[20px]">
                 Profile photo
               </p>
-              <p className="text-[12px] leading-[16px] text-[var(--cz-text-secondary)] mt-1">
-                Backend Appwrite bucket • PNG/JPG up to 4MB • Secure server-side
+              <p className="mt-1 text-[13px] leading-[16px] text-[var(--cz-text-secondary)]">
+                PNG/JPG up to 4MB
               </p>
               <div className="mt-2 flex items-center gap-2">
                 <input
@@ -317,12 +307,11 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
                   variant="secondary"
                   size="sm"
                   onClick={() => fileRef.current?.click()}
-                  className="h-[32px] px-3 text-[12px]"
                 >
-                  <Upload className="h-3.5 w-3.5" /> Upload
+                  <Upload className="h-4 w-4" aria-hidden /> Upload
                 </Button>
                 {avatarFile ? (
-                  <span className="text-[11px] text-[var(--cz-text-secondary)] truncate">
+                  <span className="truncate text-[13px] text-[var(--cz-text-secondary)]">
                     {avatarFile.name}
                   </span>
                 ) : null}
@@ -330,15 +319,16 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
             </div>
           </div>
 
-          {/* appearance — cover + accent */}
-          <div className="space-y-3">
-            <h3 className="text-[12px] font-semibold tracking-[0.06em] uppercase text-[var(--cz-text-secondary)]">
-              Appearance
+          {/* appearance — avatar + cover only. The 5-hue accent picker is
+              gone: DESIGN.md allows exactly one chromatic colour. */}
+          <div className="space-y-5">
+            <h3 className="text-[15px] font-bold text-[var(--cz-text-primary)]">
+              Profile
             </h3>
 
             <div className="flex flex-col gap-1.5">
               <Label>Cover banner</Label>
-              <div className="relative h-[76px] rounded-[10px] overflow-hidden border border-[var(--cz-border)] bg-[var(--cz-surface-strong)]">
+              <div className="relative h-[100px] overflow-hidden rounded-[4px] bg-[var(--cz-surface-strong)]">
                 {coverPreview ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -346,15 +336,7 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
                     alt="cover preview"
                     className="absolute inset-0 h-full w-full object-cover"
                   />
-                ) : (
-                  <div
-                    aria-hidden
-                    className="absolute inset-0"
-                    style={{
-                      background: `linear-gradient(135deg, ${accentFor(accent).from}, transparent 55%, ${accentFor(accent).to})`,
-                    }}
-                  />
-                )}
+                ) : null}
               </div>
               <div className="mt-1 flex items-center gap-2">
                 <input
@@ -369,9 +351,8 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
                   variant="secondary"
                   size="sm"
                   onClick={() => coverRef.current?.click()}
-                  className="h-[32px] px-3 text-[12px]"
                 >
-                  <ImageIcon className="h-3.5 w-3.5" />{" "}
+                  <ImageIcon className="h-4 w-4" aria-hidden />
                   {coverPreview ? "Change" : "Upload"}
                 </Button>
                 {coverPreview ? (
@@ -380,84 +361,50 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
                     variant="ghost"
                     size="sm"
                     onClick={removeCover}
-                    className="h-[32px] px-3 text-[12px]"
                   >
                     Remove
                   </Button>
                 ) : null}
                 {coverFile ? (
-                  <span className="text-[11px] text-[var(--cz-text-secondary)] truncate">
+                  <span className="truncate text-[13px] text-[var(--cz-text-secondary)]">
                     {coverFile.name}
                   </span>
                 ) : null}
               </div>
-              <span className="text-[11px] text-[var(--cz-text-secondary)]/60">
+              <span className="text-[13px] text-[var(--cz-text-secondary)]">
                 PNG/JPG up to 4MB • wide images look best
-              </span>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label>Accent color</Label>
-              <div className="flex items-center gap-2">
-                {ACCENT_KEYS.map((key) => {
-                  const a = ACCENTS[key];
-                  const selected = accent === key;
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      aria-pressed={selected}
-                      aria-label={a.label}
-                      title={a.label}
-                      onClick={() => setAccent(key)}
-                      className="grid place-items-center h-9 w-9 rounded-full border transition-transform hover:scale-105"
-                      style={{
-                        background: a.dot,
-                        borderColor: selected ? "#fff" : "transparent",
-                        boxShadow: selected ? `0 0 0 2px ${a.dot}55` : "none",
-                      }}
-                    >
-                      {selected ? (
-                        <Check className="h-4 w-4 text-black/70" />
-                      ) : null}
-                    </button>
-                  );
-                })}
-              </div>
-              <span className="text-[11px] text-[var(--cz-text-secondary)]/60">
-                Tints your cover fallback, avatar ring and profile glow
               </span>
             </div>
           </div>
 
           {/* basic */}
-          <div className="space-y-3">
-            <h3 className="text-[12px] font-semibold tracking-[0.06em] uppercase text-[var(--cz-text-secondary)]">
-              Basic
+          <div className="space-y-4">
+            <h3 className="text-[15px] font-bold text-[var(--cz-text-primary)]">
+              About you
             </h3>
 
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="edit-fullName">
                 Full name <span className="text-[var(--cz-error)]">*</span>
               </Label>
-              <div className="cz-input flex items-center rounded-[10px] px-3 h-[42px]">
+              <div className="cz-input flex h-[44px] items-center rounded-[4px] px-3">
                 <input
                   id="edit-fullName"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Ayush Sharma"
                   maxLength={50}
-                  className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 h-full"
+                  className="h-full flex-1 bg-transparent text-[15px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)]"
                 />
               </div>
-              <span className="text-[11px] text-[var(--cz-text-secondary)]/60">
+              <span className="text-[13px] text-[var(--cz-text-secondary)]">
                 {fullName.length}/50
               </span>
             </div>
 
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="edit-bio">Bio</Label>
-              <div className="cz-input rounded-[10px] p-3">
+              <div className="cz-input rounded-[4px] p-3">
                 <textarea
                   id="edit-bio"
                   value={bio}
@@ -465,96 +412,87 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
                   placeholder="Full-stack student • Building CampusZen"
                   rows={3}
                   maxLength={160}
-                  className="w-full bg-transparent outline-none text-[14px] leading-[20px] placeholder:text-[var(--cz-text-secondary)]/50 resize-none"
+                  className="w-full resize-none bg-transparent text-[15px] leading-[20px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)]"
                 />
               </div>
-              <span className="text-[11px] text-[var(--cz-text-secondary)]/60">
+              <span className="text-[13px] text-[var(--cz-text-secondary)]">
                 {bio.length}/160
               </span>
             </div>
           </div>
 
           {/* academic */}
-          <div className="space-y-3">
-            <h3 className="text-[12px] font-semibold tracking-[0.06em] uppercase text-[var(--cz-text-secondary)]">
-              Academic
+          <div className="space-y-4">
+            <h3 className="text-[15px] font-bold text-[var(--cz-text-primary)]">
+              College
             </h3>
-            <div className="grid sm:grid-cols-2 gap-3">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="edit-college">College</Label>
-                <div className="cz-input flex items-center rounded-[10px] px-3 h-[42px]">
+                <div className="cz-input flex h-[44px] items-center rounded-[4px] px-3">
                   <input
                     id="edit-college"
                     value={college}
                     onChange={(e) => setCollege(e.target.value)}
                     placeholder="XYZ College"
-                    className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 h-full"
+                    className="h-full flex-1 bg-transparent text-[15px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)]"
                   />
                 </div>
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="edit-course">Course / Branch</Label>
-                <div className="cz-input flex items-center rounded-[10px] px-3 h-[42px]">
+                <div className="cz-input flex h-[44px] items-center rounded-[4px] px-3">
                   <input
                     id="edit-course"
                     value={course}
                     onChange={(e) => setCourse(e.target.value)}
                     placeholder="B.Tech CSE"
-                    className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 h-full"
+                    className="h-full flex-1 bg-transparent text-[15px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)]"
                   />
                 </div>
               </div>
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="edit-year">Academic Year</Label>
+              <Label htmlFor="edit-year">Academic year</Label>
               <select
                 id="edit-year"
                 value={academicYear}
                 onChange={(e) => setAcademicYear(e.target.value)}
-                className="cz-input h-[42px] rounded-[10px] px-3 text-[14px] bg-transparent outline-none text-[var(--cz-text-primary)]"
+                className="cz-input h-[44px] rounded-[4px] bg-transparent px-3 text-[15px] text-[var(--cz-text-primary)] outline-none"
               >
-                <option value="" className="bg-[var(--cz-surface)]">
-                  Select year
-                </option>
-                <option value="1st Year" className="bg-[var(--cz-surface)]">
-                  1st Year
-                </option>
-                <option value="2nd Year" className="bg-[var(--cz-surface)]">
-                  2nd Year
-                </option>
-                <option value="3rd Year" className="bg-[var(--cz-surface)]">
-                  3rd Year
-                </option>
-                <option value="4th Year" className="bg-[var(--cz-surface)]">
-                  4th Year
-                </option>
-                <option value="5th Year" className="bg-[var(--cz-surface)]">
-                  5th Year
-                </option>
-                <option value="Graduated" className="bg-[var(--cz-surface)]">
-                  Graduated
-                </option>
+                {[
+                  "",
+                  "1st Year",
+                  "2nd Year",
+                  "3rd Year",
+                  "4th Year",
+                  "5th Year",
+                  "Graduated",
+                ].map((y) => (
+                  <option key={y} value={y}>
+                    {y || "Select year"}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
 
           {/* social */}
-          <div className="space-y-3">
-            <h3 className="text-[12px] font-semibold tracking-[0.06em] uppercase text-[var(--cz-text-secondary)]">
-              Social — username only for GitHub
+          <div className="space-y-4">
+            <h3 className="text-[15px] font-bold text-[var(--cz-text-primary)]">
+              Links
             </h3>
-            <div className="grid gap-3">
+            <div className="grid gap-4">
               <div className="flex flex-col gap-1.5">
                 <Label
                   htmlFor="edit-github"
                   className="inline-flex items-center gap-1.5"
                 >
-                  <Github className="h-3.5 w-3.5 text-[var(--cz-text-primary)]" />{" "}
-                  GitHub username
+                  <Github className="h-4 w-4" aria-hidden /> GitHub username
                 </Label>
-                <div className="cz-input flex items-center gap-2 rounded-[10px] px-3 h-[42px]">
-                  <span className="text-[13px] text-[var(--cz-text-secondary)] select-none">
+                <div className="cz-input flex h-[44px] items-center gap-2 rounded-[4px] px-3">
+                  <span className="select-none text-[15px] text-[var(--cz-text-secondary)]">
                     github.com/
                   </span>
                   <input
@@ -565,11 +503,11 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
                     }
                     placeholder="user_synax"
                     maxLength={39}
-                    className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 h-full"
+                    className="h-full flex-1 bg-transparent text-[15px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)]"
                   />
                 </div>
-                <span className="text-[11px] text-[var(--cz-text-secondary)]/60">
-                  Used for the GitHub tab contribution graph
+                <span className="text-[13px] text-[var(--cz-text-secondary)]">
+                  Used for the GitHub contribution graph
                 </span>
               </div>
 
@@ -578,11 +516,10 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
                   htmlFor="edit-twitter"
                   className="inline-flex items-center gap-1.5"
                 >
-                  <Twitter className="h-3.5 w-3.5 text-[var(--cz-text-primary)]" />{" "}
-                  X / Twitter
+                  <Twitter className="h-4 w-4" aria-hidden /> X / Twitter
                 </Label>
-                <div className="cz-input flex items-center gap-2 rounded-[10px] px-3 h-[42px]">
-                  <span className="text-[13px] text-[var(--cz-text-secondary)] select-none">
+                <div className="cz-input flex h-[44px] items-center gap-2 rounded-[4px] px-3">
+                  <span className="select-none text-[15px] text-[var(--cz-text-secondary)]">
                     @
                   </span>
                   <input
@@ -592,7 +529,7 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
                       setTwitter(e.target.value.replace(/^@/, ""))
                     }
                     placeholder="user_synax"
-                    className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 h-full"
+                    className="h-full flex-1 bg-transparent text-[15px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)]"
                   />
                 </div>
               </div>
@@ -602,16 +539,15 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
                   htmlFor="edit-linkedin"
                   className="inline-flex items-center gap-1.5"
                 >
-                  <Linkedin className="h-3.5 w-3.5 text-[var(--cz-text-primary)]" />{" "}
-                  LinkedIn
+                  <Linkedin className="h-4 w-4" aria-hidden /> LinkedIn
                 </Label>
-                <div className="cz-input flex items-center rounded-[10px] px-3 h-[42px]">
+                <div className="cz-input flex h-[44px] items-center rounded-[4px] px-3">
                   <input
                     id="edit-linkedin"
                     value={linkedin}
                     onChange={(e) => setLinkedin(e.target.value)}
                     placeholder="in/handle or full URL"
-                    className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 h-full"
+                    className="h-full flex-1 bg-transparent text-[15px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)]"
                   />
                 </div>
               </div>
@@ -621,11 +557,10 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
                   htmlFor="edit-instagram"
                   className="inline-flex items-center gap-1.5"
                 >
-                  <Instagram className="h-3.5 w-3.5 text-[var(--cz-text-primary)]" />{" "}
-                  Instagram
+                  <Instagram className="h-4 w-4" aria-hidden /> Instagram
                 </Label>
-                <div className="cz-input flex items-center gap-2 rounded-[10px] px-3 h-[42px]">
-                  <span className="text-[13px] text-[var(--cz-text-secondary)] select-none">
+                <div className="cz-input flex h-[44px] items-center gap-2 rounded-[4px] px-3">
+                  <span className="select-none text-[15px] text-[var(--cz-text-secondary)]">
                     @
                   </span>
                   <input
@@ -635,17 +570,17 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
                       setInstagram(e.target.value.replace(/^@/, ""))
                     }
                     placeholder="user_synax"
-                    className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 h-full"
+                    className="h-full flex-1 bg-transparent text-[15px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)]"
                   />
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 pt-2 border-t border-[var(--cz-border)]">
+          <div className="flex items-center gap-3 border-t border-[var(--cz-border)] pt-5">
             <Button
               type="button"
-              variant="ghost"
+              variant="secondary"
               onClick={onClose}
               className="flex-1"
               disabled={loading}
@@ -656,14 +591,14 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
               {loading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Check className="h-4 w-4" />
+                <Check className="h-4 w-4" aria-hidden />
               )}
               {loading ? "Saving…" : "Save"}
             </Button>
           </div>
-          <div className="text-center text-[11px] text-[var(--cz-text-secondary)]/60">
-            Username @{user?.username} cannot be changed here.
-          </div>
+          <p className="text-center text-[13px] text-[var(--cz-text-secondary)]">
+            @{user?.username} cannot be changed.
+          </p>
         </form>
       </div>
     </div>

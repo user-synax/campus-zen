@@ -1,9 +1,14 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { ArrowUp, FileText, Users, Loader2 } from "lucide-react";
+import { ArrowUp, FileText, Plus, Search, Users } from "lucide-react";
+import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
-import { EmptyState } from "@/components/app/EmptyState";
+import {
+  EmptyState,
+  FeedFooter,
+  PostSkeleton,
+} from "@/components/app/EmptyState";
 import { PostComposer } from "@/components/app/PostComposer";
 import { PostCard } from "@/components/app/PostCard";
 import { api } from "@/lib/api";
@@ -178,39 +183,69 @@ export default function AppHome() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-[640px] space-y-4">
-      {/* tabs */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-[18px] font-semibold tracking-[-0.02em]">Home</h1>
-        <div className="inline-flex items-center gap-1 rounded-full border border-[var(--cz-border)] bg-[var(--cz-surface)] p-1">
-          {[
-            { id: "discovery", label: "Discovery" },
-            { id: "following", label: "Following" },
-          ].map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              aria-selected={tab === t.id}
-              className={`px-3 h-[28px] hover:cursor-pointer rounded-full text-[12px] font-medium transition-colors ${
-                tab === t.id ? "bg-[var(--cz-text-primary)] text-[var(--cz-text-inverse)] shadow-sm" : "text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)]"
-              }`}
+    <div>
+      {/*
+        Tabs + a compose shortcut, matching X: the "+" only earns its place
+        below xl, where the right rail (and its search field) isn't there
+        yet, so search needs somewhere to live.
+      */}
+      <div className="sticky top-[53px] z-10 border-b border-[var(--cz-border)] bg-[var(--cz-bg)]/90 backdrop-blur md:top-0">
+        <div className="flex items-stretch">
+          <div role="tablist" aria-label="Feed" className="flex min-w-0 flex-1">
+            {[
+              { id: "following", label: "Following" },
+              { id: "discovery", label: "For you" },
+            ].map((t) => (
+              <button
+                key={t.id}
+                role="tab"
+                onClick={() => setTab(t.id)}
+                aria-selected={tab === t.id}
+                className={`relative h-[53px] flex-1 cursor-pointer px-4 text-center text-[17px] transition-colors ${
+                  tab === t.id
+                    ? "font-bold text-[var(--cz-text-primary)]"
+                    : "font-medium text-[var(--cz-text-secondary)] hover:bg-[var(--cz-surface-strong)] hover:text-[var(--cz-text-primary)]"
+                }`}
+              >
+                {t.label}
+                {tab === t.id ? (
+                  <span
+                    aria-hidden
+                    className="absolute inset-x-0 bottom-0 h-[4px] rounded-t-full bg-[var(--cz-accent)]"
+                  />
+                ) : null}
+              </button>
+            ))}
+          </div>
+          <div className="flex shrink-0 items-center gap-1 pr-3">
+            <Link
+              href="/app/search"
+              aria-label="Search"
+              className="grid h-[40px] w-[40px] place-items-center rounded-full text-[var(--cz-text-primary)] transition-colors hover:bg-[var(--cz-surface-strong)] xl:hidden"
             >
-              {t.label}
-            </button>
-          ))}
+              <Search className="h-[21px] w-[21px]" strokeWidth={1.9} aria-hidden />
+            </Link>
+            <Link
+              href="/app/create"
+              aria-label="Create post"
+              className="grid h-[40px] w-[40px] place-items-center rounded-full text-[var(--cz-text-primary)] transition-colors hover:bg-[var(--cz-surface-strong)]"
+            >
+              <Plus className="h-[21px] w-[21px]" strokeWidth={1.9} aria-hidden />
+            </Link>
+          </div>
         </div>
       </div>
 
       <PostComposer user={user} onCreated={handleCreated} />
 
       {pending.length > 0 && !isPending ? (
-        <div className="sticky top-[64px] lg:top-4 z-10 flex justify-center pointer-events-none">
+        <div className="sticky top-[117px] z-10 flex justify-center pt-3 md:top-[105px]">
           <button
             onClick={showNewPosts}
             aria-live="polite"
-            className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-[var(--cz-text-primary)] text-[var(--cz-text-inverse)] pl-3 pr-4 h-[36px] text-[13px] font-medium shadow-[0_8px_24px_rgba(0,0,0,0.45)] hover:brightness-110 active:scale-[0.97] transition"
+            className="inline-flex h-[32px] items-center gap-1.5 rounded-full bg-[var(--cz-accent)] px-4 text-[15px] font-bold text-[var(--cz-text-inverse)] transition-colors hover:bg-[var(--cz-accent-hover)]"
           >
-            <ArrowUp className="h-4 w-4" />
+            <ArrowUp className="h-4 w-4" aria-hidden />
             {pending.length > 20
               ? "20+ new posts"
               : pending.length === 1
@@ -221,42 +256,38 @@ export default function AppHome() {
       ) : null}
 
       {isPending ? (
-        <div className="space-y-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)] p-4 animate-pulse">
-              <div className="flex gap-3">
-                <div className="h-9 w-9 rounded-full bg-[var(--cz-border)]" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-3 w-32 rounded bg-[var(--cz-border)]" />
-                  <div className="h-4 w-full rounded bg-[var(--cz-border)]/60" />
-                  <div className="h-4 w-3/4 rounded bg-[var(--cz-border)]/40" />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+        <PostSkeleton rows={4} />
       ) : posts.length === 0 ? (
         tab === "following" ? (
-          <>
-            <EmptyState icon={FileText} title="No posts yet" description="Your Following feed is empty. Follow students and their posts will show here newest first." actionLabel="Discover students" actionHref="/u" />
-            <EmptyState icon={Users} title="No following yet" description="You're not following anyone. Find classmates by college and course." actionLabel="Explore" actionHref="/u" />
-          </>
+          <EmptyState
+            icon={Users}
+            title="You're not following anyone yet"
+            description="Follow students and their posts will show up here, newest first. Find classmates by college and course."
+            actionLabel="Discover students"
+            actionHref="/u"
+          />
         ) : (
-          <EmptyState icon={FileText} title="No posts yet" description="Discovery is empty. Be the first to post!" actionLabel="Create post" actionHref="/app/create" />
+          <EmptyState
+            icon={FileText}
+            title="Nothing here yet"
+            description="This is where campus conversations show up. Post the first one."
+            actionLabel="Write a post"
+            actionHref="/app/create"
+          />
         )
       ) : (
-        <div className="space-y-3">
+        <div>
           {posts.map((p) => (
-            <PostCard key={p._id} post={p} currentUser={user} onDelete={handleDelete} onUpdate={handleUpdate} />
+            <PostCard
+              key={p._id}
+              post={p}
+              currentUser={user}
+              onDelete={handleDelete}
+              onUpdate={handleUpdate}
+            />
           ))}
           <div ref={sentinelRef} className="h-1" aria-hidden />
-          {isFetchingNextPage ? (
-            <div className="flex items-center justify-center gap-2 py-4 text-[13px] text-[var(--cz-text-secondary)]">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loading more...
-            </div>
-          ) : !hasNextPage ? (
-            <p className="text-center text-[11px] text-[var(--cz-text-secondary)]/60 py-4">End • {posts.length} posts</p>
-          ) : null}
+          <FeedFooter loading={isFetchingNextPage} hasMore={hasNextPage} />
         </div>
       )}
     </div>

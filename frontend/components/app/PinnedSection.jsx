@@ -69,9 +69,9 @@ export function PinnedSection({
   };
 
   return (
-    <div className="space-y-1.5">
-      <p className="flex items-center gap-1.5 text-[11px] font-medium tracking-[0.08em] uppercase text-[var(--cz-text-secondary)]/70 px-1">
-        <Pin className="h-3 w-3" /> Pinned
+    <div>
+      <p className="flex items-center gap-1.5 px-4 pb-1 pt-3 text-[13px] leading-[16px] font-bold text-[var(--cz-text-secondary)]">
+        <Pin className="h-[13px] w-[13px]" aria-hidden /> Pinned post
       </p>
       <PostCard
         post={pinned}
@@ -81,13 +81,6 @@ export function PinnedSection({
         onDelete={handleDelete}
         onUpdate={onUpdate}
       />
-      <div className="flex items-center gap-3 px-1 pt-1.5">
-        <span aria-hidden className="h-px flex-1 bg-[var(--cz-border)]" />
-        <span className="text-[11px] font-medium tracking-[0.08em] uppercase text-[var(--cz-text-secondary)]/70">
-          All posts
-        </span>
-        <span aria-hidden className="h-px flex-1 bg-[var(--cz-border)]" />
-      </div>
     </div>
   );
 }

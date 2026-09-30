@@ -12,12 +12,16 @@ import {
   MoreHorizontal,
   Twitter,
 } from "lucide-react";
-import { useState } from "react";
 import Link from "next/link";
+import { useState } from "react";
 import { AnimatedNumber } from "@/components/app/AnimatedNumber";
 import { Button } from "@/components/ui/button";
-import { accentFor } from "@/lib/accents";
+import { VerifiedBadge } from "@/components/ui/verified-badge";
 import { collegeHrefFor } from "@/lib/college";
+import { cn } from "@/lib/utils";
+
+const menuItemClass =
+  "flex w-full items-center gap-3 px-4 py-2 text-left text-[15px] leading-[20px] text-[var(--cz-text-primary)] transition-colors hover:bg-[var(--cz-surface-strong)] disabled:opacity-50";
 
 export function ProfileHeader({
   user,
@@ -34,109 +38,106 @@ export function ProfileHeader({
   blockLoading,
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const accent = accentFor(user.accent);
   const initials = (user.fullName || user.username || "U")
     .trim()
     .slice(0, 2)
     .toUpperCase();
   const displayName = user.fullName || user.username;
-  const subtitle = user.bio || "Student at CampusZen • Building in public.";
+  const bio = user.bio;
   const collegeLine = [
     user.college,
     user.course
-      ? `${user.course} • ${user.academicYear || ""}`.trim()
+      ? `${user.course}${user.academicYear ? `, ${user.academicYear}` : ""}`
       : user.academicYear,
   ]
     .filter(Boolean)
-    .join(" • ");
+    .join(" · ");
+
+  const socialEntries = [
+    user.socialLinks?.github && {
+      key: "github",
+      href: `https://github.com/${user.socialLinks.github}`,
+      label: user.socialLinks.github,
+      Icon: Github,
+    },
+    user.socialLinks?.twitter && {
+      key: "twitter",
+      href: `https://x.com/${user.socialLinks.twitter.replace(/^@/, "")}`,
+      label: `@${user.socialLinks.twitter.replace(/^@/, "")}`,
+      Icon: Twitter,
+    },
+    user.socialLinks?.linkedin && {
+      key: "linkedin",
+      href: user.socialLinks.linkedin.startsWith("http")
+        ? user.socialLinks.linkedin
+        : `https://linkedin.com/in/${user.socialLinks.linkedin}`,
+      label: "LinkedIn",
+      Icon: Linkedin,
+    },
+    user.socialLinks?.instagram && {
+      key: "instagram",
+      href: `https://instagram.com/${user.socialLinks.instagram.replace(/^@/, "")}`,
+      label: `@${user.socialLinks.instagram.replace(/^@/, "")}`,
+      Icon: Instagram,
+    },
+  ].filter(Boolean);
 
   return (
-    <div className="relative isolate overflow-hidden rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)]">
-      {/* accent hairline */}
-      <div
-        aria-hidden
-        className="absolute top-0 left-0 right-0 h-px z-20"
-        style={{
-          background: `linear-gradient(to right, transparent, ${accent.dot}66, transparent)`,
-        }}
-      />
-      {/* cover */}
-      <div className="h-[88px] sm:h-[112px] w-full relative z-0 overflow-hidden bg-[var(--cz-surface-strong)]">
+    <div>
+      {/*
+        Banner. It is its own stacking context at z-0 so the avatar
+        wrapper (z-10) always paints on top of it — without this the
+        banner covers the avatar on the profile pages.
+      */}
+      <div className="relative z-0 h-[132px] w-full overflow-hidden bg-[var(--cz-surface-strong)] sm:h-[190px]">
         {user.coverUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={user.coverUrl}
             alt=""
+            decoding="async"
             className="absolute inset-0 h-full w-full object-cover"
           />
-        ) : (
-          <>
-            <div
-              aria-hidden
-              className="absolute inset-0"
-              style={{
-                background: `linear-gradient(135deg, ${accent.from}, transparent 55%, ${accent.to})`,
-              }}
-            />
-            <div
-              aria-hidden
-              className="absolute inset-0 opacity-40"
-              style={{
-                background: `radial-gradient(600px 200px at 20% 0%, ${accent.from}, transparent 60%), radial-gradient(400px 160px at 80% 100%, ${accent.to}, transparent 60%)`,
-              }}
-            />
-          </>
-        )}
+        ) : null}
       </div>
 
-      <div className="px-4 sm:px-5 pb-4 relative z-10">
-        <div className="flex items-start justify-between gap-3 -mt-8 sm:-mt-10 relative z-10">
-          <span
-            className="relative z-10 grid place-items-center h-[72px] w-[72px] sm:h-[84px] sm:w-[84px] rounded-full border-[3px] border-[var(--cz-surface)] bg-[var(--cz-bg)] text-[18px] font-semibold text-[var(--cz-text-primary)] overflow-hidden"
-            style={{
-              boxShadow: `0 0 0 2px ${accent.ring}, 0 8px 24px rgba(0,0,0,0.35)`,
-            }}
-          >
+      <div className="px-4 pb-3">
+        {/* 133px avatar overlapping the banner by ~33px */}
+        <div className="relative z-10 flex items-start justify-between">
+          <span className="-mt-[33px] block h-[100px] w-[100px] overflow-hidden rounded-full border-4 border-[var(--cz-bg)] bg-[var(--cz-border-strong)] text-[26px] font-bold text-[var(--cz-text-primary)] transition-transform duration-200 ease-out hover:scale-[1.02] sm:h-[133px] sm:w-[133px]">
             {user.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={user.avatarUrl}
                 alt={displayName}
+                decoding="async"
                 className="h-full w-full object-cover"
               />
             ) : (
-              <span className="grid place-items-center h-full w-full bg-[var(--cz-muted)] text-white text-[20px]">
+              <span className="grid h-full w-full place-items-center">
                 {initials.slice(0, 1)}
               </span>
             )}
           </span>
 
-          <div className="flex items-center gap-2 mt-10 sm:mt-12">
+          <div className="flex items-center gap-2 pt-3">
             {isOwn ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={onEdit}
-                className="h-[34px] px-4"
-              >
+              <Button variant="secondary" onClick={onEdit}>
                 Edit profile
               </Button>
             ) : onFollow ? (
               <Button
                 variant={isFollowing ? "secondary" : "primary"}
-                size="sm"
                 onClick={onFollow}
                 disabled={!!followLoading}
-                className="h-[34px] px-5 min-w-[96px] group"
+                className="group min-w-[120px]"
               >
                 {followLoading ? (
-                  <span className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
                 ) : isFollowing ? (
                   <>
                     <span className="group-hover:hidden">Following</span>
-                    <span className="hidden group-hover:inline text-[var(--cz-error)]">
-                      Unfollow
-                    </span>
+                    <span className="hidden group-hover:inline">Unfollow</span>
                   </>
                 ) : (
                   "Follow"
@@ -146,34 +147,48 @@ export function ProfileHeader({
             {!isOwn && onReportUser ? (
               <div className="relative">
                 <button
-                  aria-label="More actions"
+                  aria-label="More profile actions"
                   aria-expanded={menuOpen}
                   onClick={() => setMenuOpen((v) => !v)}
-                  className="grid place-items-center h-[34px] w-[34px] rounded-[10px] border border-[var(--cz-border)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,206,173,0.06)] text-[var(--cz-text-secondary)]"
+                  className="grid h-[36px] w-[36px] place-items-center rounded-full border border-[var(--cz-border-strong)] text-[var(--cz-text-secondary)] transition-colors hover:bg-[var(--cz-surface-strong)] hover:text-[var(--cz-text-primary)]"
                 >
-                  <MoreHorizontal className="h-4 w-4" />
+                  <MoreHorizontal className="h-[18px] w-[18px]" aria-hidden />
                 </button>
                 {menuOpen ? (
-                  <div className="absolute right-0 top-10 z-20 w-[168px] rounded-[12px] border border-[var(--cz-border)] bg-[var(--cz-surface-strong)] shadow-[0_8px_24px_rgba(0,0,0,0.4)] overflow-hidden">
+                  <div
+                    role="menu"
+                    className="absolute right-0 top-10 z-20 w-[220px] overflow-hidden rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-elevated)] py-1 shadow-[var(--shadow-sm)]"
+                  >
                     <button
+                      role="menuitem"
                       onClick={() => {
                         onReportUser?.();
                         setMenuOpen(false);
                       }}
-                      className="w-full flex items-center gap-2 px-3 h-[38px] text-[13px] hover:bg-[rgba(255,206,173,0.06)] text-left"
+                      className={cn(
+                        menuItemClass,
+                        "text-[var(--cz-error)] hover:bg-[color-mix(in_srgb,var(--cz-error)_10%,transparent)]",
+                      )}
                     >
-                      <Flag className="h-3.5 w-3.5" /> Report
+                      <Flag className="h-[18px] w-[18px] shrink-0" aria-hidden />
+                      Report @{user.username}
                     </button>
                     <button
+                      role="menuitem"
                       onClick={() => {
                         onBlockToggle?.();
                         setMenuOpen(false);
                       }}
                       disabled={!!blockLoading}
-                      className="w-full flex items-center gap-2 px-3 h-[38px] text-[13px] hover:bg-[rgba(255,90,106,0.08)] text-[var(--cz-error)] text-left disabled:opacity-50"
+                      className={cn(
+                        menuItemClass,
+                        "text-[var(--cz-error)] hover:bg-[color-mix(in_srgb,var(--cz-error)_10%,transparent)]",
+                      )}
                     >
-                      <Ban className="h-3.5 w-3.5" />{" "}
-                      {isBlocked ? "Unblock" : "Block"}
+                      <Ban className="h-[18px] w-[18px] shrink-0" aria-hidden />
+                      {isBlocked
+                        ? `Unblock @${user.username}`
+                        : `Block @${user.username}`}
                     </button>
                   </div>
                 ) : null}
@@ -183,154 +198,119 @@ export function ProfileHeader({
         </div>
 
         <div className="mt-3">
-          <h1 className="text-[18px] font-semibold tracking-[-0.02em] leading-none text-[var(--cz-text-primary)] flex items-center gap-2">
-            {displayName}
+          <h1 className="flex items-center gap-1.5 text-[20px] leading-6 font-extrabold text-[var(--cz-text-primary)]">
+            <span className="truncate">{displayName}</span>
             {user.isEmailVerified ? (
-              <span className="inline-flex items-center rounded-full bg-emerald-500/15 border border-emerald-500/20 px-1.5 py-0.5 text-[10px] font-medium tracking-[0.04em] uppercase text-emerald-300">
-                Verified
-              </span>
+              <VerifiedBadge size="md" aria-label="Verified account" />
             ) : null}
           </h1>
-          <p className="mt-1 text-[13px] leading-[18px] text-[var(--cz-text-secondary)]">
-            @{user.username}
-          </p>
-          <p className="mt-2 text-[13px] leading-[19px] text-[var(--cz-text-secondary)] max-w-[60ch]">
-            {subtitle}
-          </p>
-
-          {collegeLine ? (
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              {user.college ? (
-                collegeHrefFor(user) ? (
-                  <Link
-                    href={collegeHrefFor(user)}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-[var(--cz-surface-strong)] border border-[var(--cz-border)] px-2.5 py-1 text-[12px] leading-none text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] hover:border-[var(--cz-border-strong)] transition-colors"
-                  >
-                    <MapPin className="h-3.5 w-3.5 text-[var(--cz-text-primary)] shrink-0" />{" "}
-                    {user.college}
-                  </Link>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--cz-surface-strong)] border border-[var(--cz-border)] px-2.5 py-1 text-[12px] leading-none text-[var(--cz-text-secondary)]">
-                    <MapPin className="h-3.5 w-3.5 text-[var(--cz-text-primary)] shrink-0" />{" "}
-                    {user.college}
-                  </span>
-                )
-              ) : null}
-              {user.course || user.academicYear ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--cz-surface-strong)] border border-[var(--cz-border)] px-2.5 py-1 text-[12px] leading-none text-[var(--cz-text-secondary)]">
-                  <GraduationCap className="h-3.5 w-3.5 text-[var(--cz-text-primary)] shrink-0" />{" "}
-                  {user.course || "—"}{" "}
-                  {user.academicYear ? `• ${user.academicYear}` : ""}
-                </span>
-              ) : null}
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--cz-surface-strong)] border border-[var(--cz-border)] px-2.5 py-1 text-[12px] leading-none text-[var(--cz-text-secondary)]">
-                <Calendar className="h-3.5 w-3.5 text-[var(--cz-text-primary)] shrink-0" />{" "}
-                Joined{" "}
-                {new Date(user.createdAt).toLocaleDateString("en-IN", {
-                  month: "short",
-                  year: "numeric",
-                })}
+          <p className="mt-0.5 text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">
+            {user.followersCount != null || user.followingCount != null ? (
+              <span className="font-bold text-[var(--cz-text-primary)]">
+                <AnimatedNumber value={user.followersCount ?? 0} /> Followers
               </span>
-            </div>
-          ) : (
-            <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-[var(--cz-surface-strong)] border border-[var(--cz-border)] px-2.5 py-1 text-[12px] leading-none text-[var(--cz-text-secondary)]/70">
-              <GraduationCap className="h-3.5 w-3.5 text-[var(--cz-text-primary)]" />{" "}
-              Add college, course & year to be discovered.
-            </div>
-          )}
-
-          {/* social links — dark chips, light icons, minimal */}
-          {user.socialLinks &&
-          (user.socialLinks.github ||
-            user.socialLinks.twitter ||
-            user.socialLinks.linkedin ||
-            user.socialLinks.instagram) ? (
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              {user.socialLinks.github ? (
-                <a
-                  href={`https://github.com/${user.socialLinks.github}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-full bg-[var(--cz-bg)] border border-[var(--cz-border)] hover:border-[var(--cz-border-strong)] hover:bg-[var(--cz-surface-strong)] px-2.5 py-1 text-[12px] font-medium text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] transition-colors"
-                >
-                  <Github className="h-3.5 w-3.5 text-[var(--cz-text-primary)]" />{" "}
-                  {user.socialLinks.github}
-                </a>
-              ) : null}
-              {user.socialLinks.twitter ? (
-                <a
-                  href={`https://x.com/${user.socialLinks.twitter.replace(/^@/, "")}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-full bg-[var(--cz-bg)] border border-[var(--cz-border)] hover:border-[var(--cz-border-strong)] hover:bg-[var(--cz-surface-strong)] px-2.5 py-1 text-[12px] font-medium text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] transition-colors"
-                >
-                  <Twitter className="h-3.5 w-3.5 text-[var(--cz-text-primary)]" />{" "}
-                  {user.socialLinks.twitter}
-                </a>
-              ) : null}
-              {user.socialLinks.linkedin ? (
-                <a
-                  href={
-                    user.socialLinks.linkedin.startsWith("http")
-                      ? user.socialLinks.linkedin
-                      : `https://linkedin.com/in/${user.socialLinks.linkedin}`
-                  }
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-full bg-[var(--cz-bg)] border border-[var(--cz-border)] hover:border-[var(--cz-border-strong)] hover:bg-[var(--cz-surface-strong)] px-2.5 py-1 text-[12px] font-medium text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] transition-colors"
-                >
-                  <Linkedin className="h-3.5 w-3.5 text-[var(--cz-text-primary)]" />{" "}
-                  LinkedIn
-                </a>
-              ) : null}
-              {user.socialLinks.instagram ? (
-                <a
-                  href={`https://instagram.com/${user.socialLinks.instagram.replace(/^@/, "")}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-full bg-[var(--cz-bg)] border border-[var(--cz-border)] hover:border-[var(--cz-border-strong)] hover:bg-[var(--cz-surface-strong)] px-2.5 py-1 text-[12px] font-medium text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] transition-colors"
-                >
-                  <Instagram className="h-3.5 w-3.5 text-[var(--cz-text-primary)]" />{" "}
-                  {user.socialLinks.instagram}
-                </a>
-              ) : null}
-            </div>
-          ) : null}
-
-          <div className="mt-3 flex items-center gap-4 text-[13px]">
-            <button
-              type="button"
-              onClick={onFollowingClick}
-              className="hover:opacity-80 transition-opacity text-left"
-            >
-              <b className="font-semibold text-[var(--cz-text-primary)]">
-                <AnimatedNumber value={user.followingCount ?? 0} />
-              </b>{" "}
-              <span className="text-[var(--cz-text-secondary)]">Following</span>
-            </button>
-            <button
-              type="button"
-              onClick={onFollowersClick}
-              className="hover:opacity-80 transition-opacity text-left"
-            >
-              <b className="font-semibold text-[var(--cz-text-primary)]">
-                <AnimatedNumber value={user.followersCount ?? 0} />
-              </b>{" "}
-              <span className="text-[var(--cz-text-secondary)]">Followers</span>
-            </button>
-            <span>
-              <b className="font-semibold text-[var(--cz-text-primary)]">
-                <AnimatedNumber value={user.postCount ?? 0} />
-              </b>{" "}
-              <span className="text-[var(--cz-text-secondary)]">Posts</span>
+            ) : null}
+            {user.followersCount != null || user.followingCount != null ? (
+              <span className="mx-1 text-[var(--cz-text-secondary)]">·</span>
+            ) : null}
+            <span className="font-bold text-[var(--cz-text-primary)]">
+              <AnimatedNumber value={user.followingCount ?? 0} /> Following
             </span>
-          </div>
+          </p>
+        </div>
+
+        {bio ? (
+          <p className="mt-3 max-w-[60ch] text-[15px] leading-[20px] text-[var(--cz-text-primary)]">
+            {bio}
+          </p>
+        ) : null}
+
+        {/* metadata row — Graphite, 15px */}
+        <div className="mt-3 flex flex-col gap-1 text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">
+          {user.college ? (
+            <span className="flex items-center gap-1.5">
+              <MapPin className="h-[17px] w-[17px] shrink-0" aria-hidden />
+              {collegeHrefFor(user) ? (
+                <Link
+                  href={collegeHrefFor(user)}
+                  className="text-[var(--cz-accent)] hover:underline"
+                >
+                  {user.college}
+                </Link>
+              ) : (
+                user.college
+              )}
+            </span>
+          ) : null}
+          {collegeLine && user.college !== collegeLine ? (
+            <span className="flex items-center gap-1.5">
+              <GraduationCap
+                className="h-[17px] w-[17px] shrink-0"
+                aria-hidden
+              />
+              {collegeLine}
+            </span>
+          ) : null}
+          <span className="flex items-center gap-1.5">
+            <Calendar className="h-[17px] w-[17px] shrink-0" aria-hidden />
+            Joined{" "}
+            {new Date(user.createdAt).toLocaleDateString("en-IN", {
+              month: "long",
+              year: "numeric",
+            })}
+          </span>
+          {socialEntries.map(({ key, href, label, Icon }) => (
+            <a
+              key={key}
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-[var(--cz-accent)] hover:underline"
+            >
+              <Icon className="h-[17px] w-[17px] shrink-0" aria-hidden />
+              {label}
+            </a>
+          ))}
+        </div>
+
+        <div className="mt-4 flex items-center gap-6 text-[15px] leading-[20px]">
+          <button
+            type="button"
+            onClick={onFollowersClick}
+            className="hover:underline"
+          >
+            <span className="font-bold text-[var(--cz-text-primary)]">
+              <AnimatedNumber value={user.followersCount ?? 0} />
+            </span>{" "}
+            <span className="text-[var(--cz-text-secondary)]">Followers</span>
+          </button>
+          <button
+            type="button"
+            onClick={onFollowingClick}
+            className="hover:underline"
+          >
+            <span className="font-bold text-[var(--cz-text-primary)]">
+              <AnimatedNumber value={user.followingCount ?? 0} />
+            </span>{" "}
+            <span className="text-[var(--cz-text-secondary)]">Following</span>
+          </button>
+          <span>
+            <span className="font-bold text-[var(--cz-text-primary)]">
+              <AnimatedNumber value={user.postCount ?? 0} />
+            </span>{" "}
+            <span className="text-[var(--cz-text-secondary)]">Posts</span>
+          </span>
         </div>
       </div>
     </div>
   );
 }
 
+/**
+ * DESIGN.md — Tab Bar: 1px bottom border #cfd9de spanning full width,
+ * 15px weight 500, Graphite inactive / Ink active, active tab has a
+ * 2px #1d9bf0 underline at the bottom edge.
+ */
 export function ProfileTabs({ active = "posts", onChange }) {
   const tabs = [
     { id: "posts", label: "Posts" },
@@ -341,24 +321,32 @@ export function ProfileTabs({ active = "posts", onChange }) {
     { id: "github", label: "GitHub" },
   ];
   return (
-    <div className="flex items-center gap-1 border-b border-[var(--cz-border)] overflow-x-auto scrollbar-none">
-      {tabs.map((t) => (
-        <button
-          key={t.id}
-          onClick={() => onChange?.(t.id)}
-          aria-selected={active === t.id}
-          className={`relative whitespace-nowrap px-3 sm:px-4 h-[40px] text-[13px] font-medium tracking-[-0.01em] transition-colors shrink-0 ${
-            active === t.id
-              ? "text-[var(--cz-text-primary)]"
-              : "text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)]"
-          }`}
-        >
-          {t.label}
-          {active === t.id ? (
-            <span className="absolute bottom-0 left-2 right-2 h-[2px] rounded-full bg-[var(--cz-text-primary)]" />
-          ) : null}
-        </button>
-      ))}
+    <div className="flex items-center overflow-x-auto border-b border-[var(--cz-border-strong)] scrollbar-none">
+      {tabs.map((t) => {
+        const on = active === t.id;
+        return (
+          <button
+            key={t.id}
+            onClick={() => onChange?.(t.id)}
+            role="tab"
+            aria-selected={on}
+            className={cn(
+              "relative h-[52px] shrink-0 cursor-pointer px-4 text-[15px] font-medium transition-colors",
+              on
+                ? "font-bold text-[var(--cz-text-primary)]"
+                : "text-[var(--cz-text-secondary)] hover:bg-[var(--cz-surface-strong)] hover:text-[var(--cz-text-primary)]",
+            )}
+          >
+            {t.label}
+            {on ? (
+              <span
+                aria-hidden
+                className="absolute inset-x-0 bottom-0 h-[2px] bg-[var(--cz-accent)]"
+              />
+            ) : null}
+          </button>
+        );
+      })}
     </div>
   );
 }

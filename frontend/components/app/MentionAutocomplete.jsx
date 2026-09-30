@@ -172,7 +172,7 @@ export function MentionSuggest({ users, active, onSelect, onHover }) {
     <div
       role="listbox"
       aria-label="Mention suggestions"
-      className="absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded-[12px] border border-[var(--cz-border)] bg-[var(--cz-surface-strong)] shadow-[0_8px_24px_rgba(0,0,0,0.4)]"
+      className="absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-elevated)] py-1 shadow-[var(--shadow-sm)]"
     >
       {users.map((u, i) => (
         <button
@@ -185,13 +185,13 @@ export function MentionSuggest({ users, active, onSelect, onHover }) {
             onSelect(u);
           }}
           onMouseEnter={() => onHover?.(i)}
-          className={`flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors ${
+          className={`flex w-full items-center gap-3 px-3 py-2 text-left transition-colors ${
             i === active
-              ? "bg-[rgba(255,206,173,0.08)]"
-              : "hover:bg-[rgba(255,206,173,0.04)]"
+              ? "bg-[var(--cz-surface-strong)]"
+              : "hover:bg-[var(--cz-surface-strong)]"
           }`}
         >
-          <span className="grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-muted)] text-[11px] font-semibold text-white">
+          <span className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[11px] font-bold text-[var(--cz-text-primary)]">
             {u.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -204,10 +204,10 @@ export function MentionSuggest({ users, active, onSelect, onHover }) {
             )}
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[13px] font-medium text-[var(--cz-text-primary)]">
+            <span className="block truncate text-[15px] font-bold leading-[20px] text-[var(--cz-text-primary)]">
               {u.fullName || u.username}
             </span>
-            <span className="block truncate text-[12px] text-[var(--cz-text-secondary)]">
+            <span className="block truncate text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">
               @{u.username}
             </span>
           </span>

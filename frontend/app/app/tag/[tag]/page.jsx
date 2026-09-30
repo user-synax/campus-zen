@@ -2,8 +2,13 @@
 
 import { use, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Hash, Loader2 } from "lucide-react";
-import { EmptyState } from "@/components/app/EmptyState";
+import { Hash } from "lucide-react";
+import {
+  EmptyState,
+  FeedFooter,
+  PostSkeleton,
+} from "@/components/app/EmptyState";
+import { PageHeader } from "@/components/app/PageHeader";
 import { PostCard } from "@/components/app/PostCard";
 import { api } from "@/lib/api";
 
@@ -89,60 +94,33 @@ export default function TagPage({ params }) {
     setPosts((prev) => prev.map((p) => (p._id === updated._id ? updated : p)));
 
   return (
-    <div className="mx-auto w-full max-w-[640px] space-y-4">
-      <div className="flex items-center gap-3">
-        <Link
-          href="/app"
-          aria-label="Back to home"
-          className="grid place-items-center h-9 w-9 rounded-[10px] border border-[var(--cz-border)] hover:bg-[rgba(255,206,173,0.06)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] transition-colors shrink-0"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Link>
-        <div className="min-w-0">
-          <h1 className="flex items-center gap-1.5 text-[18px] font-semibold tracking-[-0.02em] truncate">
-            <Hash className="h-4 w-4 text-[var(--cz-muted)] shrink-0" />
-            <span className="truncate">{tag}</span>
-          </h1>
-          <p className="text-[12px] text-[var(--cz-text-secondary)]">
-            {loading ? "Loading…" : `${total} post${total === 1 ? "" : "s"}`}
-          </p>
-        </div>
-        <Link
-          href={`/app/search?q=${encodeURIComponent(`#${tag}`)}`}
-          className="ml-auto shrink-0 text-[12px] font-medium text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] transition-colors"
-        >
-          Search #{tag}
-        </Link>
-      </div>
+    <div>
+      <PageHeader
+        href="/app"
+        title={tag}
+        subtitle={loading ? "Loading…" : `${total} post${total === 1 ? "" : "s"}`}
+        right={
+          <Link
+            href={`/app/search?q=${encodeURIComponent(`#${tag}`)}`}
+            className="text-[15px] font-bold text-[var(--cz-accent)] hover:underline"
+          >
+            Search
+          </Link>
+        }
+      />
 
       {loading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div
-              key={i}
-              className="rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)] p-4 animate-pulse"
-            >
-              <div className="flex gap-3">
-                <div className="h-9 w-9 rounded-full bg-[var(--cz-border)]" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-3 w-32 rounded bg-[var(--cz-border)]" />
-                  <div className="h-4 w-full rounded bg-[var(--cz-border)]/60" />
-                  <div className="h-4 w-3/4 rounded bg-[var(--cz-border)]/40" />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+        <PostSkeleton rows={4} />
       ) : posts.length === 0 ? (
         <EmptyState
           icon={Hash}
           title={`No posts with #${tag} yet`}
           description="Be the first to post with this hashtag. It will show up here instantly."
-          actionLabel="Create post"
+          actionLabel="Write a post"
           actionHref="/app/create"
         />
       ) : (
-        <div className="space-y-3">
+        <div>
           {posts.map((p) => (
             <PostCard
               key={p._id}
@@ -153,15 +131,7 @@ export default function TagPage({ params }) {
             />
           ))}
           <div ref={sentinelRef} className="h-1" aria-hidden />
-          {loadingMore ? (
-            <div className="flex items-center justify-center gap-2 py-4 text-[13px] text-[var(--cz-text-secondary)]">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loading more…
-            </div>
-          ) : !hasMore ? (
-            <p className="text-center text-[11px] text-[var(--cz-text-secondary)]/60 py-4">
-              End • {posts.length} posts
-            </p>
-          ) : null}
+          <FeedFooter loading={loadingMore} hasMore={hasMore} />
         </div>
       )}
     </div>

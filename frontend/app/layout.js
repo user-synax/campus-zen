@@ -1,11 +1,16 @@
-import { JetBrains_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
+import { cookies } from "next/headers";
 import "./globals.css";
 import { QueryProvider } from "@/components/providers/query-provider";
+import { readThemeCookie } from "@/lib/theme";
 
-const jetbrains = JetBrains_Mono({
-  variable: "--font-jetbrains",
+// TwitterChirp is proprietary — Inter is the documented substitute.
+// Variable weight covers the 400 / 500 / 700 / 800 scale from DESIGN.md.
+// The monospace stack for ids, slugs and OTPs is a plain CSS fallback in
+// globals.css (--font-jetbrains), so no second webfont is shipped.
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
@@ -27,9 +32,9 @@ export const metadata = {
     canonical: "/",
   },
   icons: {
-    icon: [{ url: "/campusZen.png", type: "image/png" }],
+    icon: [{ url: "/campusZen.png", type: "image/svg+xml" }],
     shortcut: "/campusZen.png",
-    apple: [{ url: "/campusZen.png", type: "image/png" }],
+    apple: [{ url: "/campusZen.png", type: "image/svg+xml" }],
   },
   manifest: "/manifest.webmanifest",
   openGraph: {
@@ -63,13 +68,16 @@ export const metadata = {
   appleWebApp: {
     capable: true,
     title: "CampusZen",
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
   },
 };
 
 export const viewport = {
-  themeColor: "#000000",
-  colorScheme: "dark",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#000000" },
+  ],
+  colorScheme: "light",
 };
 
 const orgJsonLd = {
@@ -80,10 +88,17 @@ const orgJsonLd = {
   logo: "https://campuszen.app/campusZen.png",
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  // Reading the theme cookie here is what makes the first paint correct:
+  // the class is already on <html> before any CSS or JS runs.
+  const theme = readThemeCookie(await cookies());
+
   return (
-    <html lang="en" className={`${jetbrains.variable} h-full antialiased`}>
-      <body className="min-h-dvh flex flex-col bg-[var(--cz-bg)] text-[var(--cz-text-primary)] selection:bg-[var(--cz-muted)] selection:text-[var(--cz-text-inverse)]">
+    <html
+      lang="en"
+      className={`${inter.variable} ${theme === "dark" ? "dark" : ""} h-full antialiased`}
+    >
+      <body className="min-h-dvh flex flex-col">
         <script type="application/ld+json">
           {JSON.stringify(orgJsonLd)}
         </script>

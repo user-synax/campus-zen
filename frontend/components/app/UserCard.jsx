@@ -1,93 +1,124 @@
 "use client";
 
-import { useState } from "react";
+import { GraduationCap, MapPin } from "lucide-react";
 import Link from "next/link";
-import { MapPin, GraduationCap } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
 import { AnimatedNumber } from "@/components/app/AnimatedNumber";
+import { Button } from "@/components/ui/button";
+import { VerifiedBadge } from "@/components/ui/verified-badge";
 import { api } from "@/lib/api";
 import { collegeHrefFor } from "@/lib/college";
 
+/**
+ * DESIGN.md uses single-column lists for people, not card grids — but this
+ * card is also used inside the /u directory, where a grid is the right
+ * density. The surface stays flat: white on white, defined by a hairline.
+ */
 export function UserCard({ user: initialUser, isOwn, isGuest }) {
   const [user, setUser] = useState(initialUser);
   const [following, setFollowing] = useState(Boolean(initialUser.isFollowing));
   const [loading, setLoading] = useState(false);
-  const initials = (user.fullName || user.username || "U").trim().slice(0, 1).toUpperCase();
+  const initials = (user.fullName || user.username || "U")
+    .trim()
+    .slice(0, 1)
+    .toUpperCase();
+
   return (
-    <div className="group relative overflow-hidden rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)] p-4 flex flex-col gap-3 hover:border-[var(--cz-border-strong)] hover:bg-[var(--cz-surface-strong)] transition-colors">
-      <Link href={`/u/${user.username}`} className="flex items-center gap-3 min-w-0">
-        <span className="grid place-items-center h-10 w-10 rounded-full bg-[var(--cz-muted)] text-white text-[13px] font-semibold shrink-0 overflow-hidden">
+    <div className="flex flex-col gap-3 rounded-[16px] border border-[var(--cz-border)] p-4 transition-colors hover:bg-[color-mix(in_srgb,var(--cz-surface-strong)_50%,transparent)]">
+      <Link
+        href={`/u/${user.username}`}
+        className="flex min-w-0 items-center gap-3"
+      >
+        <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[13px] font-bold text-[var(--cz-text-primary)]">
           {user.avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={user.avatarUrl} alt={user.username} className="h-full w-full object-cover" />
+            <img
+              src={user.avatarUrl}
+              alt={user.username}
+              className="h-full w-full object-cover"
+            />
           ) : (
             initials
           )}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-[13px] font-semibold leading-none truncate text-[var(--cz-text-primary)] group-hover:text-white transition-colors">{user.fullName || user.username}</span>
-          <span className="block text-[12px] leading-none text-[var(--cz-text-secondary)] truncate mt-1">@{user.username}</span>
+          <span className="flex items-center gap-1">
+            <span className="truncate text-[15px] font-bold leading-[20px] text-[var(--cz-text-primary)]">
+              {user.fullName || user.username}
+            </span>
+            {user.isEmailVerified ? (
+              <VerifiedBadge size="sm" aria-label="Verified account" />
+            ) : null}
+          </span>
+          <span className="block truncate text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">
+            @{user.username}
+          </span>
         </span>
       </Link>
 
-      {user.bio ? <p className="text-[12px] leading-[16px] text-[var(--cz-text-secondary)] line-clamp-2">{user.bio}</p> : <p className="text-[11px] leading-[14px] text-[var(--cz-text-secondary)]/60">Student at CampusZen</p>}
+      {user.bio ? (
+        <p className="line-clamp-2 text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">
+          {user.bio}
+        </p>
+      ) : null}
 
       {(user.college || user.course || user.academicYear) && (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-col gap-1 text-[13px] leading-[16px] text-[var(--cz-text-secondary)]">
           {user.college ? (
-            collegeHrefFor(user) ? (
-              <Link
-                href={collegeHrefFor(user)}
-                className="inline-flex items-center gap-1 rounded-full bg-[var(--cz-bg)] border border-[var(--cz-border)] px-2 py-1 text-[11px] leading-none text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] transition-colors"
-              >
-                <MapPin className="h-3 w-3 text-[var(--cz-text-primary)]" /> {user.college}
-              </Link>
-            ) : (
-              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--cz-bg)] border border-[var(--cz-border)] px-2 py-1 text-[11px] leading-none text-[var(--cz-text-secondary)]">
-                <MapPin className="h-3 w-3 text-[var(--cz-text-primary)]" /> {user.college}
-              </span>
-            )
-          ) : null}
-          {user.course ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-[var(--cz-bg)] border border-[var(--cz-border)] px-2 py-1 text-[11px] leading-none text-[var(--cz-text-secondary)]">
-              <GraduationCap className="h-3 w-3 text-[var(--cz-text-primary)]" /> {user.course}
-              {user.academicYear ? ` • ${user.academicYear}` : ""}
+            <span className="flex items-center gap-1.5">
+              <MapPin className="h-[14px] w-[14px] shrink-0" aria-hidden />
+              {collegeHrefFor(user) ? (
+                <Link
+                  href={collegeHrefFor(user)}
+                  className="truncate text-[var(--cz-accent)] hover:underline"
+                >
+                  {user.college}
+                </Link>
+              ) : (
+                <span className="truncate">{user.college}</span>
+              )}
             </span>
-          ) : user.academicYear ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-[var(--cz-bg)] border border-[var(--cz-border)] px-2 py-1 text-[11px] leading-none text-[var(--cz-text-secondary)]">
-              <GraduationCap className="h-3 w-3 text-[var(--cz-text-primary)]" /> {user.academicYear}
+          ) : null}
+          {user.course || user.academicYear ? (
+            <span className="flex items-center gap-1.5">
+              <GraduationCap className="h-[14px] w-[14px] shrink-0" aria-hidden />
+              <span className="truncate">
+                {user.course || "—"}
+                {user.academicYear ? ` · ${user.academicYear}` : ""}
+              </span>
             </span>
           ) : null}
         </div>
       )}
 
-      <div className="flex items-center gap-3 text-[11px] leading-none">
+      <div className="flex items-center gap-4 text-[13px] leading-[16px]">
         <span>
-          <b className="font-semibold text-[var(--cz-text-primary)]">
+          <b className="font-bold text-[var(--cz-text-primary)]">
             <AnimatedNumber value={user.followersCount ?? 0} />
           </b>{" "}
           <span className="text-[var(--cz-text-secondary)]">Followers</span>
         </span>
         <span>
-          <b className="font-semibold text-[var(--cz-text-primary)]">
+          <b className="font-bold text-[var(--cz-text-primary)]">
             <AnimatedNumber value={user.postCount ?? 0} />
           </b>{" "}
           <span className="text-[var(--cz-text-secondary)]">Posts</span>
         </span>
       </div>
 
-      <div className="mt-auto pt-1">
+      <div className="mt-auto">
         {isGuest ? (
-          <Link href="/signup" className="inline-flex w-full items-center justify-center rounded-[10px] bg-[var(--cz-text-primary)] text-[var(--cz-text-inverse)] h-[36px] text-[13px] font-medium hover:bg-[#ffd9c0] transition-colors">
-            Join to connect
+          <Link href="/signup" className="inline-flex w-full">
+            <Button className="w-full">Join to connect</Button>
           </Link>
         ) : isOwn ? (
-          <Link href="/app/profile" className="inline-flex w-full items-center justify-center rounded-[10px] border border-[var(--cz-border)] bg-transparent h-[36px] text-[13px] font-medium text-[var(--cz-text-primary)] hover:bg-[rgba(255,206,173,0.06)] transition-colors">
-            View profile
+          <Link href="/app/profile" className="inline-flex w-full">
+            <Button variant="secondary" className="w-full">
+              View profile
+            </Button>
           </Link>
         ) : (
           <Button
-            size="sm"
             variant={following ? "secondary" : "primary"}
             disabled={loading}
             onClick={async () => {
@@ -96,23 +127,31 @@ export function UserCard({ user: initialUser, isOwn, isGuest }) {
                 if (following) {
                   await api.unfollowUser(user._id);
                   setFollowing(false);
-                  setUser((u) => ({ ...u, followersCount: Math.max(0, (u.followersCount ?? 1) - 1) }));
+                  setUser((u) => ({
+                    ...u,
+                    followersCount: Math.max(0, (u.followersCount ?? 1) - 1),
+                  }));
                 } else {
                   await api.followUser(user._id);
                   setFollowing(true);
-                  setUser((u) => ({ ...u, followersCount: (u.followersCount ?? 0) + 1 }));
+                  setUser((u) => ({
+                    ...u,
+                    followersCount: (u.followersCount ?? 0) + 1,
+                  }));
                 }
               } catch {}
               setLoading(false);
             }}
-            className="w-full h-[36px] min-w-[84px] group"
+            className="group w-full"
           >
             {loading ? (
-              <span className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
             ) : following ? (
               <>
                 <span className="group-hover:hidden">Following</span>
-                <span className="hidden group-hover:inline text-[var(--cz-error)]">Unfollow</span>
+                <span className="hidden group-hover:inline text-[var(--cz-error)]">
+                  Unfollow
+                </span>
               </>
             ) : (
               "Follow"

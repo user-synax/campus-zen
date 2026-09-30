@@ -1,13 +1,16 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { Send, Loader2, Image as ImageIcon, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Image as ImageIcon, Loader2, Smile, X } from "lucide-react";
+import { useRef, useState } from "react";
 import {
   MentionSuggest,
   useMentionAutocomplete,
 } from "@/components/app/MentionAutocomplete";
+import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
+import { cn } from "@/lib/utils";
+
+const MAX = 500;
 
 export function PostComposer({ user, onCreated }) {
   const [text, setText] = useState("");
@@ -24,9 +27,9 @@ export function PostComposer({ user, onCreated }) {
   });
 
   const len = text.length;
-  const remaining = 500 - len;
-  const over = len > 500;
-  const hasContent = (len > 0 && len <= 500) || image;
+  const remaining = MAX - len;
+  const over = len > MAX;
+  const hasContent = (len > 0 && len <= MAX) || image;
   const canPost = hasContent && !loading;
 
   const handleImageSelect = (e) => {
@@ -58,10 +61,7 @@ export function PostComposer({ user, onCreated }) {
     setError("");
     setLoading(true);
     try {
-      const res = await api.createPost(
-        text.trim() || undefined,
-        image || undefined,
-      );
+      const res = await api.createPost(text.trim() || undefined, image || undefined);
       setText("");
       removeImage();
       window.dispatchEvent(new Event("cz:hashtag-trending"));
@@ -80,12 +80,9 @@ export function PostComposer({ user, onCreated }) {
     .toUpperCase();
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className="rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)] p-3 sm:p-4 space-y-3"
-    >
+    <form onSubmit={onSubmit} className="cz-row px-4 py-3">
       <div className="flex gap-3">
-        <span className="hidden sm:grid place-items-center h-9 w-9 rounded-full bg-[var(--cz-muted)] text-white text-[12px] font-semibold shrink-0 overflow-hidden">
+        <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[13px] font-bold text-[var(--cz-text-primary)]">
           {user?.avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -97,8 +94,10 @@ export function PostComposer({ user, onCreated }) {
             initials
           )}
         </span>
-        <div className="flex-1 min-w-0">
+
+        <div className="min-w-0 flex-1">
           <div className="relative">
+            {/* DESIGN.md — the composer is bare text on the surface, not a box. */}
             <textarea
               ref={textRef}
               value={text}
@@ -108,10 +107,11 @@ export function PostComposer({ user, onCreated }) {
                 if (mention.handleKeyDown(e)) return;
               }}
               onBlur={() => setTimeout(() => mention.close(), 150)}
-              placeholder="What's on your mind? Share campus thoughts — up to 500 characters, emoji allowed. Use @ to mention, # for tags"
-              rows={3}
+              placeholder="What's happening?"
+              aria-label="Post text"
+              rows={2}
               maxLength={520}
-              className="w-full min-h-[72px] resize-none rounded-[12px] border border-[var(--cz-border)] bg-[rgba(255,255,255,0.03)] px-3 py-2.5 text-[14px] leading-[20px] placeholder:text-[var(--cz-text-secondary)]/50 text-[var(--cz-text-primary)] outline-none focus:border-[var(--cz-muted)] focus:shadow-[0_0_0_3px_rgba(125,130,217,0.15)] transition-colors"
+              className="w-full resize-none bg-transparent pb-2 text-[20px] leading-[24px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)]"
             />
             {mention.open ? (
               <MentionSuggest
@@ -122,43 +122,39 @@ export function PostComposer({ user, onCreated }) {
               />
             ) : null}
           </div>
+
           {imagePreview ? (
-            <div className="mt-2 relative inline-block">
+            <div className="relative mt-2 inline-block overflow-hidden rounded-[16px] border border-[var(--cz-border)]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={imagePreview}
-                alt="Post attachment"
-                className="max-h-[200px] rounded-[12px] border border-[var(--cz-border)] object-cover"
+                alt="Post attachment preview"
+                className="max-h-[300px] object-cover"
               />
               <button
                 type="button"
                 onClick={removeImage}
-                className="absolute top-1.5 right-1.5 grid place-items-center h-6 w-6 rounded-full bg-black/60 hover:bg-black/80 text-white transition-colors"
+                className="absolute top-2 left-2 grid h-8 w-8 place-items-center rounded-full bg-black/65 text-white transition-colors hover:bg-black/85"
                 aria-label="Remove image"
               >
-                <X className="h-3.5 w-3.5" />
+                <X className="h-4 w-4" aria-hidden />
               </button>
             </div>
           ) : null}
+
+          {error ? (
+            <p className="mt-2 text-[13px] text-[var(--cz-error)]">{error}</p>
+          ) : null}
+
           <div className="mt-2 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span
-                className={`text-[11px] font-medium tracking-[0.04em] uppercase ${over ? "text-[var(--cz-error)]" : remaining <= 20 ? "text-amber-300" : "text-[var(--cz-text-secondary)]/60"}`}
-              >
-                {len}/500{" "}
-                {over
-                  ? "• Over limit"
-                  : remaining <= 50
-                    ? `• ${remaining} left`
-                    : ""}
-              </span>
+            <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="inline-flex items-center gap-1.5 rounded-full px-2.5 h-[28px] text-[11px] font-medium tracking-[0.04em] uppercase text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] hover:bg-[rgba(255,206,173,0.06)] transition-colors"
+                aria-label="Add image"
+                className="grid h-[36px] w-[36px] place-items-center rounded-full text-[var(--cz-accent)] transition-colors hover:bg-[var(--cz-accent-soft)]"
               >
-                <ImageIcon className="h-3.5 w-3.5" />
-                Image
+                <ImageIcon className="h-[20px] w-[20px]" strokeWidth={1.9} aria-hidden />
               </button>
               <input
                 ref={fileInputRef}
@@ -167,26 +163,40 @@ export function PostComposer({ user, onCreated }) {
                 onChange={handleImageSelect}
                 className="hidden"
               />
+              <span
+                className={cn(
+                  "hidden text-[13px] tabular-nums sm:inline",
+                  over
+                    ? "text-[var(--cz-error)]"
+                    : remaining <= 40
+                      ? "text-[var(--cz-warn)]"
+                      : "text-[var(--cz-text-secondary)]",
+                )}
+                aria-live="polite"
+              >
+                {len}/{MAX}
+              </span>
             </div>
+
             <Button
               type="submit"
               disabled={!canPost}
               size="sm"
-              className="h-[36px] px-4"
+              className="min-w-[92px]"
             >
               {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Posting
+                </>
               ) : (
-                <Send className="h-4 w-4" />
+                <>
+                  <Smile className="h-4 w-4" aria-hidden />
+                  Post
+                </>
               )}
-              {loading ? "Posting…" : "Post"}
             </Button>
           </div>
-          {error ? (
-            <p className="mt-2 text-[12px] leading-[16px] text-[var(--cz-error)]">
-              {error}
-            </p>
-          ) : null}
         </div>
       </div>
     </form>

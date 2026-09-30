@@ -43,6 +43,12 @@ export function useMe() {
     queryKey: queryKeys.me,
     queryFn: () => api.me(),
     staleTime: 60_000, // Current user data is fairly stable
+    // "Signed out" is an answer, not a transient failure — retrying it only
+    // delays the redirect to /login, and the default exponential backoff can
+    // leave the auth gate waiting several seconds on a flaky connection.
+    retry: (failureCount, error) =>
+      error?.status === 401 ? false : failureCount < 2,
+    retryDelay: 1_000,
   });
 }
 
@@ -71,10 +77,19 @@ export function usePost(postId) {
   });
 }
 
-export function useReplies(postId, page = 1) {
-  return useQuery({
-    queryKey: queryKeys.replies(postId, page),
-    queryFn: () => api.getReplies(postId, { page }),
+/**
+ * Replies for a post, paged.
+ *
+ * Infinite so the detail page can append "Show more replies" without
+ * refetching what the reader has already scrolled past.
+ */
+export function useReplies(postId) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.replies(postId, 1),
+    queryFn: ({ pageParam }) => api.getReplies(postId, { page: pageParam }),
+    initialPageParam: 1,
+    getNextPageParam: (last) =>
+      last.data?.hasMore ? (last.data?.page || 1) + 1 : undefined,
     staleTime: 15_000,
     enabled: !!postId,
   });

@@ -10,10 +10,10 @@ import { TrustSafety } from "@/components/landing/TrustSafety";
 
 export default function Home() {
   return (
-    <div className="min-h-dvh bg-[var(--cz-bg)] text-[var(--cz-text-primary)]">
+    <div className="flex min-h-dvh flex-col bg-[var(--cz-bg)] text-[var(--cz-text-primary)]">
       <LandingRedirect />
       <LandingNav />
-      <main className="mx-auto max-w-[960px] px-4 sm:px-6">
+      <main className="mx-auto w-full max-w-[990px] flex-1 px-4">
         <Hero />
         <HowItWorks />
         <Features />

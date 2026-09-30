@@ -1,26 +1,19 @@
 "use client";
 
-import { ArrowLeft, Loader2, School, Search } from "lucide-react";
+import { Loader2, School, Search } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { EmptyState } from "@/components/app/EmptyState";
 import { api } from "@/lib/api";
+import { useRequireSession } from "@/lib/hooks/useRequireSession";
 
 export default function CollegesDirectoryPage() {
-  const router = useRouter();
   const [colleges, setColleges] = useState([]);
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
   const [loading, setLoading] = useState(true);
-  const [isGuest, setIsGuest] = useState(true);
 
-  useEffect(() => {
-    api
-      .me()
-      .then(() => setIsGuest(false))
-      .catch(() => setIsGuest(true));
-  }, []);
+  const { user, checking } = useRequireSession();
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQ(q), 300);
@@ -45,80 +38,85 @@ export default function CollegesDirectoryPage() {
     };
   }, [debouncedQ]);
 
-  return (
-    <div className="space-y-4 max-w-[640px] mx-auto my-8">
-      <div className="flex items-center justify-between gap-2">
-        <button
-          type="button"
-          onClick={() => {
-            if (typeof window !== "undefined" && window.history.length > 1) router.back();
-            else router.push(isGuest ? "/" : "/app");
-          }}
-          className="inline-flex items-center gap-1.5 rounded-full border border-[var(--cz-border)] px-3 h-[34px] text-[13px] font-medium text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] hover:bg-[var(--cz-surface)] transition-colors"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" /> Back
-        </button>
-        {isGuest ? null : (
-          <Link
-            href="/app"
-            className="inline-flex items-center justify-center rounded-full bg-[var(--cz-text-primary)] text-[var(--cz-text-inverse)] px-4 h-[34px] text-[13px] font-medium hover:bg-[#ffd9c0] transition-colors"
-          >
-            Back to app
-          </Link>
-        )}
+  // Signed out: useRequireSession is already redirecting to /login.
+  if (checking || !user) {
+    return (
+      <div className="flex items-center gap-2 px-4 py-10 text-[15px] text-[var(--cz-text-secondary)]">
+        <Loader2 className="h-[18px] w-[18px] animate-spin" aria-hidden />
+        Redirecting to sign in…
       </div>
+    );
+  }
 
-      <div>
-        <h1 className="text-[20px] font-semibold tracking-[-0.03em]">Colleges</h1>
-        <p className="text-[13px] leading-[18px] text-[var(--cz-text-secondary)]">
-          Auto-created from student profiles • read-only
+  return (
+    <div>
+      {/* Just a label — same as any other tab. No sticky header. */}
+      <div className="px-4 pt-4 pb-3">
+        <h1 className="text-[20px] leading-6 font-extrabold text-[var(--cz-text-primary)]">
+          Colleges
+        </h1>
+        <p className="text-[13px] leading-[16px] text-[var(--cz-text-secondary)]">
+          {colleges.length} on CampusZen
         </p>
       </div>
 
-      <div className="flex items-center gap-2 rounded-[12px] border border-[var(--cz-border)] bg-[var(--cz-surface)] px-3 h-[42px]">
-        <Search className="h-4 w-4 text-[var(--cz-text-secondary)] shrink-0" />
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search colleges…"
-          className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 h-full"
-        />
-        {q ? (
-          <button
-            type="button"
-            onClick={() => setQ("")}
-            className="text-[12px] font-medium text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)]"
-          >
-            Clear
-          </button>
-        ) : null}
+      <div className="border-b border-[var(--cz-border)] px-4 pb-3">
+        <div className="flex h-[44px] items-center gap-3 rounded-full bg-[var(--cz-surface-strong)] px-4 transition-colors focus-within:ring-1 focus-within:ring-[var(--cz-accent)]">
+          <Search
+            className="h-[18px] w-[18px] shrink-0 text-[var(--cz-text-secondary)]"
+            aria-hidden
+          />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search colleges"
+            aria-label="Search colleges"
+            className="h-full min-w-0 flex-1 bg-transparent text-[15px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)]"
+          />
+          {q ? (
+            <button
+              type="button"
+              onClick={() => setQ("")}
+              className="-mr-1 shrink-0 text-[15px] font-bold text-[var(--cz-accent)] hover:underline"
+            >
+              Clear
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {loading ? (
-        <div className="grid place-items-center py-8">
-          <Loader2 className="h-5 w-5 animate-spin text-[var(--cz-text-secondary)]" />
+        <div className="grid place-items-center py-12">
+          <Loader2
+            className="h-5 w-5 animate-spin text-[var(--cz-text-secondary)]"
+            aria-label="Loading colleges"
+          />
         </div>
       ) : colleges.length === 0 ? (
         <EmptyState
           icon={School}
-          title={debouncedQ ? `No colleges for "${debouncedQ}"` : "No colleges yet"}
+          title={
+            debouncedQ ? `No colleges for "${debouncedQ}"` : "No colleges yet"
+          }
           description="Colleges appear automatically once students add them to their profile."
         />
       ) : (
-        <div className="grid sm:grid-cols-2 gap-3">
+        <div>
           {colleges.map((c) => (
             <Link
               key={c._id || c.slug}
               href={`/c/${encodeURIComponent(c.slug)}`}
-              className="flex items-center gap-3 rounded-[12px] border border-[var(--cz-border)] bg-[var(--cz-surface)] p-3 hover:border-[var(--cz-border-strong)] transition-colors"
+              className="cz-row flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--cz-surface-strong)]"
             >
-              <span className="grid place-items-center h-10 w-10 rounded-[10px] bg-[var(--cz-surface-strong)] border border-[var(--cz-border)] text-[15px] font-semibold shrink-0">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[var(--cz-surface-strong)] text-[15px] font-bold text-[var(--cz-text-primary)]">
                 {(c.name || c.slug || "C").trim().slice(0, 1).toUpperCase()}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[13px] font-semibold truncate">{c.name}</span>
-                <span className="block text-[11px] font-mono text-[var(--cz-text-secondary)] truncate">
-                  /c/{c.slug} • {c.memberCount ?? 0} students
+                <span className="block truncate text-[15px] font-bold leading-[20px] text-[var(--cz-text-primary)]">
+                  {c.name}
+                </span>
+                <span className="block truncate text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">
+                  {c.memberCount ?? 0} student{c.memberCount === 1 ? "" : "s"}
                 </span>
               </span>
             </Link>

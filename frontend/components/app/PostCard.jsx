@@ -12,7 +12,6 @@ import {
   Pin,
   PinOff,
   Repeat2,
-  Send,
   Share2,
   Trash2,
 } from "lucide-react";
@@ -27,8 +26,10 @@ import {
 import { RichText } from "@/components/app/RichText";
 import { ReportDialog } from "@/components/app/ReportDialog";
 import { Button } from "@/components/ui/button";
+import { VerifiedBadge } from "@/components/ui/verified-badge";
 import { api } from "@/lib/api";
 import { hidePostId, isHiddenPost } from "@/lib/hiddenPosts";
+import { cn } from "@/lib/utils";
 
 function timeAgo(date) {
   const d = new Date(date);
@@ -42,6 +43,84 @@ function timeAgo(date) {
   const days = Math.floor(h / 24);
   if (days < 7) return `${days}d`;
   return d.toLocaleDateString("en-IN", { month: "short", day: "numeric" });
+}
+
+function Avatar({ author }) {
+  const initials = (author.fullName || author.username || "U")
+    .slice(0, 1)
+    .toUpperCase();
+  return (
+    <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[13px] font-bold text-[var(--cz-text-primary)]">
+      {author.avatarUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={author.avatarUrl}
+          alt={author.username}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        initials
+      )}
+    </span>
+  );
+}
+
+/** DESIGN.md — Dropdown Overlay: floating card, 16px radius, shadow-sm, hover #eff3f4. */
+const menuItemClass =
+  "flex w-full items-center gap-3 px-4 py-2 text-left text-[15px] leading-[20px] text-[var(--cz-text-primary)] transition-colors hover:bg-[var(--cz-surface-strong)] disabled:opacity-50";
+
+function OverflowMenu({ open, setOpen, isOwn, isPinned, pinLoading, post, onPin, onEdit, onDelete, onReport }) {
+  if (!open) return null;
+  return (
+    <div
+      role="menu"
+      className="absolute right-0 top-8 z-20 w-[232px] overflow-hidden rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-elevated)] py-1 shadow-[var(--shadow-sm)]"
+    >
+      {isOwn ? (
+        <>
+          <button
+            role="menuitem"
+            onClick={onPin}
+            disabled={pinLoading}
+            className={menuItemClass}
+          >
+            {isPinned ? (
+              <PinOff className="h-[18px] w-[18px] shrink-0" aria-hidden />
+            ) : (
+              <Pin className="h-[18px] w-[18px] shrink-0" aria-hidden />
+            )}
+            {isPinned ? "Unpin from profile" : "Pin to profile"}
+          </button>
+          {post.text ? (
+            <button role="menuitem" onClick={onEdit} className={menuItemClass}>
+              <Pencil className="h-[18px] w-[18px] shrink-0" aria-hidden />
+              Edit post
+            </button>
+          ) : null}
+          <button
+            role="menuitem"
+            onClick={onDelete}
+            className={cn(menuItemClass, "text-[var(--cz-error)] hover:bg-[color-mix(in_srgb,var(--cz-error)_10%,transparent)]")}
+          >
+            <Trash2 className="h-[18px] w-[18px] shrink-0" aria-hidden />
+            Delete post
+          </button>
+        </>
+      ) : (
+        <button
+          role="menuitem"
+          onClick={onReport}
+          className={cn(
+            menuItemClass,
+            "text-[var(--cz-error)] hover:bg-[color-mix(in_srgb,var(--cz-error)_10%,transparent)]",
+          )}
+        >
+          <Flag className="h-[18px] w-[18px] shrink-0" aria-hidden />
+          Report post
+        </button>
+      )}
+    </div>
+  );
 }
 
 export function PostCard({
@@ -61,11 +140,6 @@ export function PostCard({
   const [likeCount, setLikeCount] = useState(initialPost.likeCount || 0);
   const [repostCount, setRepostCount] = useState(initialPost.repostCount || 0);
   const [replyCount, setReplyCount] = useState(initialPost.replyCount || 0);
-  const [showReply, setShowReply] = useState(false);
-  const [replyText, setReplyText] = useState("");
-  const [replyLoading, setReplyLoading] = useState(false);
-  const [replies, setReplies] = useState([]);
-  const [showReplies, setShowReplies] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [isHidden, setIsHidden] = useState(() => isHiddenPost(initialPost._id));
@@ -75,19 +149,22 @@ export function PostCard({
   const [pinLoading, setPinLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const copyTimer = useRef(null);
+
   useEffect(
     () => () => {
       if (copyTimer.current) clearTimeout(copyTimer.current);
     },
     [],
   );
-  const replyRef = useRef(null);
+
+  // Counts are local so likes/reposts feel instant, but they must not drift
+  // from the server — the detail page bumps replyCount when a reply lands,
+  // and refetches on delete/undelete.
+  useEffect(() => {
+    if (initialPost.replyCount != null) setReplyCount(initialPost.replyCount);
+  }, [initialPost.replyCount]);
+
   const editRef = useRef(null);
-  const replyMention = useMentionAutocomplete({
-    value: replyText,
-    setValue: setReplyText,
-    inputRef: replyRef,
-  });
   const editMention = useMentionAutocomplete({
     value: editText || "",
     setValue: setEditText,
@@ -149,32 +226,6 @@ export function PostCard({
     }
   };
 
-  const handleReply = async (e) => {
-    e.preventDefault();
-    if (!replyText.trim() || replyText.trim().length > 500) return;
-    setReplyLoading(true);
-    try {
-      const res = await api.createReply(post._id, replyText.trim());
-      setReplies((r) => [...r, res.data?.comment]);
-      setReplyCount((c) => res.data?.replyCount ?? c + 1);
-      setReplyText("");
-      setShowReplies(true);
-    } catch {}
-    setReplyLoading(false);
-  };
-
-  const loadReplies = async () => {
-    if (showReplies) {
-      setShowReplies(false);
-      return;
-    }
-    try {
-      const res = await api.getReplies(post._id, { page: 1, limit: 20 });
-      setReplies(res.data?.comments || []);
-      setShowReplies(true);
-    } catch {}
-  };
-
   const handleEdit = async (e) => {
     e.preventDefault();
     if (!editText.trim() || editText.trim().length > 500) return;
@@ -190,6 +241,7 @@ export function PostCard({
   };
 
   const handleDelete = async () => {
+    setMenuOpen(false);
     if (!confirm("Delete this post?")) return;
     try {
       await api.deletePost(post._id);
@@ -209,7 +261,8 @@ export function PostCard({
       try {
         await navigator.share({
           title: `Post by @${post.author?.username || "campuszen"}`,
-          text: (post.text || "").slice(0, 120) || "Check out this post on CampusZen",
+          text:
+            (post.text || "").slice(0, 120) || "Check out this post on CampusZen",
           url,
         });
       } catch {
@@ -234,18 +287,9 @@ export function PostCard({
     } catch {}
   };
 
-  const handleShareFromMenu = async () => {
-    if (typeof navigator !== "undefined" && navigator.share) {
-      setMenuOpen(false);
-      handleShare();
-      return;
-    }
-    // clipboard path — stay open so the row flips to "Link copied"
-    await handleShare();
-  };
-
   const handlePinToggle = async () => {
     if (pinLoading) return;
+    setMenuOpen(false);
     setPinLoading(true);
     try {
       if (isPinned) {
@@ -257,87 +301,112 @@ export function PostCard({
       }
     } catch {}
     setPinLoading(false);
-    setMenuOpen(false);
   };
 
   const author = post.author || {};
-  const initials = (author.fullName || author.username || "U")
-    .slice(0, 1)
-    .toUpperCase();
 
   // reported (hidden for me) or blocked content never renders
   if (isHidden) return null;
 
   return (
-    <article className="group relative rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)] hover:border-[var(--cz-border-strong)] transition-colors">
-      <div className="flex items-start gap-3 p-3 sm:p-4 pb-2">
-        <Link href={`/u/${author.username}`} className="shrink-0">
-          <span className="grid place-items-center h-9 w-9 rounded-full bg-[var(--cz-muted)] text-white text-[12px] font-semibold overflow-hidden">
-            {author.avatarUrl ? (
-              <img
-                src={author.avatarUrl}
-                alt={author.username}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              initials
-            )}
-          </span>
-        </Link>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-x-1.5 gap-y-0.5 min-w-0 flex-wrap">
-            <Link
-              href={`/u/${author.username}`}
-              className="text-[13px] font-semibold leading-none hover:underline underline-offset-4 text-[var(--cz-text-primary)] truncate min-w-0 max-w-[130px] sm:max-w-[220px] shrink-0"
-            >
-              {author.fullName || author.username}
-            </Link>
-            <span className="text-[12px] leading-none text-[var(--cz-text-secondary)] truncate min-w-0 max-w-[110px] sm:max-w-[200px]">
-              @{author.username}
-            </span>
-            <Link
-              href={`/app/p/${post._id}`}
-              className="text-[11px] leading-none text-[var(--cz-text-secondary)]/60 hover:text-[var(--cz-text-primary)] hover:underline underline-offset-4 shrink-0 whitespace-nowrap"
-            >
-              · {timeAgo(post.createdAt)} {post.edited ? "· edited" : ""}
-            </Link>
-          </div>
-          {editing ? (
-            <form onSubmit={handleEdit} className="mt-2">
-              <div className="relative">
-                <textarea
-                  ref={editRef}
-                  value={editText}
-                  onChange={(e) => setEditText(e.target.value)}
-                  onSelect={editMention.recheck}
-                  onKeyDown={(e) => {
-                    if (editMention.handleKeyDown(e)) return;
-                  }}
-                  onBlur={() => setTimeout(() => editMention.close(), 150)}
-                  rows={3}
-                  maxLength={500}
-                  className="w-full rounded-[10px] border border-[var(--cz-border)] bg-[rgba(255,255,255,0.03)] px-3 py-2 text-[14px] leading-[20px] outline-none focus:border-[var(--cz-muted)]"
-                />
-                {editMention.open ? (
-                  <MentionSuggest
-                    users={editMention.users}
-                    active={editMention.active}
-                    onSelect={editMention.insert}
-                    onHover={editMention.setActive}
-                  />
+    <>
+      <article className="cz-row group relative px-4 py-3">
+        <div className="flex gap-3">
+          <Link href={`/u/${author.username}`} className="shrink-0">
+            <Avatar author={author} />
+          </Link>
+          <div className="min-w-0 flex-1">
+            {/* header + overflow */}
+            <div className="flex items-start gap-2">
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1 leading-[20px]">
+                <Link
+                  href={`/u/${author.username}`}
+                  className="truncate text-[15px] font-bold text-[var(--cz-text-primary)] hover:underline"
+                >
+                  {author.fullName || author.username}
+                </Link>
+                {author.isEmailVerified ? (
+                  <VerifiedBadge size="sm" aria-label="Verified account" />
                 ) : null}
-              </div>
-              <div className="mt-2 flex items-center justify-between">
-                <span className="text-[11px] text-[var(--cz-text-secondary)]/60">
-                  {editText.length}/500
+                <span className="truncate text-[15px] text-[var(--cz-text-secondary)]">
+                  @{author.username}
                 </span>
-                <span className="flex items-center gap-2">
+                <span className="shrink-0 whitespace-nowrap text-[15px] text-[var(--cz-text-secondary)]">
+                  <Link
+                    href={`/app/p/${post._id}`}
+                    className="hover:underline"
+                  >
+                    · {timeAgo(post.createdAt)}
+                    {post.edited ? " · edited" : ""}
+                  </Link>
+                </span>
+              </div>
+
+              {!editing ? (
+                <div className="relative -mr-1 -mt-1 shrink-0">
+                  <button
+                    onClick={() => setMenuOpen((v) => !v)}
+                    aria-label="More post actions"
+                    aria-expanded={menuOpen}
+                    className="grid h-[34px] w-[34px] place-items-center rounded-full text-[var(--cz-accent)] transition-colors hover:bg-[var(--cz-accent-soft)]"
+                  >
+                    <MoreHorizontal className="h-[18px] w-[18px]" aria-hidden />
+                  </button>
+                  <OverflowMenu
+                    open={menuOpen}
+                    setOpen={setMenuOpen}
+                    isOwn={isOwn}
+                    isPinned={isPinned}
+                    pinLoading={pinLoading}
+                    post={post}
+                    onPin={handlePinToggle}
+                    onEdit={() => {
+                      setEditing(true);
+                      setMenuOpen(false);
+                    }}
+                    onDelete={handleDelete}
+                    onReport={() => {
+                      setReportOpen(true);
+                      setMenuOpen(false);
+                    }}
+                  />
+                </div>
+              ) : null}
+            </div>
+
+            {/* body */}
+            {editing ? (
+              <form onSubmit={handleEdit} className="mt-2">
+                <div className="relative">
+                  <textarea
+                    ref={editRef}
+                    value={editText}
+                    onChange={(e) => setEditText(e.target.value)}
+                    onSelect={editMention.recheck}
+                    onKeyDown={(e) => {
+                      if (editMention.handleKeyDown(e)) return;
+                    }}
+                    onBlur={() => setTimeout(() => editMention.close(), 150)}
+                    rows={3}
+                    maxLength={500}
+                    aria-label="Edit post"
+                    className="w-full resize-none rounded-[4px] bg-[var(--cz-surface-strong)] px-3 py-2 text-[15px] leading-[20px] text-[var(--cz-text-primary)] outline-none ring-1 ring-[var(--cz-accent)]"
+                  />
+                  {editMention.open ? (
+                    <MentionSuggest
+                      users={editMention.users}
+                      active={editMention.active}
+                      onSelect={editMention.insert}
+                      onHover={editMention.setActive}
+                    />
+                  ) : null}
+                </div>
+                <div className="mt-3 flex items-center justify-end gap-2">
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="secondary"
                     size="sm"
                     onClick={() => setEditing(false)}
-                    className="h-[32px]"
                   >
                     Cancel
                   </Button>
@@ -349,359 +418,184 @@ export function PostCard({
                       !editText.trim() ||
                       editText.trim().length > 500
                     }
-                    className="h-[32px]"
                   >
                     {editLoading ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                       "Save"
                     )}
                   </Button>
-                </span>
-              </div>
-            </form>
-          ) : isDetail ? (
-            <p className="mt-1.5 text-[14px] leading-[20px] whitespace-pre-wrap break-words text-[var(--cz-text-primary)]">
-              <RichText text={post.text} />
-            </p>
-          ) : (
-            <div
-              role="link"
-              tabIndex={0}
-              onClick={() => router.push(`/app/p/${post._id}`)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  router.push(`/app/p/${post._id}`);
-                }
-              }}
-              className="mt-1.5 block text-[14px] leading-[20px] whitespace-pre-wrap break-words text-[var(--cz-text-primary)] hover:opacity-90 cursor-pointer outline-none focus-visible:underline underline-offset-4"
-            >
-              <RichText text={post.text} />
-            </div>
-          )}
-          {post.imageUrl ? (
-            <div className="mt-2 rounded-[12px] overflow-hidden border border-[var(--cz-border)]">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={post.imageUrl}
-                alt="Post attachment"
-                className="w-full max-h-[400px] object-cover"
-                loading="lazy"
-              />
-            </div>
-          ) : null}
-        </div>
-        {!editing ? (
-          <div className="relative shrink-0">
-            <button
-              onClick={() => setMenuOpen((v) => !v)}
-              aria-label="Post actions"
-              aria-expanded={menuOpen}
-              className="grid place-items-center h-8 w-8 rounded-[10px] hover:bg-[rgba(255,206,173,0.08)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] transition-colors"
-            >
-              <MoreHorizontal className="h-4 w-4" />
-            </button>
-            {menuOpen ? (
-              <>
-                {/* desktop dropdown */}
-                <div className="hidden sm:block absolute right-0 top-9 z-10 w-[160px] rounded-[12px] border border-[var(--cz-border)] bg-[var(--cz-surface-strong)] shadow-[0_8px_24px_rgba(0,0,0,0.4)] overflow-hidden">
-                  {isOwn ? (
-                    <>
-                      <button
-                        onClick={handlePinToggle}
-                        disabled={pinLoading}
-                        className="w-full flex items-center gap-2 px-3 h-[36px] text-[13px] hover:bg-[rgba(255,206,173,0.06)] text-left disabled:opacity-50"
-                      >
-                        {isPinned ? (
-                          <PinOff className="h-3.5 w-3.5" />
-                        ) : (
-                          <Pin className="h-3.5 w-3.5" />
-                        )}{" "}
-                        {isPinned ? "Unpin" : "Pin to profile"}
-                      </button>
-                      {post.text ? (
-                        <button
-                          onClick={() => {
-                            setEditing(true);
-                            setMenuOpen(false);
-                          }}
-                          className="w-full flex items-center gap-2 px-3 h-[36px] text-[13px] hover:bg-[rgba(255,206,173,0.06)] text-left"
-                        >
-                          <Pencil className="h-3.5 w-3.5" /> Edit
-                        </button>
-                      ) : null}
-                      <button
-                        onClick={handleDelete}
-                        className="w-full flex items-center gap-2 px-3 h-[36px] text-[13px] hover:bg-[rgba(255,90,106,0.08)] text-[var(--cz-error)] text-left"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" /> Delete
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      onClick={() => {
-                        setReportOpen(true);
-                        setMenuOpen(false);
-                      }}
-                      className="w-full flex items-center gap-2 px-3 h-[36px] text-[13px] hover:bg-[rgba(255,206,173,0.06)] text-left"
-                    >
-                      <Flag className="h-3.5 w-3.5" /> Report
-                    </button>
-                  )}
                 </div>
-                {/* mobile bottom-sheet + backdrop */}
-                <div className="sm:hidden fixed inset-0 z-40 flex items-end justify-center p-3">
-                  <button
-                    aria-label="Close"
-                    onClick={() => setMenuOpen(false)}
-                    className="absolute inset-0 bg-black/50 backdrop-blur-[1px] border-0"
-                  />
-                  <div className="relative w-full max-w-[420px] rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)] shadow-[0_16px_40px_rgba(0,0,0,0.5)] overflow-hidden animate-[t-panel-slide] p-2">
-                    <div className="mx-auto h-1 w-8 rounded-full bg-[var(--cz-border)] mb-2" />
-                    <button
-                      onClick={handleBookmark}
-                      className="w-full flex items-center gap-3 px-3 h-[44px] text-[14px] hover:bg-[rgba(255,206,173,0.06)] rounded-[10px] text-left"
-                    >
-                      <Bookmark
-                        className="h-4 w-4"
-                        fill={saved ? "currentColor" : "none"}
-                      />{" "}
-                      {saved ? "Saved" : "Save"}
-                    </button>
-                    <button
-                      onClick={handleShareFromMenu}
-                      className="w-full flex items-center gap-3 px-3 h-[44px] text-[14px] hover:bg-[rgba(255,206,173,0.06)] rounded-[10px] text-left"
-                    >
-                      {copied ? (
-                        <Check className="h-4 w-4" />
-                      ) : (
-                        <Share2 className="h-4 w-4" />
-                      )}{" "}
-                      {copied ? "Link copied" : "Share post"}
-                    </button>
-                    {isOwn ? (
-                      <>
-                        <button
-                          onClick={handlePinToggle}
-                          disabled={pinLoading}
-                          className="w-full flex items-center gap-3 px-3 h-[44px] text-[14px] hover:bg-[rgba(255,206,173,0.06)] rounded-[10px] text-left disabled:opacity-50"
-                        >
-                          {isPinned ? (
-                            <PinOff className="h-4 w-4" />
-                          ) : (
-                            <Pin className="h-4 w-4" />
-                          )}{" "}
-                          {isPinned ? "Unpin" : "Pin to profile"}
-                        </button>
-                        {post.text ? (
-                          <button
-                            onClick={() => {
-                              setEditing(true);
-                              setMenuOpen(false);
-                            }}
-                            className="w-full flex items-center gap-3 px-3 h-[44px] text-[14px] hover:bg-[rgba(255,206,173,0.06)] rounded-[10px] text-left"
-                          >
-                            <Pencil className="h-4 w-4" /> Edit post
-                          </button>
-                        ) : null}
-                        <button
-                          onClick={handleDelete}
-                          className="w-full flex items-center gap-3 px-3 h-[44px] text-[14px] hover:bg-[rgba(255,90,106,0.08)] text-[var(--cz-error)] rounded-[10px] text-left"
-                        >
-                          <Trash2 className="h-4 w-4" /> Delete post
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          setReportOpen(true);
-                          setMenuOpen(false);
-                        }}
-                        className="w-full flex items-center gap-3 px-3 h-[44px] text-[14px] hover:bg-[rgba(255,206,173,0.06)] rounded-[10px] text-left"
-                      >
-                        <Flag className="h-4 w-4" /> Report post
-                      </button>
-                    )}
-                    <button
-                      onClick={() => setMenuOpen(false)}
-                      className="w-full mt-2 flex items-center justify-center gap-2 px-3 h-[44px] text-[13px] rounded-[10px] border border-[var(--cz-border)] hover:bg-[rgba(255,206,173,0.06)]"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              </>
-            ) : null}
-          </div>
-        ) : null}
-        {reportOpen ? (
-          <ReportDialog
-            targetType="post"
-            targetId={post._id}
-            targetLabel={`@${author.username || "user"}`}
-            onClose={() => setReportOpen(false)}
-            onSubmitted={() => {
-              hidePostId(post._id);
-              setReportOpen(false);
-              setIsHidden(true);
-            }}
-          />
-        ) : null}
-      </div>
-
-      <div className="flex items-center gap-0.5 sm:gap-1 px-2 sm:px-3 pb-2 min-w-0">
-        <button
-          onClick={handleLike}
-          data-liked={liked ? "true" : "false"}
-          className="t-like inline-flex hover:cursor-pointer items-center gap-1.5 rounded-full px-2 sm:px-2.5 h-[32px] text-[12px] font-medium hover:bg-[rgba(244,0,81,0.08)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] data-[liked=true]:text-[var(--like-color)] transition-colors shrink-0"
-          aria-label={liked ? "Unlike" : "Like"}
-        >
-          <span className="t-like-icon grid place-items-center">
-            <Heart className="t-like-heart h-[16px] w-[16px]" />
-          </span>
-          <AnimatedNumber value={likeCount} />
-        </button>
-
-        <button
-          onClick={() => setShowReply((v) => !v)}
-          className="inline-flex items-center hover:cursor-pointer gap-1.5 rounded-full px-2 sm:px-2.5 h-[32px] text-[12px] font-medium hover:bg-[rgba(125,130,217,0.12)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] transition-colors shrink-0"
-        >
-          <MessageCircle className="h-[16px] w-[16px]" />
-          <AnimatedNumber value={replyCount} />
-        </button>
-
-        <button
-          onClick={handleRepost}
-          data-reposted={reposted ? "true" : "false"}
-          className="inline-flex hover:cursor-pointer items-center gap-1.5 rounded-full px-2 sm:px-2.5 h-[32px] text-[12px] font-medium hover:bg-[rgba(125,130,217,0.12)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] data-[reposted=true]:text-[var(--cz-muted)] transition-colors shrink-0"
-        >
-          <Repeat2 className="h-[16px] w-[16px]" />
-          <AnimatedNumber value={repostCount} />
-        </button>
-
-        <button
-          onClick={handleBookmark}
-          data-saved={saved ? "true" : "false"}
-          className="hidden sm:inline-flex hover:cursor-pointer items-center justify-center rounded-full h-[32px] w-[32px] hover:bg-[rgba(255,206,173,0.08)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] data-[saved=true]:text-[var(--cz-text-primary)] transition-colors"
-          aria-label={saved ? "Remove bookmark" : "Bookmark"}
-          aria-pressed={saved}
-        >
-          <Bookmark
-            className="h-[16px] w-[16px]"
-            fill={saved ? "currentColor" : "none"}
-          />
-        </button>
-
-        <button
-          onClick={handleShare}
-          className="hidden sm:inline-flex hover:cursor-pointer items-center justify-center rounded-full h-[32px] w-[32px] hover:bg-[rgba(255,206,173,0.08)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] transition-colors"
-          aria-label={copied ? "Link copied" : "Share post"}
-          title={copied ? "Link copied" : "Share post"}
-        >
-          {copied ? (
-            <Check className="h-[16px] w-[16px]" />
-          ) : (
-            <Share2 className="h-[16px] w-[16px]" />
-          )}
-        </button>
-
-        <button
-          onClick={loadReplies}
-          className="ml-auto hover:cursor-pointer text-[10px] sm:text-[11px] font-medium tracking-[0.04em] uppercase text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] px-2 shrink-0 whitespace-nowrap"
-        >
-          {showReplies
-            ? "Hide replies"
-            : replyCount > 0
-              ? `View ${replyCount} replies`
-              : "Reply"}
-        </button>
-      </div>
-
-      <div
-        className={`t-panel-slide mx-3 sm:mx-4 mb-3 ${showReply ? "block" : "hidden"}`}
-        data-open={showReply ? "true" : "false"}
-      >
-        <form
-          onSubmit={handleReply}
-          className="rounded-[12px] border border-[var(--cz-border)] bg-[rgba(255,255,255,0.03)] p-3 flex gap-2"
-        >
-          <div className="relative flex-1 min-w-0">
-            <input
-              ref={replyRef}
-              value={replyText}
-              onChange={(e) => setReplyText(e.target.value)}
-              onSelect={replyMention.recheck}
-              onKeyDown={(e) => {
-                if (replyMention.handleKeyDown(e)) return;
-              }}
-              onBlur={() => setTimeout(() => replyMention.close(), 150)}
-              placeholder="Write a reply… up to 500, emoji allowed. Use @ to mention"
-              maxLength={500}
-              className="w-full bg-transparent outline-none text-[13px] placeholder:text-[var(--cz-text-secondary)]/50 h-[36px]"
-            />
-            {replyMention.open ? (
-              <MentionSuggest
-                users={replyMention.users}
-                active={replyMention.active}
-                onSelect={replyMention.insert}
-                onHover={replyMention.setActive}
-              />
-            ) : null}
-          </div>
-          <Button
-            type="submit"
-            size="sm"
-            disabled={
-              replyLoading || !replyText.trim() || replyText.trim().length > 500
-            }
-            className="h-[36px] px-3 shrink-0"
-          >
-            {replyLoading ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              </form>
+            ) : isDetail ? (
+              <p className="mt-0.5 whitespace-pre-wrap break-words text-[15px] leading-[20px] text-[var(--cz-text-primary)]">
+                <RichText text={post.text} />
+              </p>
             ) : (
-              <Send className="h-3.5 w-3.5" />
-            )}
-            Reply
-          </Button>
-        </form>
-      </div>
-
-      {showReplies && replies.length > 0 ? (
-        <div className="mx-3 sm:mx-4 mb-3 rounded-[12px] border border-[var(--cz-border)] bg-[var(--cz-bg)] divide-y divide-[var(--cz-border)]/50 overflow-hidden">
-          {replies.map((c) => (
-            <div key={c._id} className="p-3 flex gap-2">
-              <span className="h-7 w-7 rounded-full bg-[var(--cz-muted)] text-white text-[11px] grid place-items-center shrink-0 overflow-hidden">
-                {c.author?.avatarUrl ? (
-                  <img
-                    src={c.author.avatarUrl}
-                    alt={c.author.username}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  (c.author?.username || "U").slice(0, 1).toUpperCase()
-                )}
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[12px] font-semibold truncate">
-                    {c.author?.fullName || c.author?.username}
-                  </span>
-                  <span className="text-[11px] text-[var(--cz-text-secondary)] truncate">
-                    @{c.author?.username}
-                  </span>
-                  <span className="text-[10px] text-[var(--cz-text-secondary)]/60 shrink-0 whitespace-nowrap">
-                    · {timeAgo(c.createdAt)}
-                  </span>
-                </div>
-                <p className="text-[13px] leading-[18px] whitespace-pre-wrap break-words mt-1">
-                  <RichText text={c.text} />
-                </p>
+              <div
+                role="link"
+                tabIndex={0}
+                onClick={() => router.push(`/app/p/${post._id}`)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    router.push(`/app/p/${post._id}`);
+                  }
+                }}
+                className="mt-0.5 block cursor-pointer whitespace-pre-wrap break-words text-[15px] leading-[20px] text-[var(--cz-text-primary)] outline-none focus-visible:underline"
+              >
+                <RichText text={post.text} />
               </div>
-            </div>
-          ))}
+            )}
+
+            {post.imageUrl ? (
+              <div className="mt-3 overflow-hidden rounded-[16px] border border-[var(--cz-border)]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={post.imageUrl}
+                  alt="Post attachment"
+                  className="max-h-[510px] w-full object-cover"
+                  loading="lazy"
+                />
+              </div>
+            ) : null}
+          </div>
         </div>
+
+        {/* ── Post Action Bar ──
+            Six icon+count groups in Graphite at 18.75px, counts at 13px.
+            Repost flips to green, like to pink when active.
+
+            Replies live on the post page only — the reply action navigates
+            there rather than expanding anything in the feed. */}
+        <div className="ml-[52px] mt-1 flex max-w-[425px] items-center justify-between">
+          <button
+            onClick={() => router.push(`/app/p/${post._id}`)}
+            aria-label={
+              replyCount > 0
+                ? `Reply — ${replyCount} ${replyCount === 1 ? "reply" : "replies"}`
+                : "Reply"
+            }
+            className="group/act -ml-2 flex items-center gap-1 rounded-full px-2 py-1 text-[13px] font-medium text-[var(--cz-text-secondary)] transition-colors hover:bg-[var(--cz-accent-soft)] hover:text-[var(--cz-accent)]"
+          >
+            <MessageCircle
+              className="h-[18.75px] w-[18.75px] transition-transform group-hover/act:scale-110"
+              strokeWidth={1.8}
+              aria-hidden
+            />
+            {replyCount > 0 ? <AnimatedNumber value={replyCount} /> : null}
+          </button>
+
+          <button
+            onClick={handleRepost}
+            data-reposted={reposted ? "true" : "false"}
+            aria-label={reposted ? "Undo repost" : "Repost"}
+            aria-pressed={reposted}
+            className="group/act -ml-2 flex items-center gap-1 rounded-full px-2 py-1 text-[13px] font-medium transition-colors data-[reposted=false]:text-[var(--cz-text-secondary)] hover:bg-[color-mix(in_srgb,var(--cz-repost)_12%,transparent)] hover:text-[var(--cz-repost)] data-[reposted=true]:text-[var(--cz-repost)]"
+          >
+            <Repeat2
+              className="h-[18.75px] w-[18.75px] transition-transform group-hover/act:scale-110"
+              strokeWidth={1.8}
+              aria-hidden
+            />
+            {repostCount > 0 ? <AnimatedNumber value={repostCount} /> : null}
+          </button>
+
+          <button
+            onClick={handleLike}
+            data-liked={liked ? "true" : "false"}
+            aria-label={liked ? "Unlike" : "Like"}
+            aria-pressed={liked}
+            className="t-like group/act -ml-2 flex items-center gap-1 rounded-full px-2 py-1 text-[13px] font-medium transition-colors data-[liked=false]:text-[var(--cz-text-secondary)] hover:bg-[color-mix(in_srgb,var(--cz-like)_12%,transparent)] hover:text-[var(--cz-like)] data-[liked=true]:text-[var(--cz-like)]"
+          >
+            <span className="t-like-icon grid place-items-center">
+              <Heart
+                className="t-like-heart h-[18.75px] w-[18.75px]"
+                strokeWidth={1.8}
+              />
+            </span>
+            {likeCount > 0 ? <AnimatedNumber value={likeCount} /> : null}
+          </button>
+
+          {/* Views only appears when the API actually reports a count —
+              no dead affordances in the action bar. */}
+          {post.viewCount != null ? (
+            <span className="-ml-2 flex items-center gap-1 px-2 py-1 text-[13px] font-medium text-[var(--cz-text-secondary)]">
+              <BarChartIcon />
+              <AnimatedNumber value={post.viewCount} />
+            </span>
+          ) : null}
+
+          <button
+            onClick={handleBookmark}
+            data-saved={saved ? "true" : "false"}
+            aria-label={saved ? "Remove bookmark" : "Bookmark"}
+            aria-pressed={saved}
+            className="group/act -ml-2 grid place-items-center rounded-full p-2 transition-colors data-[saved=false]:text-[var(--cz-text-secondary)] hover:bg-[var(--cz-accent-soft)] hover:text-[var(--cz-accent)] data-[saved=true]:text-[var(--cz-accent)]"
+          >
+            <Bookmark
+              className="h-[18.75px] w-[18.75px] transition-transform group-hover/act:scale-110"
+              strokeWidth={1.8}
+              fill={saved ? "currentColor" : "none"}
+              aria-hidden
+            />
+          </button>
+
+          <button
+            onClick={handleShare}
+            aria-label={copied ? "Link copied" : "Share post"}
+            className="group/act -ml-2 grid place-items-center rounded-full p-2 text-[var(--cz-text-secondary)] transition-colors hover:bg-[var(--cz-accent-soft)] hover:text-[var(--cz-accent)]"
+          >
+            {copied ? (
+              <Check
+                className="h-[18.75px] w-[18.75px] text-[var(--cz-accent)]"
+                strokeWidth={1.8}
+                aria-hidden
+              />
+            ) : (
+              <Share2
+                className="h-[18.75px] w-[18.75px] transition-transform group-hover/act:scale-110"
+                strokeWidth={1.8}
+                aria-hidden
+              />
+            )}
+          </button>
+        </div>
+      </article>
+
+      {reportOpen ? (
+        <ReportDialog
+          targetType="post"
+          targetId={post._id}
+          targetLabel={`@${author.username || "user"}`}
+          onClose={() => setReportOpen(false)}
+          onSubmitted={() => {
+            hidePostId(post._id);
+            setReportOpen(false);
+            setIsHidden(true);
+          }}
+        />
       ) : null}
-    </article>
+    </>
+  );
+}
+
+function BarChartIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[18.75px] w-[18.75px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M3 3v16a2 2 0 0 0 2 2h16" />
+      <path d="M7 16v-4" />
+      <path d="M12 16V8" />
+      <path d="M17 16v-6" />
+    </svg>
   );
 }

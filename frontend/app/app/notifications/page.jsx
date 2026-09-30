@@ -15,7 +15,11 @@ import {
   Trash2,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { EmptyState } from "@/components/app/EmptyState";
+import {
+  EmptyState,
+  PostSkeleton,
+} from "@/components/app/EmptyState";
+import { PageHeader } from "@/components/app/PageHeader";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,37 +28,17 @@ import {
   useMarkAllNotificationsRead,
 } from "@/lib/hooks/queries";
 import { useSSE } from "@/lib/hooks/useSSE";
+import { cn } from "@/lib/utils";
 
-function timeAgo(date) {
-  const d = new Date(date);
-  const diff = Date.now() - d.getTime();
-  const s = Math.floor(diff / 1000);
-  if (s < 60) return "now";
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h`;
-  const days = Math.floor(h / 24);
-  if (days < 7) return `${days}d`;
-  return d.toLocaleDateString("en-IN", { month: "short", day: "numeric" });
-}
-
-function NotifIcon({ type }) {
-  switch (type) {
-    case "follow":
-      return <UserPlus className="h-3.5 w-3.5" />;
-    case "like":
-      return <Heart className="h-3.5 w-3.5" />;
-    case "reply":
-      return <MessageCircle className="h-3.5 w-3.5" />;
-    case "repost":
-      return <Repeat2 className="h-3.5 w-3.5" />;
-    case "mention":
-      return <AtSign className="h-3.5 w-3.5" />;
-    default:
-      return <Bell className="h-3.5 w-3.5" />;
-  }
-}
+// The glyph that leads each notification row, and the colour it takes.
+// Like → pink, repost → green, everything else → X Blue.
+const NOTIF_ICON = {
+  follow: { Icon: UserPlus, className: "text-[var(--cz-text-secondary)]" },
+  like: { Icon: Heart, className: "text-[var(--cz-like)]" },
+  reply: { Icon: MessageCircle, className: "text-[var(--cz-accent)]" },
+  repost: { Icon: Repeat2, className: "text-[var(--cz-repost)]" },
+  mention: { Icon: AtSign, className: "text-[var(--cz-accent)]" },
+};
 
 // Marks an unread card read after ~1s in view. Fires once per card.
 function AutoRead({ id, active, onRead, children }) {
@@ -220,134 +204,71 @@ export default function NotificationsPage() {
   const readInView = notifications.length - unreadInView;
 
   return (
-    <div className="mx-auto w-full max-w-[640px] space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="text-[18px] font-semibold tracking-[-0.02em]">
-          Notifications
-        </h1>
-        <div className="flex items-center gap-2">
-          <div className="inline-flex items-center gap-1 rounded-full border border-[var(--cz-border)] bg-[var(--cz-surface)] p-1">
-            {[
-              { id: "all", label: "All" },
-              { id: "unread", label: "Unread" },
-            ].map((t) => (
+    <div>
+      <PageHeader
+        title="Notifications"
+        right={
+          <div className="flex items-center gap-1">
+            {unreadInView > 0 ? (
               <button
-                key={t.id}
-                onClick={() => setFilter(t.id)}
-                aria-selected={filter === t.id}
-                className={`px-3 h-[28px] rounded-full text-[12px] font-medium transition-colors ${filter === t.id ? "bg-[var(--cz-text-primary)] text-[var(--cz-text-inverse)]" : "text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)]"}`}
+                onClick={markAll}
+                disabled={markingAll}
+                aria-label="Mark all as read"
+                className="grid h-[36px] w-[36px] place-items-center rounded-full text-[var(--cz-text-primary)] transition-colors hover:bg-[var(--cz-surface-strong)] disabled:opacity-50"
               >
-                {t.label}
+                {markingAll ? (
+                  <Loader2 className="h-[18px] w-[18px] animate-spin" />
+                ) : (
+                  <CheckCheck className="h-[18px] w-[18px]" />
+                )}
               </button>
-            ))}
+            ) : null}
+            {readInView > 0 ? (
+              <button
+                onClick={clearRead}
+                disabled={clearing}
+                aria-label="Delete read notifications"
+                className="grid h-[36px] w-[36px] place-items-center rounded-full text-[var(--cz-text-primary)] transition-colors hover:bg-[var(--cz-surface-strong)] disabled:opacity-50"
+              >
+                {clearing ? (
+                  <Loader2 className="h-[18px] w-[18px] animate-spin" />
+                ) : (
+                  <Trash2 className="h-[18px] w-[18px]" />
+                )}
+              </button>
+            ) : null}
           </div>
-          {unreadInView > 0 ? (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={markAll}
-              disabled={markingAll}
-              className="h-[32px] px-3 text-[12px] hidden sm:inline-flex"
-            >
-              {markingAll ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <CheckCheck className="h-3.5 w-3.5" />
-              )}
-              Mark all read
-            </Button>
-          ) : null}
-          {readInView > 0 ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearRead}
-              disabled={clearing}
-              className="h-[32px] px-3 text-[12px] hidden sm:inline-flex"
-            >
-              {clearing ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Trash2 className="h-3.5 w-3.5" />
-              )}
-              Clear read
-            </Button>
-          ) : null}
-        </div>
-      </div>
+        }
+        tabs={[
+          { id: "all", label: "All" },
+          ...TYPE_TABS.filter((t) => t.id !== "all"),
+        ]}
+        activeTab={typeFilter}
+        onTabChange={setTypeFilter}
+      />
 
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mb-1">
-        {TYPE_TABS.map((t) => (
+      <div className="flex items-center gap-2 border-b border-[var(--cz-border)] px-4 py-2">
+        {[
+          { id: "all", label: "All" },
+          { id: "unread", label: `Unread${unreadInView ? ` (${unreadInView})` : ""}` },
+        ].map((t) => (
           <button
             key={t.id}
-            onClick={() => setTypeFilter(t.id)}
-            aria-selected={typeFilter === t.id}
-            className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 h-[30px] text-[12px] font-medium transition-colors ${
-              typeFilter === t.id
-                ? "border-[var(--cz-border-strong)] bg-[rgba(255,206,173,0.1)] text-[var(--cz-text-primary)]"
-                : "border-[var(--cz-border)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)]"
+            onClick={() => setFilter(t.id)}
+            aria-pressed={filter === t.id}
+            className={`h-[32px] cursor-pointer rounded-full px-4 text-[15px] font-bold transition-colors ${
+              filter === t.id
+                ? "bg-[var(--cz-accent)] text-[var(--cz-text-inverse)]"
+                : "border border-[var(--cz-border-strong)] text-[var(--cz-text-primary)] hover:bg-[var(--cz-surface-strong)]"
             }`}
           >
-            {t.id !== "all" ? <NotifIcon type={t.id} /> : null}
             {t.label}
           </button>
         ))}
       </div>
 
-      {unreadInView > 0 ? (
-        <div className="sm:hidden flex justify-end">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={markAll}
-            disabled={markingAll}
-            className="h-[32px] px-3 text-[12px] w-full"
-          >
-            {markingAll ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <CheckCheck className="h-3.5 w-3.5" />
-            )}
-            Mark all read ({unreadInView})
-          </Button>
-        </div>
-      ) : null}
-      {readInView > 0 ? (
-        <div className="sm:hidden flex justify-end">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={clearRead}
-            disabled={clearing}
-            className="h-[32px] px-3 text-[12px] w-full"
-          >
-            {clearing ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Trash2 className="h-3.5 w-3.5" />
-            )}
-            Clear read ({readInView})
-          </Button>
-        </div>
-      ) : null}
-
       {isPending ? (
-        <div className="space-y-3">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div
-              key={i}
-              className="rounded-[12px] border border-[var(--cz-border)] bg-[var(--cz-surface)] p-4 animate-pulse"
-            >
-              <div className="flex gap-3">
-                <div className="h-9 w-9 rounded-full bg-[var(--cz-border)]" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-3 w-40 rounded bg-[var(--cz-border)]" />
-                  <div className="h-2 w-full rounded bg-[var(--cz-border)]/60" />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+        <PostSkeleton rows={5} />
       ) : notifications.length === 0 ? (
         <EmptyState
           icon={Bell}
@@ -358,120 +279,150 @@ export default function NotificationsPage() {
                 ? "No unread notifications"
                 : "No notifications yet"
           }
-          description="You'll get notified when someone follows you, likes, replies, reposts or mentions you. Cards mark themselves read as you view them."
+          description="You'll be notified when someone follows you, likes, replies, reposts or mentions you."
         />
       ) : (
-        <div className="space-y-3">
-          {notifications.map((n) => (
-            <AutoRead key={n._id} id={n._id} active={!n.read} onRead={markRead}>
-              <div
-                className={`group relative overflow-hidden rounded-[16px] border bg-[var(--cz-surface)] p-3 sm:p-4 flex gap-3 hover:border-[var(--cz-border-strong)] transition-colors ${n.read ? "border-[var(--cz-border)]" : "border-[var(--cz-muted)]/30 bg-[var(--cz-surface-strong)]"}`}
-              >
-                {!n.read ? (
-                  <span className="absolute left-0 top-0 bottom-0 w-[3px] bg-[var(--cz-muted)]" />
-                ) : null}
-                <Link href={`/u/${n.actor?.username || ""}`} className="shrink-0">
-                  <span className="grid place-items-center h-9 w-9 rounded-full bg-[var(--cz-muted)] text-white text-[12px] font-semibold overflow-hidden">
-                    {n.actor?.avatarUrl ? (
-                      <img
-                        src={n.actor.avatarUrl}
-                        alt={n.actor.username}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      (n.actor?.username || "U").slice(0, 1).toUpperCase()
-                    )}
-                  </span>
-                </Link>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[13px] leading-[18px] text-[var(--cz-text-primary)]">
-                        <Link
-                          href={`/u/${n.actor?.username || ""}`}
-                          className="font-semibold hover:underline underline-offset-4"
-                        >
-                          {n.actor?.fullName || n.actor?.username}
-                        </Link>{" "}
-                        <span className="text-[var(--cz-text-secondary)]">
-                          {n.type === "follow"
-                            ? "followed you"
-                            : n.type === "like"
-                              ? "liked your post"
-                              : n.type === "reply"
-                                ? "replied to your post"
-                                : n.type === "mention"
-                                  ? "mentioned you"
-                                  : "reposted your post"}
-                        </span>
-                      </p>
-                      {n.post?.text ? (
-                        <Link
-                          href={`/app/p/${n.post._id || n.post}`}
-                          className="mt-1 block rounded-[10px] border border-[var(--cz-border)] bg-[rgba(255,255,255,0.03)] px-2.5 py-1.5 text-[12px] leading-[16px] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] hover:border-[var(--cz-border-strong)] transition-colors line-clamp-2"
-                        >
-                          {n.post.text.slice(0, 120)}
-                        </Link>
+        <div>
+          {notifications.map((n) => {
+            const glyph = NOTIF_ICON[n.type] ?? {
+              Icon: Bell,
+              className: "text-[var(--cz-text-secondary)]",
+            };
+            const Glyph = glyph.Icon;
+            return (
+              <AutoRead key={n._id} id={n._id} active={!n.read} onRead={markRead}>
+                <div
+                  className={`cz-row relative flex gap-3 px-4 py-3 ${n.read ? "" : "bg-[var(--cz-accent-softer)]"}`}
+                >
+                  <Link href={`/u/${n.actor?.username || ""}`} className="shrink-0">
+                    <span className="grid h-10 w-10 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[13px] font-bold text-[var(--cz-text-primary)]">
+                      {n.actor?.avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={n.actor.avatarUrl}
+                          alt={n.actor.username}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        (n.actor?.username || "U").slice(0, 1).toUpperCase()
+                      )}
+                      {/* unread marker — a blue dot on the avatar, per DESIGN.md */}
+                      {!n.read ? (
+                        <span
+                          aria-label="Unread"
+                          className="absolute bottom-0 right-0 h-[10px] w-[10px] rounded-full bg-[var(--cz-accent)] ring-2 ring-[var(--cz-bg)]"
+                        />
                       ) : null}
-                      <div className="mt-1.5 flex items-center gap-2 text-[11px] leading-none">
-                        <span className="inline-flex items-center gap-1 rounded-full bg-[var(--cz-bg)] border border-[var(--cz-border)] px-2 py-1 text-[11px] text-[var(--cz-text-secondary)]">
-                          <span className="grid place-items-center h-4 w-4 rounded-full bg-[var(--cz-surface-strong)] border border-[var(--cz-border)] text-[var(--cz-text-primary)]">
-                            <NotifIcon type={n.type} />
+                    </span>
+                  </Link>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p
+                          className={`flex items-start gap-1.5 text-[15px] leading-[20px] ${
+                            n.read
+                              ? "text-[var(--cz-text-secondary)]"
+                              : "text-[var(--cz-text-primary)]"
+                          }`}
+                        >
+                          <Glyph
+                            className={cn(
+                              "mt-0.5 h-[18px] w-[18px] shrink-0",
+                              glyph.className,
+                            )}
+                            strokeWidth={1.9}
+                            aria-hidden
+                          />
+                          <span>
+                            <Link
+                              href={`/u/${n.actor?.username || ""}`}
+                              className={cn(
+                                "hover:underline",
+                                !n.read && "font-bold",
+                              )}
+                            >
+                              {n.actor?.fullName || n.actor?.username}
+                            </Link>{" "}
+                            {n.type === "follow"
+                              ? "followed you"
+                              : n.type === "like"
+                                ? "liked your post"
+                                : n.type === "reply"
+                                  ? "replied to your post"
+                                  : n.type === "mention"
+                                    ? "mentioned you"
+                                    : "reposted your post"}
                           </span>
-                          {n.type}
-                        </span>
-                        <span className="text-[var(--cz-text-secondary)]/60">
-                          ·{" "}
+                        </p>
+
+                        {n.post?.text ? (
+                          <Link
+                            href={`/app/p/${n.post._id || n.post}`}
+                            className="mt-1.5 block text-[15px] leading-[20px] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)]"
+                          >
+                            {n.post.text.slice(0, 140)}
+                          </Link>
+                        ) : null}
+
+                        <p className="mt-1 text-[13px] leading-[16px] text-[var(--cz-text-secondary)]">
                           {new Date(n.createdAt).toLocaleString("en-IN", {
                             month: "short",
                             day: "numeric",
                             hour: "numeric",
                             minute: "2-digit",
                           })}
-                        </span>
+                        </p>
+                      </div>
+
+                      <div className="flex shrink-0 items-center">
+                        {!n.read ? (
+                          <button
+                            onClick={() => markRead(n._id)}
+                            aria-label="Mark as read"
+                            className="grid h-[36px] w-[36px] place-items-center rounded-full text-[var(--cz-text-primary)] transition-colors hover:bg-[var(--cz-surface-strong)]"
+                          >
+                            <Check className="h-[18px] w-[18px]" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => deleteOne(n._id)}
+                            aria-label="Delete notification"
+                            className="grid h-[36px] w-[36px] place-items-center rounded-full text-[var(--cz-text-primary)] transition-colors hover:bg-[color-mix(in_srgb,var(--cz-error)_10%,transparent)] hover:text-[var(--cz-error)]"
+                          >
+                            <Trash2 className="h-[18px] w-[18px]" />
+                          </button>
+                        )}
                       </div>
                     </div>
-                    {!n.read ? (
-                      <button
-                        onClick={() => markRead(n._id)}
-                        className="shrink-0 inline-flex items-center gap-1 rounded-full border border-[var(--cz-border)] bg-transparent px-2.5 h-[28px] text-[11px] font-medium text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] hover:bg-[rgba(255,206,173,0.06)] transition-colors"
-                        aria-label="Mark read"
-                      >
-                        <Check className="h-3.5 w-3.5" /> Read
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => deleteOne(n._id)}
-                        className="shrink-0 inline-flex items-center justify-center rounded-full h-[28px] w-[28px] text-[var(--cz-text-secondary)]/50 hover:text-[var(--cz-error)] hover:bg-[rgba(255,90,106,0.08)] transition-colors"
-                        aria-label="Delete notification"
-                        title="Delete notification"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    )}
                   </div>
                 </div>
-              </div>
-            </AutoRead>
-          ))}
+              </AutoRead>
+            );
+          })}
 
           {hasNextPage ? (
-            <button
-              onClick={() => fetchNextPage()}
-              disabled={isFetchingNextPage}
-              className="w-full rounded-[12px] border border-[var(--cz-border)] bg-transparent h-[40px] text-[13px] font-medium hover:bg-[var(--cz-surface)] transition-colors disabled:opacity-50"
-            >
-              {isFetchingNextPage ? (
-                <span className="inline-flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Loading...
-                </span>
-              ) : (
-                "Load more"
-              )}
-            </button>
+            <div className="p-4">
+              <Button
+                onClick={() => fetchNextPage()}
+                disabled={isFetchingNextPage}
+                variant="secondary"
+                className="w-full"
+              >
+                {isFetchingNextPage ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                    Loading
+                  </>
+                ) : (
+                  "Show more"
+                )}
+              </Button>
+            </div>
           ) : (
-            <p className="text-center text-[11px] text-[var(--cz-text-secondary)]/60 py-2">
-              End • {notifications.length} notifications
+            <p className="py-6 text-center text-[13px] text-[var(--cz-text-secondary)]">
+              {notifications.length} notification
+              {notifications.length === 1 ? "" : "s"}
             </p>
           )}
         </div>

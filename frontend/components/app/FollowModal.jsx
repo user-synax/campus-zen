@@ -32,9 +32,9 @@ function UserRow({ user, viewerId, onToggle }) {
   };
 
   return (
-    <div className="flex items-center gap-3 py-2.5 px-1">
-      <Link href={`/u/${user.username}`} className="flex items-center gap-3 min-w-0 flex-1">
-        <span className="grid place-items-center h-9 w-9 rounded-full bg-[var(--cz-muted)] text-white text-[12px] font-semibold shrink-0 overflow-hidden">
+    <div className="flex items-center gap-3 px-1 py-2.5">
+      <Link href={`/u/${user.username}`} className="flex min-w-0 flex-1 items-center gap-3">
+        <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[13px] font-bold text-[var(--cz-text-primary)]">
           {user.avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={user.avatarUrl} alt={user.username} className="h-full w-full object-cover" />
@@ -43,22 +43,22 @@ function UserRow({ user, viewerId, onToggle }) {
           )}
         </span>
         <span className="min-w-0 flex-1 text-left">
-          <span className="block text-[13px] font-medium leading-none truncate text-[var(--cz-text-primary)]">{user.fullName || user.username}</span>
-          <span className="block text-[12px] leading-none text-[var(--cz-text-secondary)] truncate mt-0.5">@{user.username}</span>
-          {user.bio ? <span className="block text-[11px] leading-[14px] text-[var(--cz-text-secondary)]/70 truncate mt-1">{user.bio}</span> : null}
+          <span className="block truncate text-[15px] font-bold leading-[20px] text-[var(--cz-text-primary)]">{user.fullName || user.username}</span>
+          <span className="block truncate text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">@{user.username}</span>
+          {user.bio ? <span className="mt-0.5 block truncate text-[13px] leading-[16px] text-[var(--cz-text-secondary)]">{user.bio}</span> : null}
         </span>
       </Link>
       {isOwn ? (
-        <span className="text-[11px] tracking-[0.04em] uppercase text-[var(--cz-text-secondary)]/60 px-2">You</span>
+        <span className="shrink-0 px-2 text-[13px] text-[var(--cz-text-secondary)]">You</span>
       ) : (
         <Button
           variant={following ? "secondary" : "primary"}
           size="sm"
           onClick={handle}
           disabled={loading}
-          className="h-[32px] px-3 text-[12px] shrink-0 min-w-[84px]"
+          className="min-w-[92px] shrink-0"
         >
-          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : following ? "Following" : "Follow"}
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : following ? "Following" : "Follow"}
         </Button>
       )}
     </div>
@@ -146,44 +146,59 @@ export function FollowModal({ open, onClose, userId, type = "followers", title, 
 
   const content = (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <button aria-label="Close" onClick={onClose} className="absolute inset-0 bg-black/60 backdrop-blur-[2px] border-0 p-0 m-0" tabIndex={-1} />
+      <button aria-label="Close" onClick={onClose} className="absolute inset-0 cursor-default border-0 bg-[var(--cz-overlay)] p-0 backdrop-blur-[2px] m-0" tabIndex={-1} />
       <div
         ref={modalRef}
         role="dialog"
         aria-modal="true"
         aria-label={title || (type === "followers" ? "Followers" : "Following")}
-        className="t-modal relative w-full sm:max-w-[480px] max-h-[86dvh] sm:max-h-[76dvh] overflow-hidden rounded-t-[20px] sm:rounded-[20px] border border-[var(--cz-border)] bg-[var(--cz-surface)] shadow-[0_16px_48px_rgba(0,0,0,0.5)] flex flex-col"
+        className="t-modal relative flex w-full max-h-[86dvh] flex-col overflow-hidden rounded-t-[16px] border border-[var(--cz-border)] bg-[var(--cz-elevated)] shadow-[var(--shadow-sm)] sm:max-h-[76dvh] sm:max-w-[480px] sm:rounded-[16px]"
       >
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--cz-border)] bg-[var(--cz-surface)] px-4 h-[56px] shrink-0">
-          <h2 className="text-[15px] font-semibold tracking-[-0.02em]">{title || (type === "followers" ? "Followers" : "Following")}</h2>
-          <button onClick={onClose} className="grid place-items-center h-8 w-8 rounded-[10px] hover:bg-[rgba(255,206,173,0.08)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)]" aria-label="Close">
-            <X className="h-4 w-4" />
+        <div className="sticky top-0 z-10 flex h-[53px] shrink-0 items-center justify-between border-b border-[var(--cz-border)] bg-[var(--cz-elevated)] px-4">
+          <h2 className="text-[20px] leading-6 font-extrabold text-[var(--cz-text-primary)]">
+            {title || (type === "followers" ? "Followers" : "Following")}
+          </h2>
+          <button
+            onClick={onClose}
+            className="-mr-1 grid h-[34px] w-[34px] place-items-center rounded-full text-[var(--cz-text-secondary)] transition-colors hover:bg-[var(--cz-surface-strong)] hover:text-[var(--cz-text-primary)]"
+            aria-label="Close"
+          >
+            <X className="h-[18px] w-[18px]" />
           </button>
         </div>
 
-        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-2 divide-y divide-[var(--cz-border)]/50">
+        <div
+          ref={scrollRef}
+          className="flex-1 divide-y divide-[var(--cz-border)] overflow-y-auto px-4 py-1"
+        >
           {loading ? (
-            <div className="py-12 grid place-items-center">
+            <div className="grid place-items-center py-12">
               <Loader2 className="h-6 w-6 animate-spin text-[var(--cz-text-secondary)]" />
             </div>
           ) : users.length === 0 ? (
-            <div className="py-12 flex flex-col items-center text-center">
-              <span className="grid place-items-center h-12 w-12 rounded-[14px] bg-[var(--cz-surface-strong)] border border-[var(--cz-border)] text-[var(--cz-text-secondary)] mb-3">
-                <Users className="h-6 w-6" />
+            <div className="flex flex-col items-center py-12 text-center">
+              <span className="mb-3 grid h-12 w-12 place-items-center rounded-full text-[var(--cz-text-secondary)]">
+                <Users className="h-6 w-6" strokeWidth={1.6} />
               </span>
-              <p className="text-[13px] font-medium">No {type} yet</p>
-              <p className="text-[12px] leading-[16px] text-[var(--cz-text-secondary)] mt-1">When students follow, they’ll appear here.</p>
+              <p className="text-[20px] font-extrabold leading-6">No {type} yet</p>
+              <p className="mt-2 text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">
+                When students follow, they&apos;ll appear here.
+              </p>
             </div>
           ) : (
             users.map((u) => <UserRow key={u._id} user={u} viewerId={viewerId} />)
           )}
           <div ref={sentinelRef} className="h-1" aria-hidden />
           {loadingMore ? (
-            <div className="flex items-center justify-center gap-2 py-4 text-[13px] text-[var(--cz-text-secondary)]">
+            <div className="flex items-center justify-center gap-2 py-4 text-[15px] text-[var(--cz-text-secondary)]">
               <Loader2 className="h-4 w-4 animate-spin" /> Loading…
             </div>
           ) : null}
-          {!hasMore && users.length > 0 ? <p className="text-center text-[11px] text-[var(--cz-text-secondary)]/60 py-3">End • {users.length} {type}</p> : null}
+          {!hasMore && users.length > 0 ? (
+            <p className="py-4 text-center text-[13px] text-[var(--cz-text-secondary)]">
+              {users.length} {type}
+            </p>
+          ) : null}
         </div>
       </div>
     </div>

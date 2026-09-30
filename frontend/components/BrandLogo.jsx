@@ -13,15 +13,21 @@ export function BrandMark({ size = 32, className = "", priority = false }) {
   );
 }
 
+export function BrandWordmark({ className = "" }) {
+  return (
+    <span
+      className={`text-[20px] leading-none font-extrabold tracking-[-0.03em] ${className}`}
+    >
+      CampusZen
+    </span>
+  );
+}
+
 export function BrandLockup({ markSize = 32, showWordmark = true }) {
   return (
-    <span className="inline-flex items-center gap-2.5">
+    <span className="inline-flex items-center gap-2">
       <BrandMark size={markSize} />
-      {showWordmark ? (
-        <span className="text-[15px] font-semibold tracking-[-0.03em]">
-          campuszen
-        </span>
-      ) : null}
+      {showWordmark ? <BrandWordmark /> : null}
     </span>
   );
 }

@@ -127,17 +127,36 @@ function ResetPasswordInner() {
 
   if (done) {
     return (
-      <AuthShell title="Password updated!" subtitle="Your password has been reset successfully.">
-        <div className="flex flex-col items-center text-center py-2">
-          <span className="t-success-check grid place-items-center h-14 w-14 rounded-full bg-emerald-500/15 border border-emerald-500/20" data-state="in">
-            <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="rgb(52 211 153)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <AuthShell title="Password updated">
+        <div className="flex flex-col items-center py-2 text-center">
+          <span
+            className="t-success-check grid h-14 w-14 place-items-center rounded-full border border-[var(--cz-border-strong)]"
+            data-state="in"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              className="h-7 w-7"
+              fill="none"
+              stroke="var(--cz-success)"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <path d="M5 13l4 4L19 7" />
             </svg>
           </span>
-          <h3 className="mt-4 text-[15px] font-semibold tracking-[-0.02em] text-[var(--cz-text-primary)]">You’re all set</h3>
-          <p className="mt-1.5 text-[13px] leading-[19px] text-[var(--cz-text-secondary)]">Use your new password to log in. Redirecting…</p>
-          <Button className="mt-5 w-full" onClick={() => router.push("/login")}>
-            Go to login
+          <h3 className="mt-5 text-[23px] leading-6 font-extrabold text-[var(--cz-text-primary)]">
+            You&apos;re all set
+          </h3>
+          <p className="mt-2 text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">
+            Use your new password to sign in.
+          </p>
+          <Button
+            size="lg"
+            className="mt-6 w-full"
+            onClick={() => router.push("/login")}
+          >
+            Go to sign in
           </Button>
         </div>
       </AuthShell>
@@ -146,26 +165,34 @@ function ResetPasswordInner() {
 
   return (
     <AuthShell
-      title={step === 1 ? "Enter reset code" : "Set new password"}
+      title={step === 1 ? "Enter reset code" : "Set a new password"}
       subtitle={
         step === 1
-          ? `We sent a 6-digit code to ${email ? email.replace(/(^.).+(@.*)/, (m, a, b) => a + "***" + b) : "your email"}. Check your inbox — it expires in 10 minutes.`
-          : "Choose a strong new password. Minimum 8 characters."
+          ? `We sent a 6-digit code to ${email ? email.replace(/(^.).+(@.*)/, (m, a, b) => a + "***" + b) : "your email"}. It expires in 10 minutes.`
+          : "Minimum 8 characters. Existing sessions will be revoked."
       }
     >
       {step === 1 ? (
         <form onSubmit={onVerifyOtp} className="flex flex-col gap-5">
-          <div className="rounded-[12px] border border-[var(--cz-border)] bg-[rgba(255,255,255,0.03)] px-3 py-3 flex items-center gap-3">
-            <span className="grid place-items-center h-9 w-9 rounded-[10px] bg-[var(--cz-muted)]/15 border border-[var(--cz-muted)]/20 text-[var(--cz-muted)]">
-              <KeyRound className="h-4 w-4" />
+          <div className="flex items-center gap-3 rounded-[16px] border border-[var(--cz-border)] p-4">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[var(--cz-accent-soft)] text-[var(--cz-accent)]">
+              <KeyRound className="h-[18px] w-[18px]" aria-hidden />
             </span>
-            <div>
-              <div className="text-[13px] font-medium leading-none text-[var(--cz-text-primary)]">{email || "you@gmail.com"}</div>
-              <div className="text-[11px] text-[var(--cz-text-secondary)] mt-1">Code valid for 10 minutes • 5 attempts max</div>
+            <div className="min-w-0">
+              <p className="truncate text-[15px] font-bold leading-[20px] text-[var(--cz-text-primary)]">
+                {email || "you@gmail.com"}
+              </p>
+              <p className="text-[13px] leading-[16px] text-[var(--cz-text-secondary)]">
+                5 attempts max
+              </p>
             </div>
           </div>
 
-          {info ? <div className="rounded-[10px] border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[13px] text-emerald-300">{info}</div> : null}
+          {info ? (
+            <div className="rounded-[4px] bg-[var(--cz-success)]/10 px-3 py-2 text-[15px] leading-[20px] text-[var(--cz-success)]">
+              {info}
+            </div>
+          ) : null}
 
           <div>
             <Label>6-digit code</Label>
@@ -173,71 +200,78 @@ function ResetPasswordInner() {
               <OtpInput value={otp} onChange={(v) => { setOtp(v); setOtpError(""); setInfo(""); }} error={!!otpError} />
             </div>
             {otpError ? (
-              <p className="mt-2 flex items-center gap-1.5 text-[12px] text-[var(--cz-error)]">
-                <AlertCircle className="h-3.5 w-3.5" /> {otpError}
+              <p className="mt-2 flex items-center gap-1.5 text-[15px] text-[var(--cz-error)]">
+                <AlertCircle className="h-4 w-4" aria-hidden /> {otpError}
               </p>
             ) : (
-              <p className="mt-2 text-[12px] text-[var(--cz-text-secondary)]/70">Check your spam folder if you don’t see it.</p>
+              <p className="mt-2 text-[15px] text-[var(--cz-text-secondary)]">
+                Check your spam folder if you don&apos;t see it.
+              </p>
             )}
           </div>
 
-          <Button type="submit" disabled={loading || otp.length !== 6} className="w-full">
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-            {loading ? "Verifying..." : "Continue"}
+          <Button
+            type="submit"
+            disabled={loading || otp.length !== 6}
+            size="lg"
+            className="w-full"
+          >
+            {loading ? (
+              <Loader2 className="h-[18px] w-[18px] animate-spin" />
+            ) : (
+              <CheckCircle2 className="h-[18px] w-[18px]" aria-hidden />
+            )}
+            {loading ? "Verifying…" : "Continue"}
           </Button>
 
-          <div className="flex items-center justify-between text-[13px]">
+          <div className="flex items-center justify-between text-[15px]">
             <button
               type="button"
               onClick={onResend}
               disabled={!canResend}
-              className={`font-medium ${canResend ? "text-[var(--cz-text-primary)] hover:text-[var(--cz-muted)]" : "text-[var(--cz-text-secondary)]/60 cursor-not-allowed"}`}
+              className={`font-bold ${
+                canResend
+                  ? "text-[var(--cz-accent)] hover:underline"
+                  : "cursor-not-allowed text-[var(--cz-text-secondary)]"
+              }`}
             >
               {canResend ? "Resend code" : `Resend in ${resendIn}s`}
             </button>
-            <Link href="/forgot-password" className="text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] underline-offset-4 hover:underline">
+            <Link
+              href="/forgot-password"
+              className="text-[var(--cz-text-secondary)] hover:underline"
+            >
               Change email
             </Link>
           </div>
-
-          <div className="flex items-center justify-center gap-2 text-[11px] tracking-[0.04em] uppercase text-[var(--cz-text-secondary)]/60">
-            <span className="h-px w-8 bg-[var(--cz-border)]" /> Step 2 of 3 <span className="h-px w-8 bg-[var(--cz-border)]" />
-          </div>
         </form>
       ) : (
-        <form onSubmit={onReset} noValidate className="flex flex-col gap-4">
-          <div className="rounded-[10px] border border-[var(--cz-border)] bg-[rgba(255,255,255,0.03)] px-3 py-2.5 text-[12px] leading-[17px] text-[var(--cz-text-secondary)]">
-            Resetting for <span className="text-[var(--cz-text-primary)] font-medium">{email || "your email"}</span> • Code <span className="font-mono text-[var(--cz-text-primary)]">{otp || "______"}</span>
-          </div>
-
+        <form onSubmit={onReset} noValidate className="flex flex-col gap-5">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="newpw">
-              New password <span className="text-[var(--cz-error)]">*</span>
-            </Label>
+            <Label htmlFor="newpw">New password</Label>
             <InputWrap error={!!pwError}>
               <InputShell error={!!pwError} shaking={shakePw}>
-                <Lock className="h-4 w-4 text-[var(--cz-text-secondary)] shrink-0" />
                 <input
                   id="newpw"
                   type={showPw ? "text" : "password"}
                   autoComplete="new-password"
-                  placeholder="Minimum 8 characters"
+                  placeholder="Password"
                   value={pw}
                   onChange={(e) => {
                     setPw(e.target.value);
                     setPwError("");
                   }}
-                  className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 text-[var(--cz-text-primary)] h-full"
+                  className="h-full flex-1 bg-transparent text-[15px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)]"
                 />
                 <button
                   type="button"
-                  aria-label={showPw ? "Hide" : "Show"}
+                  aria-label={showPw ? "Hide password" : "Show password"}
                   onClick={() => setShowPw((v) => !v)}
-                  className="grid place-items-center h-7 w-7 rounded-[8px] hover:bg-[rgba(255,206,173,0.08)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)]"
+                  className="-mr-1 grid h-[32px] w-[32px] place-items-center rounded-full text-[var(--cz-text-secondary)] transition-colors hover:bg-[var(--cz-border)] hover:text-[var(--cz-text-primary)]"
                 >
                   <span className="t-icon-swap" data-state={showPw ? "b" : "a"}>
-                    <span className="t-icon" data-icon="a"><Eye className="h-4 w-4" /></span>
-                    <span className="t-icon" data-icon="b"><EyeOff className="h-4 w-4" /></span>
+                    <span className="t-icon" data-icon="a"><Eye className="h-[18px] w-[18px]" aria-hidden /></span>
+                    <span className="t-icon" data-icon="b"><EyeOff className="h-[18px] w-[18px]" aria-hidden /></span>
                   </span>
                 </button>
               </InputShell>
@@ -246,22 +280,22 @@ function ResetPasswordInner() {
             </InputWrap>
           </div>
 
-          <div className="rounded-[10px] border border-[var(--cz-border)] bg-[rgba(255,255,255,0.03)] px-3 py-2.5 text-[12px] leading-[17px] text-[var(--cz-text-secondary)]">
-            After reset, you’ll be redirected to login. Existing sessions will be revoked.
-          </div>
-
-          <Button type="submit" disabled={loading} className="w-full">
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
-            {loading ? "Updating..." : "Update password"}
+          <Button type="submit" disabled={loading} size="lg" className="w-full">
+            {loading ? (
+              <Loader2 className="h-[18px] w-[18px] animate-spin" />
+            ) : (
+              <Lock className="h-[18px] w-[18px]" aria-hidden />
+            )}
+            {loading ? "Updating…" : "Update password"}
           </Button>
 
-          <button type="button" onClick={() => setStep(1)} className="text-center text-[13px] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] underline-offset-4 hover:underline">
+          <button
+            type="button"
+            onClick={() => setStep(1)}
+            className="text-center text-[15px] text-[var(--cz-text-secondary)] hover:underline"
+          >
             Back to code entry
           </button>
-
-          <div className="flex items-center justify-center gap-2 text-[11px] tracking-[0.04em] uppercase text-[var(--cz-text-secondary)]/60">
-            <span className="h-px w-8 bg-[var(--cz-border)]" /> Step 3 of 3 <span className="h-px w-8 bg-[var(--cz-border)]" />
-          </div>
         </form>
       )}
     </AuthShell>

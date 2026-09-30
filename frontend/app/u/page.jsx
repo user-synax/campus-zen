@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import Link from "next/link";
 import { Search, Users, Loader2 } from "lucide-react";
 import { UserCard } from "@/components/app/UserCard";
 import { EmptyState } from "@/components/app/EmptyState";
 import { api } from "@/lib/api";
+import { useRequireSession } from "@/lib/hooks/useRequireSession";
 
 export default function UsersDirectoryPage() {
   const [users, setUsers] = useState([]);
@@ -14,24 +14,10 @@ export default function UsersDirectoryPage() {
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [isGuest, setIsGuest] = useState(true);
-  const [me, setMe] = useState(null);
   const observerRef = useRef(null);
   const sentinelRef = useRef(null);
 
-  // detect auth once
-  useEffect(() => {
-    api
-      .me()
-      .then((r) => {
-        setMe(r.data?.user || null);
-        setIsGuest(false);
-      })
-      .catch(() => {
-        setIsGuest(true);
-        setMe(null);
-      });
-  }, []);
+  const { user: me, checking } = useRequireSession();
 
   const fetchPage = useCallback(
     async (p, query, reset = false) => {
@@ -40,7 +26,6 @@ export default function UsersDirectoryPage() {
       try {
         const res = await api.listUsers({ q: query || undefined, page: p, limit: 20 });
         const data = res.data;
-        setIsGuest(Boolean(data.isGuest));
         setHasMore(Boolean(data.hasMore));
         setUsers((prev) => (reset ? data.users : [...prev, ...data.users]));
         setPage(p);
@@ -65,8 +50,6 @@ export default function UsersDirectoryPage() {
   // infinite scroll observer
   useEffect(() => {
     if (!hasMore || loading || loadingMore) return;
-    // guest blur: after 20, don't auto-load more
-    if (isGuest && users.length >= 20) return;
 
     const el = sentinelRef.current;
     if (!el) return;
@@ -81,97 +64,109 @@ export default function UsersDirectoryPage() {
     );
     observerRef.current.observe(el);
     return () => observerRef.current?.disconnect();
-  }, [hasMore, loading, loadingMore, page, q, fetchPage, users.length, isGuest]);
+  }, [hasMore, loading, loadingMore, page, q, fetchPage]);
 
-  const showBlur = isGuest && users.length >= 20;
+  // Signed out: useRequireSession is already redirecting to /login.
+  if (checking || !me) {
+    return (
+      <div className="flex items-center gap-2 px-4 py-10 text-[15px] text-[var(--cz-text-secondary)]">
+        <Loader2 className="h-[18px] w-[18px] animate-spin" aria-hidden />
+        Redirecting to sign in…
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-[20px] font-semibold tracking-[-0.03em]">Students</h1>
-          <p className="text-[13px] leading-[18px] text-[var(--cz-text-secondary)]">Discover students by college, course and year • {isGuest ? "Guest view — 20 + blur" : "Full directory"}</p>
-        </div>
-        <Link href="/signup" className={`${isGuest ? "inline-flex" : "hidden"} items-center justify-center rounded-full bg-[var(--cz-text-primary)] text-[var(--cz-text-inverse)] px-4 h-[36px] text-[13px] font-medium hover:bg-[#ffd9c0] transition-colors shrink-0`}>
-          Join CampusZen
-        </Link>
+    <div>
+      {/* Just a label — same as any other tab. No sticky header. */}
+      <div className="px-4 pt-4 pb-3">
+        <h1 className="text-[20px] leading-6 font-extrabold text-[var(--cz-text-primary)]">
+          Students
+        </h1>
+        <p className="text-[13px] leading-[16px] text-[var(--cz-text-secondary)]">
+          {users.length}
+          {hasMore ? "+" : ""} on CampusZen
+        </p>
       </div>
 
-      <div className="flex items-center gap-2 rounded-[12px] border border-[var(--cz-border)] bg-[var(--cz-surface)] px-3 h-[42px]">
-        <Search className="h-4 w-4 text-[var(--cz-text-secondary)] shrink-0" />
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search by name, username, or bio…"
-          className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 h-full"
-        />
-        {q ? (
-          <button onClick={() => setQ("")} className="text-[12px] font-medium text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)]">
-            Clear
-          </button>
-        ) : null}
+      <div className="border-b border-[var(--cz-border)] px-4 pb-3">
+        <div className="flex h-[44px] items-center gap-3 rounded-full bg-[var(--cz-surface-strong)] px-4 transition-colors focus-within:ring-1 focus-within:ring-[var(--cz-accent)]">
+          <Search
+            className="h-[18px] w-[18px] shrink-0 text-[var(--cz-text-secondary)]"
+            aria-hidden
+          />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search by name, username or bio"
+            aria-label="Search students"
+            className="h-full min-w-0 flex-1 bg-transparent text-[15px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)]"
+          />
+          {q ? (
+            <button
+              onClick={() => setQ("")}
+              className="-mr-1 shrink-0 text-[15px] font-bold text-[var(--cz-accent)] hover:underline"
+            >
+              Clear
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {loading ? (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid gap-3 p-4 sm:grid-cols-2">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)] p-4 animate-pulse">
+            <div
+              key={i}
+              className="rounded-[16px] border border-[var(--cz-border)] p-4 animate-pulse"
+            >
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-[var(--cz-border)]" />
+                <div className="h-10 w-10 rounded-full bg-[var(--cz-skeleton)]" />
                 <div className="flex-1 space-y-2">
-                  <div className="h-3 w-24 rounded bg-[var(--cz-border)]" />
-                  <div className="h-2 w-16 rounded bg-[var(--cz-border)]/60" />
+                  <div className="h-3 w-24 rounded bg-[var(--cz-skeleton)]" />
+                  <div className="h-3 w-16 rounded bg-[var(--cz-skeleton)]" />
                 </div>
               </div>
               <div className="mt-4 space-y-2">
-                <div className="h-2 w-full rounded bg-[var(--cz-border)]/60" />
-                <div className="h-2 w-3/4 rounded bg-[var(--cz-border)]/40" />
+                <div className="h-3 w-full rounded bg-[var(--cz-skeleton)]" />
+                <div className="h-3 w-3/4 rounded bg-[var(--cz-skeleton)]" />
               </div>
             </div>
           ))}
         </div>
       ) : users.length === 0 ? (
-        <EmptyState icon={Users} title={q ? `No results for "${q}"` : "No students yet"} description={q ? "Try a different search term." : "Be the first to join CampusZen — create an account and you’ll appear here."} actionLabel={!q ? "Join" : undefined} actionHref={!q ? "/signup" : undefined} />
+        <EmptyState
+          icon={Users}
+          title={q ? `No results for "${q}"` : "No students yet"}
+          description={
+            q ? "Try a different search term." : "Nobody has signed up yet."
+          }
+        />
       ) : (
-        <div className="relative">
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {users.map((u) => (
-              <UserCard key={u._id} user={u} isOwn={me?.username === u.username} isGuest={isGuest} onFollow={() => {}} />
-            ))}
-          </div>
-
-          {/* guest blur after 20 */}
-          {showBlur ? (
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[280px] bg-gradient-to-t from-[var(--cz-bg)] via-[var(--cz-bg)]/80 to-transparent grid place-items-center p-6">
-              <div className="pointer-events-auto rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)]/90 backdrop-blur p-5 text-center max-w-[420px] shadow-[0_16px_40px_rgba(0,0,0,0.4)]">
-                <h3 className="text-[15px] font-semibold">Join CampusZen to connect</h3>
-                <p className="mt-1.5 text-[13px] leading-[18px] text-[var(--cz-text-secondary)]">You’ve seen 20 students. Log in to see everyone, follow classmates, and get discovered.</p>
-                <div className="mt-4 flex items-center justify-center gap-2">
-                  <Link href="/signup" className="inline-flex items-center justify-center rounded-full bg-[var(--cz-text-primary)] text-[var(--cz-text-inverse)] px-5 h-[36px] text-[13px] font-medium hover:bg-[#ffd9c0] transition-colors">
-                    Join CampusZen
-                  </Link>
-                  <Link href="/login" className="inline-flex items-center justify-center rounded-full border border-[var(--cz-border)] px-5 h-[36px] text-[13px] font-medium hover:bg-[var(--cz-surface)] transition-colors">
-                    Log in
-                  </Link>
-                </div>
-              </div>
-            </div>
-          ) : null}
+        <div className="grid gap-3 p-4 sm:grid-cols-2">
+          {users.map((u) => (
+            <UserCard
+              key={u._id}
+              user={u}
+              isOwn={me.username === u.username}
+              isGuest={false}
+            />
+          ))}
         </div>
       )}
 
-      {/* sentinel for infinite scroll — hidden when guest blur */}
+      {/* sentinel for infinite scroll */}
       <div ref={sentinelRef} className="h-1" aria-hidden />
 
       {loadingMore ? (
-        <div className="flex items-center justify-center gap-2 py-4 text-[13px] text-[var(--cz-text-secondary)]">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading more…
+        <div className="flex items-center justify-center gap-2 py-6 text-[15px] text-[var(--cz-text-secondary)]">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading more
         </div>
-      ) : !showBlur && !hasMore && users.length > 0 ? (
-        <p className="text-center text-[12px] text-[var(--cz-text-secondary)]/60 py-4">You’ve reached the end • {users.length} students</p>
+      ) : !hasMore && users.length > 0 ? (
+        <p className="py-6 text-center text-[13px] text-[var(--cz-text-secondary)]">
+          {users.length} students
+        </p>
       ) : null}
-
-      {!isGuest && hasMore && !showBlur ? <p className="text-center text-[11px] tracking-[0.04em] uppercase text-[var(--cz-text-secondary)]/50">Infinite scroll • optimized 20 / page</p> : null}
     </div>
   );
 }

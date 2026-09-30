@@ -1,11 +1,15 @@
 import { cn } from "@/lib/utils";
 
+/**
+ * DESIGN.md: X never uppercases form labels. Sentence case, 15px, bold,
+ * Ink Black — the same type as everything else in the interface.
+ */
 export function Label({ className, ...props }) {
   return (
     <label
       className={cn(
-        "text-[12px] font-medium tracking-[0.04em] uppercase text-[var(--cz-text-secondary)] leading-none",
-        className
+        "text-[15px] font-bold leading-tight text-[var(--cz-text-primary)]",
+        className,
       )}
       {...props}
     />

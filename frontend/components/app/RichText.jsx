@@ -18,6 +18,10 @@ export function extractMentionsForRender(text) {
   return [...new Set(matches.map((m) => m.slice(1).toLowerCase()))];
 }
 
+// DESIGN.md: "Use #1d9bf0 exclusively for actionable elements: ... links".
+// X Blue, no weight change, no hover underline flip.
+const linkClass = "text-[var(--cz-accent)] hover:underline underline-offset-2";
+
 export function RichText({ text, className = "" }) {
   if (!text) return null;
   const parts = text.split(RICH_SPLIT_REGEX);
@@ -34,7 +38,7 @@ export function RichText({ text, className = "" }) {
               key={i}
               href={`/app/tag/${encodeURIComponent(tag)}`}
               onClick={(e) => e.stopPropagation()}
-              className="text-[var(--cz-muted)] hover:text-[var(--cz-text-primary)] hover:underline underline-offset-4 font-medium"
+              className={linkClass}
             >
               {part}
             </Link>
@@ -47,7 +51,7 @@ export function RichText({ text, className = "" }) {
               key={i}
               href={`/u/${encodeURIComponent(username)}`}
               onClick={(e) => e.stopPropagation()}
-              className="text-[var(--cz-muted)] hover:text-[var(--cz-text-primary)] hover:underline underline-offset-4 font-medium"
+              className={linkClass}
             >
               {part}
             </Link>

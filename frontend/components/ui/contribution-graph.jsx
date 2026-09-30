@@ -43,13 +43,15 @@ const DEFAULT_LABELS = {
 /** Rolling-window label used when data comes from a GitHub username. */
 const ROLLING_TOTAL_LABEL = "{{count}} contributions in the last year";
 
-/** GitHub-style green level ramp, shared by blocks and the legend. */
+/** Five steps of X Blue. This is the only chromatic ramp in the system and
+ *  it is the same accent as every other interactive surface, so the graph
+ *  reads as part of the product rather than a GitHub embed. */
 const LEVEL_CLASSES = cn(
-  'data-[level="0"]:fill-muted',
-  'data-[level="1"]:fill-emerald-200 dark:data-[level="1"]:fill-emerald-900',
-  'data-[level="2"]:fill-emerald-400 dark:data-[level="2"]:fill-emerald-700',
-  'data-[level="3"]:fill-emerald-600 dark:data-[level="3"]:fill-emerald-500',
-  'data-[level="4"]:fill-emerald-800 dark:data-[level="4"]:fill-emerald-300'
+  'data-[level="0"]:fill-[var(--cz-surface-strong)]',
+  'data-[level="1"]:fill-[color-mix(in_srgb,var(--cz-accent)_25%,transparent)]',
+  'data-[level="2"]:fill-[color-mix(in_srgb,var(--cz-accent)_50%,transparent)]',
+  'data-[level="3"]:fill-[color-mix(in_srgb,var(--cz-accent)_75%,transparent)]',
+  'data-[level="4"]:fill-[var(--cz-accent)]'
 );
 
 /** Entrance timing: the muted grid fades in as a canvas, then colored blocks
@@ -273,20 +275,20 @@ const ContributionGraphBlockTooltip = () => {
           : "cubic-bezier(0.22, 1, 0.36, 1), cubic-bezier(0.22, 1, 0.36, 1), ease, cubic-bezier(0.34, 1.56, 0.64, 1)",
       }}
     >
-      <div className="relative rounded-lg border border-white/10 bg-zinc-950 px-2.5 py-1 text-white shadow-[0_8px_26px_-8px_rgba(0,0,0,0.55)] dark:border-black/10 dark:bg-zinc-100 dark:text-zinc-950">
+      <div className="relative rounded-[4px] border border-[var(--cz-border-strong)] bg-[var(--cz-elevated)] px-2.5 py-1 text-[var(--cz-text-primary)] shadow-[var(--shadow-sm)]">
         {payload.content ?? (
           <div className="flex items-baseline gap-1.5 whitespace-nowrap text-[11px] leading-none">
             <span className="font-semibold">
               {formatCommitLabel(payload.activity.count)}
             </span>
-            <span className="text-zinc-400 dark:text-zinc-600">
+            <span className="text-[var(--cz-text-tertiary)]">
               on {formatActivityDate(payload.activity.date)}
             </span>
           </div>
         )}
         <span
           aria-hidden
-          className="absolute top-full left-1/2 -mt-px -translate-x-1/2 border-x-[5px] border-x-transparent border-t-[6px] border-t-zinc-950 dark:border-t-zinc-100"
+          className="absolute top-full left-1/2 -mt-px -translate-x-1/2 border-x-[5px] border-x-transparent border-t-[6px] border-t-[var(--cz-elevated)]"
         />
       </div>
     </div>,

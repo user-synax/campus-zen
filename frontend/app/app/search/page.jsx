@@ -5,13 +5,14 @@ import { useSearchParams, useRouter } from "next/navigation";
 import {
   Search as SearchIcon,
   Users,
-  FileText,
   Loader2,
   X,
 } from "lucide-react";
 import { EmptyState } from "@/components/app/EmptyState";
+import { PageHeader } from "@/components/app/PageHeader";
 import { UserCard } from "@/components/app/UserCard";
 import { PostCard } from "@/components/app/PostCard";
+import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useMe, useSearch } from "@/lib/hooks/queries";
 
@@ -60,38 +61,43 @@ export default function SearchPage() {
   const showPosts = (type === "all" || type === "posts") && posts.length > 0;
 
   return (
-    <div className="mx-auto w-full max-w-[640px] space-y-4">
-      <h1 className="text-[18px] font-semibold tracking-[-0.02em]">Search</h1>
+    <div>
+      <PageHeader title="Search" />
 
-      <div className="flex items-center gap-2 rounded-[12px] border border-[var(--cz-border)] bg-[var(--cz-surface)] px-3 h-[42px] focus-within:border-[var(--cz-muted)] focus-within:shadow-[0_0_0_3px_rgba(125,130,217,0.15)] transition-colors">
-        <SearchIcon className="h-4 w-4 text-[var(--cz-text-secondary)] shrink-0" />
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search students or posts..."
-          autoFocus
-          className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 text-[var(--cz-text-primary)] h-full"
-        />
-        {isPending ? (
-          <Loader2 className="h-4 w-4 animate-spin text-[var(--cz-text-secondary)] shrink-0" />
-        ) : null}
-        {q ? (
-          <button
-            onClick={() => setQ("")}
-            className="grid place-items-center h-7 w-7 rounded-[8px] hover:bg-[rgba(255,206,173,0.08)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] shrink-0"
-            aria-label="Clear"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        ) : (
-          <span className="hidden sm:inline text-[11px] tracking-[0.04em] uppercase text-[var(--cz-text-secondary)]/60 shrink-0">
-            Fast - Indexed
-          </span>
-        )}
+      {/* DESIGN.md — Search Input: mist fill, no visible border, 15px placeholder */}
+      <div className="border-b border-[var(--cz-border)] px-4 py-3">
+        <div className="flex h-[44px] items-center gap-3 rounded-full bg-[var(--cz-surface-strong)] px-4 transition-colors focus-within:ring-1 focus-within:ring-[var(--cz-accent)]">
+          <SearchIcon
+            className="h-[18px] w-[18px] shrink-0 text-[var(--cz-text-secondary)]"
+            aria-hidden
+          />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search students and posts"
+            aria-label="Search CampusZen"
+            className="h-full min-w-0 flex-1 bg-transparent text-[15px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)]"
+          />
+          {isPending ? (
+            <Loader2
+              className="h-4 w-4 shrink-0 animate-spin text-[var(--cz-text-secondary)]"
+              aria-hidden
+            />
+          ) : null}
+          {q ? (
+            <button
+              onClick={() => setQ("")}
+              className="-mr-1 grid h-[28px] w-[28px] shrink-0 place-items-center rounded-full text-[var(--cz-text-secondary)] transition-colors hover:bg-[var(--cz-border)] hover:text-[var(--cz-text-primary)]"
+              aria-label="Clear search"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {showTabs ? (
-        <div className="flex items-center gap-1 border-b border-[var(--cz-border)] overflow-x-auto scrollbar-none">
+        <div className="flex border-b border-[var(--cz-border)]">
           {[
             { id: "all", label: "All" },
             { id: "users", label: "Students" },
@@ -100,13 +106,21 @@ export default function SearchPage() {
           ].map((t) => (
             <button
               key={t.id}
+              role="tab"
               onClick={() => setType(t.id)}
               aria-selected={type === t.id}
-              className={`relative whitespace-nowrap px-3 sm:px-4 h-[36px] text-[13px] font-medium tracking-[-0.01em] transition-colors shrink-0 ${type === t.id ? "text-[var(--cz-text-primary)]" : "text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)]"}`}
+              className={`relative h-[52px] flex-1 cursor-pointer text-[15px] font-medium transition-colors ${
+                type === t.id
+                  ? "font-bold text-[var(--cz-text-primary)]"
+                  : "text-[var(--cz-text-secondary)] hover:bg-[var(--cz-surface-strong)] hover:text-[var(--cz-text-primary)]"
+              }`}
             >
               {t.label}
               {type === t.id ? (
-                <span className="absolute bottom-0 left-2 right-2 h-[2px] rounded-full bg-[var(--cz-text-primary)]" />
+                <span
+                  aria-hidden
+                  className="absolute inset-x-0 bottom-0 h-[2px] bg-[var(--cz-accent)]"
+                />
               ) : null}
             </button>
           ))}
@@ -114,115 +128,87 @@ export default function SearchPage() {
       ) : null}
 
       {isHashtagSearch && hashtagTag ? (
-        <a
+        <Link
           href={`/app/tag/${encodeURIComponent(hashtagTag)}`}
-          className="flex items-center justify-between gap-3 rounded-[12px] border border-[var(--cz-border)] bg-[rgba(125,130,217,0.08)] px-3 h-[44px] text-[13px] hover:border-[var(--cz-border-strong)] transition-colors"
+          className="flex items-center justify-between gap-3 border-b border-[var(--cz-border)] px-4 py-3 text-[15px] transition-colors hover:bg-[var(--cz-surface-strong)]"
         >
-          <span className="truncate">
+          <span className="truncate text-[var(--cz-text-secondary)]">
             View all posts tagged{" "}
-            <span className="font-semibold text-[var(--cz-text-primary)]">
+            <span className="font-bold text-[var(--cz-accent)]">
               #{hashtagTag}
             </span>
           </span>
-          <span className="shrink-0 text-[11px] uppercase tracking-[0.06em] text-[var(--cz-text-secondary)]">
-            Open tag -&gt;
+          <span className="shrink-0 text-[15px] font-bold text-[var(--cz-accent)]">
+            Open
           </span>
-        </a>
+        </Link>
       ) : null}
 
       {!debouncedQ ? (
-        <>
-          <EmptyState
-            icon={Users}
-            title="Search CampusZen"
-            description="Find students by name, username, college or course, and posts by text (up to 500 chars). Results are optimized with lean queries + indexes."
-          />
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div className="rounded-[12px] border border-[var(--cz-border)] bg-[rgba(255,255,255,0.02)] p-4">
-              <h3 className="text-[13px] font-medium">Students</h3>
-              <p className="mt-1 text-[12px] leading-[16px] text-[var(--cz-text-secondary)]">
-                Weighted text index: username 10, fullName 5, bio/college 2.
-              </p>
-            </div>
-            <div className="rounded-[12px] border border-[var(--cz-border)] bg-[rgba(255,255,255,0.02)] p-4">
-              <h3 className="text-[13px] font-medium">Posts</h3>
-              <p className="mt-1 text-[12px] leading-[16px] text-[var(--cz-text-secondary)]">
-                Regex on text with author populate, isLiked flags for you.
-              </p>
-            </div>
-          </div>
-        </>
+        <EmptyState
+          icon={Users}
+          title="Search CampusZen"
+          description="Find students by name, username, college or course, and posts by text."
+        />
       ) : isPending ? (
-        <div className="space-y-3">
-          <div className="grid sm:grid-cols-2 gap-3">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div
-                key={i}
-                className="rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)] p-4 animate-pulse"
-              >
-                <div className="flex gap-3">
-                  <div className="h-9 w-9 rounded-full bg-[var(--cz-border)]" />
-                  <div className="flex-1 space-y-2">
-                    <div className="h-3 w-24 rounded bg-[var(--cz-border)]" />
-                    <div className="h-2 w-16 rounded bg-[var(--cz-border)]/60" />
-                  </div>
+        <div>
+          <div className="border-b border-[var(--cz-border)] px-4 py-2 text-[15px] font-bold text-[var(--cz-text-primary)]">
+            Students
+          </div>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="cz-row animate-pulse px-4 py-3">
+              <div className="flex gap-3">
+                <div className="h-10 w-10 shrink-0 rounded-full bg-[var(--cz-skeleton)]" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-3 w-32 rounded bg-[var(--cz-skeleton)]" />
+                  <div className="h-3 w-20 rounded bg-[var(--cz-skeleton)]" />
                 </div>
               </div>
-            ))}
-          </div>
-          <div className="space-y-3">
-            {Array.from({ length: 2 }).map((_, i) => (
-              <div
-                key={i}
-                className="rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)] p-4 animate-pulse"
-              >
-                <div className="h-4 w-3/4 rounded bg-[var(--cz-border)]" />
-                <div className="h-3 w-full rounded bg-[var(--cz-border)]/60 mt-3" />
-              </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       ) : isEmpty ? (
         <EmptyState
           icon={SearchIcon}
           title={`No results for "${debouncedQ}"`}
-          description="Try a different term or check spelling. Search is case-insensitive and matches username, name, bio, college, course and post text."
+          description="Try a different term or check the spelling. Search matches username, name, bio, college, course and post text."
         />
       ) : (
-        <div className="space-y-6">
+        <div>
           {showColleges ? (
-            <div className="space-y-3">
-              <h2 className="text-[12px] font-semibold tracking-[0.06em] uppercase text-[var(--cz-text-secondary)]">
-                Colleges - {colleges.length}
+            <div>
+              <h2 className="border-b border-[var(--cz-border)] px-4 py-2 text-[15px] font-bold text-[var(--cz-text-primary)]">
+                Colleges
               </h2>
-              <div className="grid sm:grid-cols-2 gap-3">
-                {colleges.map((c) => (
-                  <Link
-                    key={c._id || c.slug}
-                    href={`/c/${encodeURIComponent(c.slug)}`}
-                    className="flex items-center gap-3 rounded-[12px] border border-[var(--cz-border)] bg-[var(--cz-surface)] p-3 hover:border-[var(--cz-border-strong)] transition-colors"
-                  >
-                    <span className="grid place-items-center h-10 w-10 rounded-[10px] bg-[var(--cz-surface-strong)] border border-[var(--cz-border)] text-[15px] font-semibold shrink-0">
-                      {(c.name || c.slug || "C").trim().slice(0, 1).toUpperCase()}
+              {colleges.map((c) => (
+                <Link
+                  key={c._id || c.slug}
+                  href={`/c/${encodeURIComponent(c.slug)}`}
+                  className="cz-row flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--cz-surface-strong)]"
+                >
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[var(--cz-surface-strong)] text-[15px] font-bold text-[var(--cz-text-primary)]">
+                    {(c.name || c.slug || "C").trim().slice(0, 1).toUpperCase()}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[15px] font-bold leading-[20px] text-[var(--cz-text-primary)]">
+                      {c.name}
                     </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[13px] font-semibold truncate">{c.name}</span>
-                      <span className="block text-[11px] font-mono text-[var(--cz-text-secondary)] truncate">
-                        /c/{c.slug} - {c.memberCount ?? 0} students
-                      </span>
+                    <span className="block truncate text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">
+                      {c.memberCount ?? 0} student
+                      {c.memberCount === 1 ? "" : "s"}
                     </span>
-                  </Link>
-                ))}
-              </div>
+                  </span>
+                </Link>
+              ))}
             </div>
           ) : null}
 
           {showUsers ? (
-            <div className="space-y-3">
-              <h2 className="text-[12px] font-semibold tracking-[0.06em] uppercase text-[var(--cz-text-secondary)]">
-                Students - {users.length}
+            <div>
+              <h2 className="border-y border-[var(--cz-border)] px-4 py-2 text-[15px] font-bold text-[var(--cz-text-primary)]">
+                Students
               </h2>
-              <div className="grid sm:grid-cols-2 gap-3">
+              <div className="grid gap-3 p-4 sm:grid-cols-2">
                 {users.map((u) => (
                   <UserCard
                     key={u._id}
@@ -236,29 +222,37 @@ export default function SearchPage() {
           ) : null}
 
           {showPosts ? (
-            <div className="space-y-3">
-              <h2 className="text-[12px] font-semibold tracking-[0.06em] uppercase text-[var(--cz-text-secondary)]">
-                Posts - {posts.length}
+            <div>
+              <h2 className="border-y border-[var(--cz-border)] px-4 py-2 text-[15px] font-bold text-[var(--cz-text-primary)]">
+                Posts
               </h2>
-              <div className="space-y-3">
-                {posts.map((p) => (
-                  <PostCard key={p._id} post={p} currentUser={me} />
-                ))}
-              </div>
+              {posts.map((p) => (
+                <PostCard key={p._id} post={p} currentUser={me} />
+              ))}
             </div>
           ) : null}
 
           {hasNextPage ? (
-            <button
-              onClick={() => fetchNextPage()}
-              disabled={isFetchingNextPage}
-              className="w-full rounded-[12px] border border-[var(--cz-border)] bg-transparent h-[40px] text-[13px] font-medium hover:bg-[var(--cz-surface)] transition-colors disabled:opacity-50"
-            >
-              {isFetchingNextPage ? "Loading..." : "Load more"}
-            </button>
+            <div className="p-4">
+              <Button
+                onClick={() => fetchNextPage()}
+                disabled={isFetchingNextPage}
+                variant="secondary"
+                className="w-full"
+              >
+                {isFetchingNextPage ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                    Loading
+                  </>
+                ) : (
+                  "Show more results"
+                )}
+              </Button>
+            </div>
           ) : (
-            <p className="text-center text-[11px] text-[var(--cz-text-secondary)]/60 py-2">
-              End - {users.length + posts.length} results
+            <p className="py-6 text-center text-[13px] text-[var(--cz-text-secondary)]">
+              {users.length + posts.length} results
             </p>
           )}
         </div>

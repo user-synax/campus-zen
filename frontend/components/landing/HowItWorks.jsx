@@ -25,26 +25,23 @@ const steps = [
 
 export function HowItWorks() {
   return (
-    <section className="border-t border-[var(--cz-border)] py-14 sm:py-20">
+    <section className="border-t border-[var(--cz-border)] py-12 sm:py-16">
       <Reveal>
-        <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-[var(--cz-text-secondary)]">
-          How it works
-        </p>
-        <h2 className="mt-4 max-w-[22ch] text-[24px] font-semibold leading-[1.15] tracking-[-0.03em] sm:text-[32px]">
+        <h2 className="max-w-[20ch] text-[28px] leading-[1.15] font-extrabold tracking-[-0.03em] text-[var(--cz-text-primary)] sm:text-[34px]">
           The whole loop, in four steps.
         </h2>
       </Reveal>
-      <div className="mt-10 grid gap-x-10 gap-y-8 sm:grid-cols-2">
+      <div className="mt-8 grid gap-x-10 gap-y-8 sm:grid-cols-2">
         {steps.map(([n, title, desc], i) => (
           <Reveal key={n} delay={i * 0.06}>
-            <div className="border-t border-[var(--cz-border)] pt-5">
-              <p className="text-[12px] font-medium tabular-nums text-[var(--cz-text-secondary)]/70">
+            <div className="border-t border-[var(--cz-border)] pt-4">
+              <p className="text-[13px] font-bold tabular-nums text-[var(--cz-text-tertiary)]">
                 {n}
               </p>
-              <h3 className="mt-2 text-[15px] font-medium tracking-[-0.01em]">
+              <h3 className="mt-1.5 text-[17px] font-bold leading-[21px] text-[var(--cz-text-primary)]">
                 {title}
               </h3>
-              <p className="mt-1.5 max-w-[38ch] text-[13px] leading-[20px] text-[var(--cz-text-secondary)]">
+              <p className="mt-1.5 max-w-[40ch] text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">
                 {desc}
               </p>
             </div>

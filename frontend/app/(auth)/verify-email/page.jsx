@@ -2,7 +2,6 @@
 
 import {
   AlertCircle,
-  ArrowRight,
   Loader2,
   Mail,
   RefreshCw,
@@ -123,43 +122,44 @@ function VerifyEmailInner() {
   return (
     <AuthShell
       title="Verify your email"
-      subtitle={`We sent a 6-digit code to ${masked}. Expires in 10 minutes.`}
+      subtitle={`We sent a 6-digit code to ${masked}. It expires in 10 minutes.`}
     >
       <div className="flex flex-col gap-5">
         {!success ? (
           <>
-            <div className="flex items-center gap-3 rounded-[12px] border border-[var(--cz-border)] bg-[rgba(255,255,255,0.03)] px-3 py-3">
-              <span className="grid place-items-center h-9 w-9 rounded-[10px] bg-[var(--cz-muted)]/15 border border-[var(--cz-muted)]/20 text-[var(--cz-muted)]">
-                <Mail className="h-4 w-4" />
+            <div className="flex items-center gap-3 rounded-[16px] border border-[var(--cz-border)] p-4">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[var(--cz-accent-soft)] text-[var(--cz-accent)]">
+                <Mail className="h-[18px] w-[18px]" aria-hidden />
               </span>
-              <div className="min-w-0">
-                <div className="text-[13px] font-medium leading-none text-[var(--cz-text-primary)] truncate">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[15px] font-bold leading-[20px] text-[var(--cz-text-primary)]">
                   {email || "you@gmail.com"}
-                </div>
-                <div className="text-[11px] tracking-wide text-[var(--cz-text-secondary)] mt-1">
-                  Code expires in 10 minutes • 5 attempts max
-                </div>
+                </p>
+                <p className="text-[13px] leading-[16px] text-[var(--cz-text-secondary)]">
+                  5 attempts max
+                </p>
               </div>
-              <span className="ml-auto hidden sm:inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-[11px] font-medium text-emerald-300">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />{" "}
+              <span className="inline-flex shrink-0 items-center gap-1.5 text-[13px] text-[var(--cz-success)]">
+                <span
+                  className="h-2 w-2 animate-pulse rounded-full bg-[var(--cz-success)]"
+                  aria-hidden
+                />
                 Sent
               </span>
             </div>
 
             {info ? (
-              <div className="rounded-[10px] border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[13px] text-emerald-300">
+              <div className="rounded-[4px] bg-[var(--cz-accent-soft)] px-3 py-2 text-[15px] leading-[20px] text-[var(--cz-accent)]">
                 {info}
               </div>
             ) : null}
 
-            <form onSubmit={onVerify} className="flex flex-col gap-4">
+            <form onSubmit={onVerify} className="flex flex-col gap-5">
               <div
                 className={shake ? "is-shaking" : ""}
                 style={{ willChange: "transform" }}
               >
-                <div
-                  className={`${shake ? "t-input is-shaking" : ""} rounded-[10px]`}
-                >
+                <div className={shake ? "t-input is-shaking" : ""}>
                   <OtpInput
                     value={otp}
                     onChange={(v) => {
@@ -171,11 +171,11 @@ function VerifyEmailInner() {
                   />
                 </div>
                 {error ? (
-                  <p className="mt-2 flex items-center gap-1.5 text-[12px] leading-[16px] text-[var(--cz-error)]">
-                    <AlertCircle className="h-3.5 w-3.5" /> {error}
+                  <p className="mt-2 flex items-center gap-1.5 text-[15px] leading-[20px] text-[var(--cz-error)]">
+                    <AlertCircle className="h-4 w-4" aria-hidden /> {error}
                   </p>
                 ) : (
-                  <p className="mt-2 text-[12px] leading-[16px] text-[var(--cz-text-secondary)]/70">
+                  <p className="mt-2 text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">
                     Didn&apos;t get a code? Check spam or resend.
                   </p>
                 )}
@@ -184,31 +184,34 @@ function VerifyEmailInner() {
               <Button
                 type="submit"
                 disabled={loading || otp.length !== 6}
+                size="lg"
                 className="w-full"
               >
                 {loading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-[18px] w-[18px] animate-spin" />
                 ) : (
-                  <ShieldCheck className="h-4 w-4" />
+                  <ShieldCheck className="h-[18px] w-[18px]" aria-hidden />
                 )}
-                {loading ? "Verifying..." : "Verify email"}
+                {loading ? "Verifying…" : "Verify email"}
               </Button>
 
-              <div className="flex items-center justify-between text-[13px]">
+              <div className="flex items-center justify-between text-[15px]">
                 <button
                   type="button"
                   onClick={onResend}
                   disabled={!canResend}
-                  className={`inline-flex items-center gap-1.5 font-medium transition-colors ${canResend ? "text-[var(--cz-text-primary)] hover:text-[var(--cz-muted)]" : "text-[var(--cz-text-secondary)]/60 cursor-not-allowed"}`}
+                  className={`inline-flex items-center gap-1.5 font-bold transition-colors ${
+                    canResend
+                      ? "text-[var(--cz-accent)] hover:underline"
+                      : "cursor-not-allowed text-[var(--cz-text-secondary)]"
+                  }`}
                 >
-                  <RefreshCw
-                    className={`h-3.5 w-3.5 ${canResend ? "" : "opacity-60"}`}
-                  />
+                  <RefreshCw className="h-4 w-4" aria-hidden />
                   {canResend ? "Resend code" : `Resend in ${resendIn}s`}
                 </button>
                 <Link
                   href="/signup"
-                  className="text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] underline-offset-4 hover:underline"
+                  className="text-[var(--cz-text-secondary)] hover:underline"
                 >
                   Change email
                 </Link>
@@ -216,9 +219,9 @@ function VerifyEmailInner() {
             </form>
           </>
         ) : (
-          <div className="flex flex-col items-center text-center py-2">
+          <div className="flex flex-col items-center py-2 text-center">
             <span
-              className="t-success-check grid place-items-center h-14 w-14 rounded-full bg-emerald-500/15 border border-emerald-500/20"
+              className="t-success-check grid h-14 w-14 place-items-center rounded-full border border-[var(--cz-border-strong)]"
               data-state="in"
               aria-hidden
             >
@@ -226,7 +229,7 @@ function VerifyEmailInner() {
                 viewBox="0 0 24 24"
                 className="h-7 w-7"
                 fill="none"
-                stroke="rgb(52 211 153)"
+                stroke="var(--cz-success)"
                 strokeWidth="2.2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -234,31 +237,25 @@ function VerifyEmailInner() {
                 <path d="M5 13l4 4L19 7" />
               </svg>
             </span>
-            <h3 className="mt-4 text-[16px] font-semibold tracking-[-0.02em] text-[var(--cz-text-primary)]">
-              Email verified!
+            <h3 className="mt-5 text-[23px] leading-6 font-extrabold text-[var(--cz-text-primary)]">
+              Email verified
             </h3>
-            <p className="mt-1.5 text-[13px] leading-[19px] text-[var(--cz-text-secondary)]">
-              Your account is ready. Redirecting you to the app...
+            <p className="mt-2 max-w-[32ch] text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">
+              Your account is ready. Taking you to CampusZen…
             </p>
-            <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-[var(--cz-border)] bg-[rgba(255,255,255,0.04)] px-3 py-1.5 text-[12px] text-[var(--cz-text-secondary)]">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Taking you to the
-              app
-              <ArrowRight className="h-3.5 w-3.5" />
-            </div>
           </div>
         )}
 
-        <div className="border-t border-[var(--cz-border)] pt-4 flex items-center justify-center gap-4 text-[12px]">
+        <div className="flex items-center justify-center gap-4 border-t border-[var(--cz-border)] pt-5 text-[15px]">
           <Link
             href="/login"
-            className="text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] underline-offset-4 hover:underline"
+            className="text-[var(--cz-text-secondary)] hover:underline"
           >
-            Back to login
+            Back to sign in
           </Link>
-          <span className="h-3 w-px bg-[var(--cz-border)]" />
           <Link
             href="/signup"
-            className="text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] underline-offset-4 hover:underline"
+            className="text-[var(--cz-text-secondary)] hover:underline"
           >
             Create account
           </Link>

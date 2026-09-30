@@ -1,143 +1,191 @@
 "use client";
 
-import { Bell, Bookmark, Home, Plus, School, Search, User, Users } from "lucide-react";
+import {
+  Bell,
+  Bookmark,
+  Home,
+  MoreHorizontal,
+  Plus,
+  School,
+  Search,
+  User,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatedNumber } from "@/components/app/AnimatedNumber";
+import { ThemeToggle } from "@/components/app/ThemeToggle";
 import { BrandMark } from "@/components/BrandLogo";
 import { useUnreadCount } from "@/lib/hooks/queries";
-import { useSSE } from "@/lib/hooks/useSSE";
 import { cn } from "@/lib/utils";
 
-// Single instance — icon rail on md, full labels on lg via CSS only.
-// Active style matches BottomNav: quiet tint, no solid fill.
+/**
+ * The expanded X sidebar.
+ *
+ * Width comes from the shell grid, not from here: 72px of icons on md, a
+ * full 275px with labels from lg up. One DOM tree — the label is just
+ * hidden below lg, so there is no duplicate nav to keep in sync.
+ */
 const items = [
   { href: "/app", label: "Home", icon: Home, exact: true },
   { href: "/app/search", label: "Search", icon: Search },
-  { href: "/u", label: "Discover", icon: Users },
-  { href: "/c", label: "Colleges", icon: School },
+  { href: "/u", label: "Students", icon: Users, exact: true },
+  { href: "/c", label: "Colleges", icon: School, exact: true },
   { href: "/app/bookmarks", label: "Bookmarks", icon: Bookmark },
-  { href: "/app/notifications", label: "Notifications", icon: Bell },
+  { href: "/app/notifications", label: "Notifications", icon: Bell, badge: true },
   { href: "/app/profile", label: "Profile", icon: User },
 ];
 
-const createItem = { href: "/app/create", label: "Create Post", icon: Plus };
-
-const linkBase =
-  "flex items-center gap-3 rounded-[12px] h-10 text-[14px] font-medium tracking-[-0.01em] transition-colors w-11 justify-center px-0 lg:w-full lg:justify-start lg:px-3";
-
-export function LeftNav() {
+export function LeftNav({ user }) {
   const pathname = usePathname();
   const { data } = useUnreadCount();
   const unread = data?.data?.count ?? 0;
-  useSSE();
 
   const isActive = (it) =>
     it.exact ? pathname === it.href : pathname.startsWith(it.href);
-  const idle =
-    "text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] hover:bg-[rgba(255,206,173,0.05)]";
-  const active = "bg-[rgba(255,206,173,0.08)] text-[var(--cz-text-primary)]";
 
   return (
-    <nav aria-label="Primary" className="flex flex-col gap-1">
-      {items.slice(0, 4).map((it) => {
-        const on = isActive(it);
-        return (
-          <Link
-            key={it.href}
-            href={it.href}
-            aria-label={it.label}
-            aria-current={on ? "page" : undefined}
-            className={cn(linkBase, on ? active : idle)}
-          >
-            <it.icon className="h-[18px] w-[18px] shrink-0" aria-hidden />
-            <span className="hidden lg:inline">{it.label}</span>
-          </Link>
-        );
-      })}
-
-      {/* Create — the single primary action */}
+    <div className="flex h-full min-h-0 flex-col px-2 lg:px-3">
       <Link
-        href={createItem.href}
-        aria-label={createItem.label}
-        className="flex items-center justify-center lg:justify-center gap-2 rounded-[12px] h-10 text-[14px] font-medium tracking-[-0.01em] transition-colors bg-[var(--cz-text-primary)] text-[var(--cz-text-inverse)] hover:bg-[#ffd9c0] w-11 px-0 lg:w-full lg:px-3"
+        href="/app"
+        aria-label="CampusZen home"
+        className="my-1 grid h-[50px] w-[50px] shrink-0 place-items-center rounded-full transition-opacity hover:opacity-70"
       >
-        <createItem.icon className="h-[18px] w-[18px] shrink-0" aria-hidden />
-        <span className="hidden lg:inline">{createItem.label}</span>
+        <BrandMark size={30} priority />
       </Link>
 
-      {items.slice(4).map((it) => {
-        const on = isActive(it);
-        const isNotif = it.href === "/app/notifications";
-        return (
-          <Link
-            key={it.href}
-            href={it.href}
-            aria-label={it.label}
-            aria-current={on ? "page" : undefined}
-            className={cn(linkBase, on ? active : idle)}
-          >
-            <span className="relative grid place-items-center shrink-0">
-              <it.icon className="h-[18px] w-[18px]" aria-hidden />
-              {isNotif && unread > 0 ? (
-                <span className="absolute -top-1 -right-1 grid place-items-center min-w-[16px] h-[16px] rounded-full bg-[var(--cz-error)] px-1 text-[10px] font-bold leading-none text-white lg:hidden">
-                  <AnimatedNumber
-                    value={unread > 99 ? "99+" : unread}
-                    className="text-[10px]"
-                  />
-                </span>
-              ) : null}
-            </span>
-            <span className="hidden lg:inline">{it.label}</span>
-            {isNotif && unread > 0 ? (
-              <span className="ml-auto hidden lg:inline-flex min-w-[20px] items-center justify-center rounded-full bg-[var(--cz-error)] px-1.5 text-[11px] font-bold leading-[20px] text-white">
-                <AnimatedNumber value={unread > 99 ? "99+" : unread} />
-              </span>
-            ) : null}
-          </Link>
-        );
-      })}
-    </nav>
+      <nav aria-label="Primary" className="flex min-h-0 flex-1 flex-col">
+        <ul className="min-h-0 overflow-y-auto scrollbar-none">
+          {items.map((it) => {
+            const on = isActive(it);
+            return (
+              <li key={it.href}>
+                <Link
+                  href={it.href}
+                  aria-label={it.label}
+                  aria-current={on ? "page" : undefined}
+                  className={cn(
+                    "group flex h-[50px] cursor-pointer items-center gap-5 rounded-full px-4 transition-colors duration-150",
+                    on
+                      ? "font-bold text-[var(--cz-accent)]"
+                      : "text-[var(--cz-text-primary)] hover:bg-[var(--cz-surface-strong)]",
+                  )}
+                >
+                  <span className="relative grid shrink-0 place-items-center">
+                    <it.icon
+                      className="h-[26px] w-[26px]"
+                      strokeWidth={on ? 2.2 : 1.9}
+                      aria-hidden
+                    />
+                    {it.badge && unread > 0 ? (
+                      <span className="pointer-events-none absolute -top-1 -right-2 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-[var(--cz-accent)] px-1 text-[11px] leading-none font-bold text-[var(--cz-text-inverse)] ring-2 ring-[var(--cz-bg)]">
+                        <AnimatedNumber
+                          value={unread > 99 ? "99+" : unread}
+                          className="text-[11px]"
+                        />
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="hidden truncate text-[20px] leading-none lg:inline">
+                    {it.label}
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+
+        {/* The one filled control in the rail. Achromatic so it never
+            competes with X Blue for "this is a link" signalling. */}
+        <Link
+          href="/app/create"
+          aria-label="Create post"
+          className="mt-3 flex h-[52px] shrink-0 cursor-pointer items-center justify-center gap-2 rounded-full bg-[var(--cz-text-primary)] px-6 text-[17px] font-extrabold text-[var(--cz-brand-contrast)] transition-opacity hover:opacity-90"
+        >
+          <Plus className="h-[22px] w-[22px] shrink-0" strokeWidth={2.4} aria-hidden />
+          <span className="hidden lg:inline">Post</span>
+        </Link>
+      </nav>
+
+      {/* theme + account sit at the very bottom, like X */}
+      <div className="flex shrink-0 flex-col gap-0.5 pb-2">
+        <ThemeToggle
+          side="right"
+          className="flex h-[50px] items-center gap-5 rounded-full px-4 text-[20px] leading-none font-bold transition-colors duration-150 lg:justify-start"
+        />
+        {user ? <LeftUserCard user={user} /> : null}
+      </div>
+    </div>
   );
 }
 
-export function LeftBrand() {
-  return (
-    <Link
-      href="/app"
-      aria-label="CampusZen home"
-      className="inline-flex items-center gap-2.5 justify-center lg:justify-start"
-    >
-      <BrandMark size={32} />
-      <span className="hidden text-[14px] font-semibold leading-none tracking-[-0.03em] text-[var(--cz-text-primary)] lg:block">
-        campuszen
-      </span>
-    </Link>
-  );
-}
-
-export function LeftUserCard({ user }) {
-  if (!user) return null;
+function Avatar({ user, size = 40 }) {
   const initials = (user.fullName || user.username || "U")
     .trim()
     .slice(0, 1)
     .toUpperCase();
   return (
-    <Link
-      href="/app/profile"
-      className="flex items-center justify-center gap-2.5 rounded-[12px] px-1 py-1.5 transition-colors hover:bg-[rgba(255,206,173,0.05)] lg:justify-start lg:px-2"
+    <span
+      className="grid shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] font-bold text-[var(--cz-text-primary)]"
+      style={{ height: size, width: size, fontSize: size * 0.36 }}
     >
-      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[var(--cz-muted)] text-[12px] font-semibold text-white">
-        {initials}
-      </span>
-      <span className="hidden min-w-0 flex-1 lg:block">
-        <span className="block truncate text-[13px] font-medium leading-tight text-[var(--cz-text-primary)]">
-          {user.fullName || user.username}
+      {user.avatarUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={user.avatarUrl}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        initials
+      )}
+    </span>
+  );
+}
+
+export function LeftUserCard({ user }) {
+  if (!user) return null;
+  return (
+    <div className="flex items-center gap-3 rounded-full px-2 py-1.5 transition-colors hover:bg-[var(--cz-surface-strong)] lg:px-3">
+      <Link
+        href="/app/profile"
+        aria-label={`Your profile, @${user.username}`}
+        className="flex min-w-0 flex-1 items-center gap-3"
+      >
+        <Avatar user={user} />
+        <span className="hidden min-w-0 lg:block">
+          <span className="block truncate text-[15px] leading-tight font-bold text-[var(--cz-text-primary)]">
+            {user.fullName || user.username}
+          </span>
+          <span className="block truncate text-[15px] leading-tight text-[var(--cz-text-secondary)]">
+            @{user.username}
+          </span>
         </span>
-        <span className="block truncate text-[12px] leading-tight text-[var(--cz-text-secondary)]">
-          @{user.username}
-        </span>
-      </span>
+      </Link>
+      <Link
+        href="/app/menu"
+        aria-label="More options and settings"
+        className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-full text-[var(--cz-text-primary)] transition-colors hover:bg-[var(--cz-border)]"
+      >
+        <MoreHorizontal className="h-[18px] w-[18px]" aria-hidden />
+      </Link>
+    </div>
+  );
+}
+
+export function LeftBrand({ className }) {
+  return (
+    <Link
+      href="/app"
+      aria-label="CampusZen home"
+      className={cn(
+        "grid h-[50px] w-[50px] shrink-0 place-items-center rounded-full transition-opacity hover:opacity-70",
+        className,
+      )}
+    >
+      <BrandMark size={30} priority />
     </Link>
   );
 }

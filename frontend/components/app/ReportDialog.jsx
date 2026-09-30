@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Flag, Loader2 } from "lucide-react";
+import { CheckCircle2, Flag, Loader2, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
@@ -50,7 +50,7 @@ export function ReportDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center p-3 sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-label="Report"
@@ -58,46 +58,60 @@ export function ReportDialog({
       <button
         aria-label="Close"
         onClick={onClose}
-        className="absolute inset-0 border-0 bg-black/60 backdrop-blur-[1px]"
+        className="absolute inset-0 cursor-default border-0 bg-[var(--cz-overlay)] backdrop-blur-[2px]"
+        tabIndex={-1}
       />
-      <div className="relative w-full max-w-[420px] rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)] p-5 shadow-[0_16px_40px_rgba(0,0,0,0.5)]">
+      <div className="t-modal is-open relative w-full max-w-[440px] overflow-hidden rounded-t-[16px] border border-[var(--cz-border)] bg-[var(--cz-elevated)] sm:rounded-[16px] shadow-[var(--shadow-sm)]">
         {done ? (
-          <div className="flex flex-col items-center py-4 text-center">
-            <span className="grid h-12 w-12 place-items-center rounded-full border border-emerald-500/20 bg-emerald-500/15">
-              <CheckCircle2 className="h-6 w-6 text-emerald-400" />
+          <div className="flex flex-col items-center px-6 py-10 text-center">
+            <span className="grid h-12 w-12 place-items-center rounded-full border border-[var(--cz-border-strong)]">
+              <CheckCircle2
+                className="h-6 w-6 text-[var(--cz-success)]"
+                strokeWidth={1.8}
+                aria-hidden
+              />
             </span>
-            <h3 className="mt-3 text-[15px] font-semibold tracking-[-0.02em]">
+            <h3 className="mt-4 text-[20px] font-extrabold leading-6 text-[var(--cz-text-primary)]">
               Report submitted
             </h3>
-            <p className="mt-1 text-[13px] leading-[19px] text-[var(--cz-text-secondary)]">
+            <p className="mt-2 text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">
               Thanks for keeping CampusZen safe. You won&apos;t see this{" "}
               {targetType} anymore.
             </p>
           </div>
         ) : (
           <form onSubmit={submit}>
-            <h3 className="flex items-center gap-2 text-[15px] font-semibold tracking-[-0.02em]">
-              <Flag className="h-4 w-4 text-[var(--cz-text-secondary)]" />{" "}
-              Report {targetType}
-            </h3>
-            {targetLabel ? (
-              <p className="mt-1 truncate text-[12px] text-[var(--cz-text-secondary)]">
-                {targetLabel}
-              </p>
-            ) : null}
+            <div className="flex items-start justify-between gap-3 border-b border-[var(--cz-border)] px-4 py-3">
+              <h3 className="text-[20px] leading-6 font-extrabold text-[var(--cz-text-primary)]">
+                Report {targetType}
+                {targetLabel ? (
+                  <span className="mt-0.5 block truncate text-[15px] font-normal leading-[20px] text-[var(--cz-text-secondary)]">
+                    {targetLabel}
+                  </span>
+                ) : null}
+              </h3>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close"
+                className="-mr-1 grid h-[34px] w-[34px] shrink-0 place-items-center rounded-full text-[var(--cz-text-secondary)] transition-colors hover:bg-[var(--cz-surface-strong)] hover:text-[var(--cz-text-primary)]"
+              >
+                <X className="h-[18px] w-[18px]" aria-hidden />
+              </button>
+            </div>
 
             <div
-              className="mt-4 flex flex-col gap-1"
+              className="flex flex-col gap-1 px-4 py-3"
               role="radiogroup"
               aria-label="Reason"
             >
               {REASONS.map(([value, label]) => (
                 <label
                   key={value}
-                  className={`flex cursor-pointer items-center gap-2.5 rounded-[10px] border px-3 py-2 text-[13px] transition-colors ${
+                  className={`flex cursor-pointer items-center gap-2.5 rounded-[4px] px-2 py-2 text-[15px] leading-[20px] transition-colors ${
                     reason === value
-                      ? "border-[var(--cz-muted)]/60 bg-[rgba(125,130,217,0.1)] text-[var(--cz-text-primary)]"
-                      : "border-[var(--cz-border)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] hover:bg-[rgba(255,206,173,0.04)]"
+                      ? "bg-[var(--cz-accent-soft)] text-[var(--cz-text-primary)]"
+                      : "text-[var(--cz-text-secondary)] hover:bg-[var(--cz-surface-strong)] hover:text-[var(--cz-text-primary)]"
                   }`}
                 >
                   <input
@@ -106,44 +120,48 @@ export function ReportDialog({
                     value={value}
                     checked={reason === value}
                     onChange={() => setReason(value)}
-                    className="h-3.5 w-3.5 accent-[#7d82d9]"
+                    className="h-4 w-4 accent-[var(--cz-accent)]"
                   />
                   {label}
                 </label>
               ))}
             </div>
 
-            <textarea
-              value={details}
-              onChange={(e) => setDetails(e.target.value)}
-              maxLength={500}
-              rows={2}
-              placeholder="Anything we should know? (optional)"
-              className="mt-3 w-full rounded-[10px] border border-[var(--cz-border)] bg-[rgba(255,255,255,0.03)] px-3 py-2 text-[13px] leading-[18px] outline-none placeholder:text-[var(--cz-text-secondary)]/50"
-            />
+            <div className="px-4">
+              <textarea
+                value={details}
+                onChange={(e) => setDetails(e.target.value)}
+                maxLength={500}
+                rows={2}
+                placeholder="Anything else we should know? (optional)"
+                className="w-full resize-none rounded-[4px] bg-[var(--cz-surface-strong)] px-3 py-2 text-[15px] leading-[20px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)] focus:ring-1 focus:ring-[var(--cz-accent)]"
+              />
+              {error ? (
+                <p className="mt-2 text-[13px] text-[var(--cz-error)]">{error}</p>
+              ) : null}
+            </div>
 
-            {error ? (
-              <p className="mt-2 text-[12px] text-[var(--cz-error)]">{error}</p>
-            ) : null}
-
-            <div className="mt-4 flex items-center gap-2">
+            <div className="flex items-center gap-3 px-4 py-4">
               <Button
                 type="button"
                 variant="secondary"
                 onClick={onClose}
-                className="h-[38px] flex-1"
+                className="flex-1"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
                 disabled={!reason || loading}
-                className="h-[38px] flex-1"
+                className="flex-1"
               >
                 {loading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  "Submit report"
+                  <>
+                    <Flag className="h-4 w-4" aria-hidden />
+                    Submit
+                  </>
                 )}
               </Button>
             </div>

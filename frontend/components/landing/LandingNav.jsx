@@ -1,32 +1,31 @@
 import Link from "next/link";
+import { ThemeToggle } from "@/components/app/ThemeToggle";
 import { BrandMark } from "@/components/BrandLogo";
 
 export function LandingNav() {
   return (
-    <header className="sticky top-0 z-10 border-b border-[var(--cz-border)] bg-[var(--cz-bg)]/85 backdrop-blur">
-      <div className="mx-auto flex h-[60px] max-w-[960px] items-center justify-between px-4 sm:px-6">
+    <header className="sticky top-0 z-30 border-b border-[var(--cz-border)] bg-[var(--cz-bg)]/85 backdrop-blur">
+      <div className="mx-auto flex h-[53px] max-w-[990px] items-center justify-between px-4">
         <Link
           href="/"
-          className="inline-flex items-center gap-2.5"
+          className="text-[var(--cz-text-primary)] transition-opacity hover:opacity-70"
           aria-label="CampusZen home"
         >
-          <BrandMark size={30} priority />
-          <span className="text-[15px] font-semibold tracking-[-0.03em]">
-            campuszen
-          </span>
+          <BrandMark size={26} title="CampusZen" />
         </Link>
-        <nav className="flex items-center gap-1 sm:gap-2" aria-label="Primary">
+        <nav className="flex items-center gap-1" aria-label="Primary">
+          <ThemeToggle className="h-[36px] w-[36px]" side="bottom" />
           <Link
             href="/login"
-            className="hidden px-3 py-1.5 text-[13px] font-medium text-[var(--cz-text-secondary)] transition-colors hover:text-[var(--cz-text-primary)] sm:inline-flex"
+            className="inline-flex h-[34px] items-center rounded-full px-4 text-[15px] font-bold text-[var(--cz-text-primary)] transition-colors hover:bg-[var(--cz-surface-strong)]"
           >
             Log in
           </Link>
           <Link
             href="/signup"
-            className="inline-flex items-center justify-center rounded-full bg-[var(--cz-text-primary)] px-4 py-1.5 text-[13px] font-medium text-[var(--cz-text-inverse)] transition-colors hover:bg-[#ffd9c0]"
+            className="inline-flex h-[34px] items-center rounded-full bg-[var(--cz-accent)] px-4 text-[15px] font-bold text-[var(--cz-text-inverse)] transition-colors hover:bg-[var(--cz-accent-hover)]"
           >
-            Create account
+            Sign up
           </Link>
         </nav>
       </div>

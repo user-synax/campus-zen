@@ -5,7 +5,6 @@ import {
   Eye,
   EyeOff,
   Loader2,
-  Lock,
   LogIn,
   ShieldAlert,
 } from "lucide-react";
@@ -115,30 +114,27 @@ export default function LoginPage() {
 
   return (
     <GuestGuard>
-      <AuthShell
-        title="Welcome back"
-        subtitle="Log in with your username and password."
-      >
-        <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+      <AuthShell title="Sign in to CampusZen">
+        <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
           {serverMsg ? (
             <div
-              className={`flex items-start gap-2 rounded-[10px] border px-3 py-2.5 text-[13px] leading-[18px] ${
+              className={`flex items-start gap-2 rounded-[4px] px-3 py-2.5 text-[15px] leading-[20px] ${
                 serverMsg.type === "warn"
-                  ? "border-amber-500/20 bg-amber-500/10 text-amber-200"
-                  : "border-[var(--cz-error)]/20 bg-[rgba(255,90,106,0.08)] text-[var(--cz-error)]"
+                  ? "bg-[var(--cz-accent-soft)] text-[var(--cz-accent)]"
+                  : "bg-[color-mix(in_srgb,var(--cz-error)_10%,transparent)] text-[var(--cz-error)]"
               }`}
             >
               {serverMsg.type === "warn" ? (
-                <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5" />
+                <ShieldAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden />
               ) : (
-                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                <AlertCircle className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden />
               )}
               <span>
                 {serverMsg.text}{" "}
                 {serverMsg.type === "warn" && serverMsg.email ? (
                   <Link
                     href={`/verify-email?email=${encodeURIComponent(serverMsg.email)}`}
-                    className="underline underline-offset-4 font-medium"
+                    className="font-bold underline underline-offset-2"
                   >
                     Verify now
                   </Link>
@@ -148,19 +144,17 @@ export default function LoginPage() {
           ) : null}
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="username">
-              Username <span className="text-[var(--cz-error)]">*</span>
-            </Label>
+            <Label htmlFor="username">Username</Label>
             <InputWrap error={!!errors.username}>
               <InputShell error={!!errors.username} shaking={!!shake.username}>
-                <span className="text-[14px] text-[var(--cz-text-secondary)] select-none">
+                <span className="select-none text-[15px] text-[var(--cz-text-secondary)]">
                   @
                 </span>
                 <input
                   ref={userRef}
                   id="username"
                   autoComplete="username"
-                  placeholder="user_synax"
+                  placeholder="username"
                   value={username}
                   onChange={(e) => {
                     setUsername(
@@ -170,7 +164,7 @@ export default function LoginPage() {
                       setErrors((p) => ({ ...p, username: undefined }));
                     setServerMsg(null);
                   }}
-                  className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 text-[var(--cz-text-primary)] h-full"
+                  className="h-full flex-1 bg-transparent text-[15px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)]"
                 />
               </InputShell>
               <ErrorMsg>{errors.username}</ErrorMsg>
@@ -179,25 +173,22 @@ export default function LoginPage() {
 
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between">
-              <Label htmlFor="password">
-                Password <span className="text-[var(--cz-error)]">*</span>
-              </Label>
+              <Label htmlFor="password">Password</Label>
               <Link
                 href="/forgot-password"
-                className="text-[12px] font-medium text-[var(--cz-muted)] hover:text-[#9aa0ff] underline-offset-4 hover:underline"
+                className="text-[15px] font-bold text-[var(--cz-accent)] hover:underline"
               >
                 Forgot password?
               </Link>
             </div>
             <InputWrap error={!!errors.password}>
               <InputShell error={!!errors.password} shaking={!!shake.password}>
-                <Lock className="h-4 w-4 text-[var(--cz-text-secondary)] shrink-0" />
                 <input
                   ref={pwRef}
                   id="password"
                   type={showPw ? "text" : "password"}
                   autoComplete="current-password"
-                  placeholder="••••••••"
+                  placeholder="Password"
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
@@ -205,20 +196,20 @@ export default function LoginPage() {
                       setErrors((p) => ({ ...p, password: undefined }));
                     setServerMsg(null);
                   }}
-                  className="flex-1 bg-transparent outline-none text-[14px] placeholder:text-[var(--cz-text-secondary)]/50 text-[var(--cz-text-primary)] h-full"
+                  className="h-full flex-1 bg-transparent text-[15px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)]"
                 />
                 <button
                   type="button"
                   aria-label={showPw ? "Hide password" : "Show password"}
                   onClick={() => setShowPw((v) => !v)}
-                  className="grid place-items-center h-7 w-7 rounded-[8px] hover:bg-[rgba(255,206,173,0.08)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] transition-colors"
+                  className="-mr-1 grid h-[32px] w-[32px] place-items-center rounded-full text-[var(--cz-text-secondary)] transition-colors hover:bg-[var(--cz-border)] hover:text-[var(--cz-text-primary)]"
                 >
                   <span className="t-icon-swap" data-state={showPw ? "b" : "a"}>
                     <span className="t-icon" data-icon="a">
-                      <Eye className="h-4 w-4" />
+                      <Eye className="h-[18px] w-[18px]" aria-hidden />
                     </span>
                     <span className="t-icon" data-icon="b">
-                      <EyeOff className="h-4 w-4" />
+                      <EyeOff className="h-[18px] w-[18px]" aria-hidden />
                     </span>
                   </span>
                 </button>
@@ -227,34 +218,29 @@ export default function LoginPage() {
             </InputWrap>
           </div>
 
-          <div className="flex items-center justify-between pt-1">
-            <Checkbox
-              id="remember"
-              checked={remember}
-              onChange={setRemember}
-              label="Remember me"
-            />
-            <span className="hidden sm:inline text-[11px] tracking-[0.04em] uppercase text-[var(--cz-text-secondary)]/60">
-              Secure • HTTP-only
-            </span>
-          </div>
+          <Checkbox
+            id="remember"
+            checked={remember}
+            onChange={setRemember}
+            label="Remember me"
+          />
 
-          <Button type="submit" disabled={loading} className="mt-1 w-full">
+          <Button type="submit" disabled={loading} size="lg" className="w-full">
             {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-[18px] w-[18px] animate-spin" />
             ) : (
-              <LogIn className="h-4 w-4" />
+              <LogIn className="h-[18px] w-[18px]" aria-hidden />
             )}
-            {loading ? "Logging in..." : "Log in"}
+            {loading ? "Signing in…" : "Sign in"}
           </Button>
 
-          <p className="text-center text-[13px] leading-[18px] text-[var(--cz-text-secondary)]">
+          <p className="text-center text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">
             Don&apos;t have an account?{" "}
             <Link
               href="/signup"
-              className="font-medium text-[var(--cz-text-primary)] underline decoration-[var(--cz-border-strong)] underline-offset-4 hover:decoration-[var(--cz-text-primary)]"
+              className="font-bold text-[var(--cz-accent)] hover:underline"
             >
-              Create one
+              Sign up
             </Link>
           </p>
         </form>

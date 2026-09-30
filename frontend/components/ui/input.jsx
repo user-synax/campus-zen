@@ -1,29 +1,43 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import { forwardRef } from "react";
+import { cn } from "@/lib/utils";
 
-export const Input = forwardRef(({ className, type = "text", error, ...props }, ref) => {
-  return (
+/**
+ * DESIGN.md — Search Input: "Rounded input with 4px radius, #eff3f4
+ * background, padding 8px 12px, placeholder text 15px #536471. No visible
+ * border. On focus, adds inset shadow rgba(0,0,0,0.03)."
+ */
+export const Input = forwardRef(
+  ({ className, type = "text", error, ...props }, ref) => (
     <input
       ref={ref}
       type={type}
       data-error={error ? "true" : "false"}
       className={cn(
-        "flex h-[42px] w-full rounded-[10px] cz-input px-3 py-2 text-[14px] leading-none tracking-[-0.01em] placeholder:text-[var(--cz-text-secondary)]/55 text-[var(--cz-text-primary)] outline-none transition-all duration-150 disabled:opacity-45 disabled:cursor-not-allowed",
-        "focus-visible:border-[var(--cz-border)] focus-visible:shadow-[0_0_0_3px_rgba(125,130,217,0.18)]",
-        error && "border-[var(--cz-error)]! shadow-[0_0_0_3px_rgba(255,90,106,0.12)]!",
-        className
+        "flex h-[44px] w-full rounded-[4px] bg-[var(--cz-surface-strong)] px-3 py-2 text-[15px] leading-[20px] text-[var(--cz-text-primary)] outline-none transition-colors duration-150",
+        "placeholder:text-[var(--cz-text-secondary)]",
+        "hover:bg-[var(--cz-mist-hover)] focus:bg-[var(--cz-surface-strong)] focus:ring-1 focus:ring-[var(--cz-accent)]",
+        "disabled:opacity-45 disabled:cursor-not-allowed",
+        error &&
+          "border border-[var(--cz-error)]! ring-[3px]! ring-[color-mix(in_srgb,var(--cz-error)_18%,transparent)]! focus:ring-[color-mix(in_srgb,var(--cz-error)_25%,transparent)]!",
+        className,
       )}
       {...props}
     />
-  );
-});
+  ),
+);
 Input.displayName = "Input";
 
 export function InputWrap({ children, className, error }) {
   return (
-    <div className={cn("t-input-wrap flex flex-col gap-0", error && "is-error", className)}>
+    <div
+      className={cn(
+        "t-input-wrap flex flex-col gap-0",
+        error && "is-error",
+        className,
+      )}
+    >
       {children}
     </div>
   );
@@ -33,10 +47,11 @@ export function InputShell({ children, className, error, shaking }) {
   return (
     <div
       className={cn(
-        "t-input cz-input flex items-center gap-2 rounded-[10px] px-3 h-[42px] transition-colors",
-        error && "is-error border-[var(--cz-error)]!",
+        "t-input flex items-center gap-2 rounded-[4px] bg-[var(--cz-surface-strong)] px-3 h-[44px] transition-colors hover:bg-[var(--cz-mist-hover)] focus-within:ring-1 focus-within:ring-[var(--cz-accent)]",
+        error &&
+          "is-error border border-[var(--cz-error)]! ring-[3px]! ring-[color-mix(in_srgb,var(--cz-error)_18%,transparent)]!",
         shaking && "is-shaking",
-        className
+        className,
       )}
     >
       {children}
@@ -47,7 +62,10 @@ export function InputShell({ children, className, error, shaking }) {
 export function ErrorMsg({ children }) {
   if (!children) return <p className="t-error-msg" aria-live="polite" />;
   return (
-    <p className="t-error-msg text-[12px] leading-[16px] text-[var(--cz-error)]" aria-live="polite">
+    <p
+      className="t-error-msg text-[13px] leading-[17px] text-[var(--cz-error)]"
+      aria-live="polite"
+    >
       {children}
     </p>
   );

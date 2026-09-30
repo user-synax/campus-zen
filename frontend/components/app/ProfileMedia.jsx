@@ -13,6 +13,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { EmptyState } from "@/components/app/EmptyState";
 import { PostCard } from "@/components/app/PostCard";
+import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 
 function MediaTile({ item, onOpen }) {
@@ -23,29 +24,29 @@ function MediaTile({ item, onOpen }) {
       aria-label={
         item.text ? `Open photo: ${item.text.slice(0, 60)}` : "Open photo"
       }
-      className="group relative block w-full overflow-hidden rounded-[12px] border border-[var(--cz-border)] bg-[var(--cz-surface)] text-left transition-colors hover:border-[var(--cz-border-strong)]"
+      className="group relative block w-full overflow-hidden bg-[var(--cz-surface-strong)] text-left"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={item.imageUrl}
         alt={item.text || "Post photo"}
         loading="lazy"
-        className="w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+        className="w-full object-cover transition-opacity duration-200 group-hover:opacity-90"
       />
       <span
         aria-hidden
         className="pointer-events-none absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/70 via-black/0 to-transparent p-2.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
       >
-        <span className="flex items-center gap-3 text-[12px] font-medium text-white">
+        <span className="flex items-center gap-3 text-[13px] font-bold text-white">
           <span className="inline-flex items-center gap-1">
-            <Heart className="h-3.5 w-3.5" /> {item.likeCount ?? 0}
+            <Heart className="h-4 w-4" /> {item.likeCount ?? 0}
           </span>
           <span className="inline-flex items-center gap-1">
-            <MessageCircle className="h-3.5 w-3.5" /> {item.replyCount ?? 0}
+            <MessageCircle className="h-4 w-4" /> {item.replyCount ?? 0}
           </span>
         </span>
         {item.text ? (
-          <span className="mt-1 line-clamp-2 text-[12px] leading-[16px] text-white/90">
+          <span className="mt-1 line-clamp-2 text-[13px] leading-[16px] text-white/90">
             {item.text}
           </span>
         ) : null}
@@ -102,22 +103,22 @@ function MediaLightbox({
   }, [onClose, onNav]);
 
   const content = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center sm:p-6">
       <button
         type="button"
         aria-label="Close"
         onClick={onClose}
-        className="absolute inset-0 bg-black/75 backdrop-blur-[2px] border-0 p-0 m-0"
+        className="absolute inset-0 cursor-default border-0 bg-[var(--cz-overlay)] p-0 backdrop-blur-[2px] m-0"
       />
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Photo viewer"
-        className="relative w-full max-w-[560px] max-h-[92dvh] overflow-y-auto rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)] shadow-[0_16px_48px_rgba(0,0,0,0.5)]"
+        className="relative flex max-h-[92dvh] w-full max-w-[600px] flex-col overflow-hidden rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-elevated)] shadow-[var(--shadow-sm)]"
       >
-        <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-[var(--cz-border)] bg-[var(--cz-surface)]/95 backdrop-blur px-3 h-[48px]">
-          <span className="text-[12px] text-[var(--cz-text-secondary)]">
-            {index + 1} / {items.length}
+        <div className="sticky top-0 z-10 flex h-[53px] items-center justify-between gap-2 border-b border-[var(--cz-border)] bg-[var(--cz-elevated)] px-4">
+          <span className="text-[15px] font-bold text-[var(--cz-text-primary)]">
+            {index + 1} of {items.length}
           </span>
           <span className="flex items-center gap-1">
             <button
@@ -125,30 +126,30 @@ function MediaLightbox({
               onClick={() => onNav(-1)}
               disabled={items.length < 2}
               aria-label="Previous photo"
-              className="grid place-items-center h-8 w-8 rounded-[10px] hover:bg-[rgba(255,206,173,0.08)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] transition-colors disabled:opacity-30"
+              className="grid h-[34px] w-[34px] place-items-center rounded-full text-[var(--cz-text-primary)] transition-colors hover:bg-[var(--cz-surface-strong)] disabled:opacity-30"
             >
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft className="h-[18px] w-[18px]" />
             </button>
             <button
               type="button"
               onClick={() => onNav(1)}
               disabled={items.length < 2}
               aria-label="Next photo"
-              className="grid place-items-center h-8 w-8 rounded-[10px] hover:bg-[rgba(255,206,173,0.08)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] transition-colors disabled:opacity-30"
+              className="grid h-[34px] w-[34px] place-items-center rounded-full text-[var(--cz-text-primary)] transition-colors hover:bg-[var(--cz-surface-strong)] disabled:opacity-30"
             >
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-[18px] w-[18px]" />
             </button>
             <button
               type="button"
               onClick={onClose}
               aria-label="Close viewer"
-              className="grid place-items-center h-8 w-8 rounded-[10px] hover:bg-[rgba(255,206,173,0.08)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)] transition-colors"
+              className="grid h-[34px] w-[34px] place-items-center rounded-full text-[var(--cz-text-primary)] transition-colors hover:bg-[var(--cz-surface-strong)]"
             >
-              <X className="h-4 w-4" />
+              <X className="h-[18px] w-[18px]" />
             </button>
           </span>
         </div>
-        <div className="p-3 sm:p-4 space-y-3">
+        <div className="flex-1 space-y-3 overflow-y-auto p-4">
           {loading ? (
             <div className="grid place-items-center py-16">
               <Loader2 className="h-6 w-6 animate-spin text-[var(--cz-text-secondary)]" />
@@ -165,7 +166,7 @@ function MediaLightbox({
               onUpdate={onUpdated}
             />
           ) : (
-            <p className="py-10 text-center text-[13px] text-[var(--cz-text-secondary)]">
+            <p className="py-10 text-center text-[15px] text-[var(--cz-text-secondary)]">
               Couldn&apos;t load this photo.
             </p>
           )}
@@ -231,12 +232,11 @@ export function ProfileMediaGrid({ username, currentUser }) {
 
   if (loading) {
     return (
-      <div className="columns-2 sm:columns-3 gap-3">
-        {Array.from({ length: 6 }).map((_, i) => (
+      <div className="grid grid-cols-2 gap-0.5 p-0.5 sm:grid-cols-3">
+        {Array.from({ length: 9 }).map((_, i) => (
           <div
             key={i}
-            className="mb-3 break-inside-avoid rounded-[12px] border border-[var(--cz-border)] bg-[var(--cz-surface)] animate-pulse"
-            style={{ height: `${140 + ((i * 67) % 120)}px` }}
+            className="aspect-square animate-pulse bg-[var(--cz-skeleton)]"
           />
         ))}
       </div>
@@ -248,38 +248,40 @@ export function ProfileMediaGrid({ username, currentUser }) {
       <EmptyState
         icon={ImageIcon}
         title="No media yet"
-        description={`@${username} hasn’t posted any photos yet. Image posts will appear here in a gallery.`}
+        description={`@${username} hasn't posted any photos yet.`}
       />
     );
   }
 
   return (
     <div>
-      <div className="columns-2 sm:columns-3 gap-3">
+      {/* Profile media grid — square tiles, 2px gaps, no radius (DESIGN.md) */}
+      <div className="grid grid-cols-2 gap-0.5 p-0.5 sm:grid-cols-3">
         {items.map((it, i) => (
-          <div key={it._id} className="mb-3 break-inside-avoid">
-            <MediaTile item={it} onOpen={() => setSel(i)} />
-          </div>
+          <MediaTile key={it._id} item={it} onOpen={() => setSel(i)} />
         ))}
       </div>
       {hasMore ? (
-        <button
-          type="button"
-          onClick={() => fetchPage(page + 1, true)}
-          disabled={loadingMore}
-          className="mt-1 w-full rounded-[12px] border border-[var(--cz-border)] bg-transparent h-[40px] text-[13px] font-medium hover:bg-[var(--cz-surface)] transition-colors disabled:opacity-50"
-        >
-          {loadingMore ? (
-            <span className="inline-flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loading…
-            </span>
-          ) : (
-            "Load more"
-          )}
-        </button>
+        <div className="p-4">
+          <Button
+            onClick={() => fetchPage(page + 1, true)}
+            disabled={loadingMore}
+            variant="secondary"
+            className="w-full"
+          >
+            {loadingMore ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                Loading
+              </>
+            ) : (
+              "Show more"
+            )}
+          </Button>
+        </div>
       ) : (
-        <p className="text-center text-[11px] text-[var(--cz-text-secondary)]/60 py-2">
-          End • {items.length} photos
+        <p className="py-6 text-center text-[13px] text-[var(--cz-text-secondary)]">
+          {items.length} {items.length === 1 ? "photo" : "photos"}
         </p>
       )}
       {sel != null && items[sel] ? (

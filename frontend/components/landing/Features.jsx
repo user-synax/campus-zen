@@ -43,29 +43,26 @@ const features = [
 
 export function Features() {
   return (
-    <section className="border-t border-[var(--cz-border)] py-14 sm:py-20">
+    <section className="border-t border-[var(--cz-border)] py-12 sm:py-16">
       <Reveal>
-        <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-[var(--cz-text-secondary)]">
-          What&apos;s inside
-        </p>
-        <h2 className="mt-4 max-w-[22ch] text-[24px] font-semibold leading-[1.15] tracking-[-0.03em] sm:text-[32px]">
+        <h2 className="max-w-[20ch] text-[28px] leading-[1.15] font-extrabold tracking-[-0.03em] text-[var(--cz-text-primary)] sm:text-[34px]">
           Everything you need. Nothing you don&apos;t.
         </h2>
       </Reveal>
-      <div className="mt-10 grid gap-x-10 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-8 grid gap-x-10 sm:grid-cols-2 lg:grid-cols-3">
         {features.map(({ icon: Icon, title, desc }, i) => (
           <Reveal key={title} delay={(i % 3) * 0.06}>
-            <div className="border-t border-[var(--cz-border)] py-6">
+            <div className="border-t border-[var(--cz-border)] py-5">
               <Icon
-                size={16}
-                strokeWidth={1.75}
+                size={20}
+                strokeWidth={1.8}
                 className="text-[var(--cz-text-secondary)]"
                 aria-hidden
               />
-              <h3 className="mt-3 text-[14px] font-medium tracking-[-0.01em]">
+              <h3 className="mt-3 text-[17px] font-bold leading-[21px] text-[var(--cz-text-primary)]">
                 {title}
               </h3>
-              <p className="mt-1.5 text-[13px] leading-[20px] text-[var(--cz-text-secondary)]">
+              <p className="mt-1.5 text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">
                 {desc}
               </p>
             </div>

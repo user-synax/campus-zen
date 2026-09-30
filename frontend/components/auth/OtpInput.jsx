@@ -53,9 +53,10 @@ export function OtpInput({ value, onChange, length = 6, autoFocus = true, error 
           onPaste={handlePaste}
           aria-label={`Digit ${i + 1}`}
           className={cn(
-            "h-[46px] w-full max-w-[52px] rounded-[10px] cz-input text-center text-[16px] font-medium tracking-[0.08em] text-[var(--cz-text-primary)] caret-[var(--cz-muted)] outline-none transition-all",
-            "focus:border-[var(--cz-muted)] focus:shadow-[0_0_0_3px_rgba(125,130,217,0.15)]",
-            error && "border-[var(--cz-error)]! shadow-[0_0_0_3px_rgba(255,90,106,0.12)]!"
+            "h-[52px] w-full max-w-[56px] rounded-[4px] bg-[var(--cz-surface-strong)] text-center font-mono text-[20px] text-[var(--cz-text-primary)] caret-[var(--cz-accent)] outline-none transition-colors",
+            "focus:ring-1 focus:ring-[var(--cz-accent)]",
+            error &&
+              "border border-[var(--cz-error)]! ring-[3px]! ring-[color-mix(in_srgb,var(--cz-error)_18%,transparent)]!",
           )}
         />
       ))}

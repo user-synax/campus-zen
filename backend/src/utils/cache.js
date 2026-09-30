@@ -9,13 +9,19 @@ class InMemoryCache {
     this.timers = new Map();
   }
 
+  /** Cancel a key's pending expiry timer, if any. */
+  #clearTimer(key) {
+    const timer = this.timers.get(key);
+    if (timer) clearTimeout(timer);
+    this.timers.delete(key);
+  }
+
   get(key) {
     const entry = this.store.get(key);
     if (!entry) return null;
     if (entry.expires < Date.now()) {
       this.store.delete(key);
-      this.timers.get(key)?.();
-      this.timers.delete(key);
+      this.#clearTimer(key);
       return null;
     }
     return entry.value;
@@ -23,7 +29,7 @@ class InMemoryCache {
 
   set(key, value, ttlMs = 60_000) {
     this.store.set(key, { value, expires: Date.now() + ttlMs });
-    if (this.timers.has(key)) clearTimeout(this.timers.get(key));
+    this.#clearTimer(key);
     if (ttlMs > 0) {
       this.timers.set(
         key,
@@ -37,8 +43,7 @@ class InMemoryCache {
 
   del(key) {
     this.store.delete(key);
-    this.timers.get(key)?.();
-    this.timers.delete(key);
+    this.#clearTimer(key);
   }
 
   /** Invalidate all keys matching a glob pattern, e.g. delPattern('feed:*') */

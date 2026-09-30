@@ -108,7 +108,7 @@ campus-zen/
 │   │   └── privacy/ terms/
 │   ├── components/app/  # PostCard, PostComposer, LeftNav, BottomNav, ProfileHeader, ...
 │   ├── components/auth/ # AuthShell, OtpInput, PasswordStrength
-│   ├── components/ui/   # shadcn/ui primitives
+│   ├── components/ui/   # primitives: button, input, label, checkbox, tooltip, badge
 │   └── lib/api.js       # central API client (single source of truth)
 │
 └── backend/             # Express API
@@ -211,11 +211,16 @@ Rate limits (see `backend/src/middleware/rateLimiter.js`): signup 5/hr, login 10
 
 ## 🎨 Design
 
-Dark, monospace, warm-peach accent. Tokens in `frontend/app/globals.css`:
+X-style monochrome interface with exactly one chromatic accent. Tokens live in
+`frontend/app/globals.css`; the spec is [`DESIGN.md`](DESIGN.md).
 
-- BG `#000000` · surface `#0c122c` · border `#1e2a4a` · accent `#ffcead` · text `#ffffff / #8892b0`
-- Font: JetBrains Mono, 15px base · 3-column desktop (`nav | feed | discovery`), bottom-nav mobile
-- Micro-animations (`like-pop`, `shake`, `stagger-reveal`, …) all respect `prefers-reduced-motion`
+- **Palette** — canvas `#ffffff` · ink `#0f1419` · secondary `#536471` · tertiary `#829aab` · hairline `#cfd9de` / `#eff3f4` · hover `#eff3f4` · **accent `#1d9bf0`**
+- **Single accent** — `#1d9bf0` appears only on things you can tap: follow/post buttons, links, verified badges, active nav, unread dots. Engagement states (like `#f91880`, repost `#00ba7c`, error `#f4212e`) are semantic, not decoration.
+- **Type** — Inter (the documented TwitterChirp substitute) with `font-feature-settings: "ss01"`, 15px/20px body, 20px/23px headings, weights 400/500/700/800
+- **Radii** — only two: `16px` (cards, inputs, modals) and `9999px` (every button, tag, avatar)
+- **Layout** — 990px shell, three columns on desktop: `68px` collapsed icon rail (every item carries a tooltip) · feed · `290px` right rail; bottom tab bar on mobile
+- **Surfaces** — white on white. Cards are never elevated; they are separated by 1px hairlines. Shadows are for dropdown overlays only.
+- **Light + dark** — same token system inverted. The `cz-theme` cookie is read in the root layout and stamped on `<html>`, so the first paint is already correct — no flash, no client script. Toggle in the icon rail or under **Menu → Appearance**.
 
 ## 🗺️ Roadmap
 

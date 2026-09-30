@@ -10,7 +10,10 @@ function toApiError(res, data) {
 }
 
 // Auth endpoints must never trigger a refresh — a 401 here means
-// bad credentials / expired OTP, not an expired access token.
+// bad credentials / expired OTP, not an expired access token. /api/auth/me
+// belongs here too: a 401 from it means there is no session at all, so
+// rotating tokens cannot rescue the request. Retrying it just spends the
+// refresh rate limit and delays the redirect to /login.
 const NO_AUTO_RETRY = new Set([
   "/api/auth/login",
   "/api/auth/signup",
@@ -21,6 +24,7 @@ const NO_AUTO_RETRY = new Set([
   "/api/auth/forgot-password",
   "/api/auth/reset-password",
   "/api/auth/check-username",
+  "/api/auth/me",
 ]);
 
 function shouldAutoRetry(path) {
@@ -59,7 +63,18 @@ async function request(
     if (body !== undefined) opts.body = JSON.stringify(body);
   }
 
-  const res = await fetch(`${BASE}${path}`, opts);
+  let res;
+  try {
+    res = await fetch(`${BASE}${path}`, opts);
+  } catch (e) {
+    // A network/CORS failure never gets a status, so it reads as a generic
+    // error. Left untyped, callers cannot tell "server is down" from "no
+    // session" and retry the wrong thing.
+    const err = new Error(e?.message || "Network request failed");
+    err.status = 0;
+    err.offline = true;
+    throw err;
+  }
   if (res.status === 401 && !_retried && !_skipRetry && shouldAutoRetry(path)) {
     try {
       await refreshSession();

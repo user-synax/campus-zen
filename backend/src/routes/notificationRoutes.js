@@ -11,7 +11,11 @@ const paginationQuery = z.object({
   page: z.coerce.number().int().min(1).optional().default(1),
   limit: z.coerce.number().int().min(1).max(50).optional().default(20),
   filter: z.enum(["all", "unread"]).optional().default("all"),
-  type: z.enum(["follow", "like", "reply", "repost", "mention"]).optional(),
+  // "all" is the no-filter case the client sends explicitly, so it has to be
+  // in the enum alongside the specific types.
+  type: z
+    .enum(["all", "follow", "like", "reply", "repost", "mention"])
+    .optional(),
 });
 
 const idParam = z.object({ id: z.string().regex(/^[a-f\d]{24}$/i, "Invalid id") });

@@ -6,18 +6,18 @@ export default function manifest() {
       "CampusZen is a student-first social network to discover students, share thoughts, and stay connected to campus life across India.",
     start_url: "/",
     display: "standalone",
-    background_color: "#000000",
-    theme_color: "#000000",
+    background_color: "#ffffff",
+    theme_color: "#ffffff",
     icons: [
       {
-        src: "/campusZen.png",
+        src: "/icon.svg",
         sizes: "any",
-        type: "image/png",
+        type: "image/svg+xml",
         purpose: "any",
       },
       {
         src: "/campusZen.png",
-        sizes: "any",
+        sizes: "512x512",
         type: "image/png",
         purpose: "maskable",
       },
