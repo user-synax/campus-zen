@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { ArrowUp, FileText, Plus, Search, Users } from "lucide-react";
-import Link from "next/link";
+import { ArrowUp, FileText, Users } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   EmptyState,
@@ -184,55 +183,33 @@ export default function AppHome() {
 
   return (
     <div>
-      {/*
-        Tabs + a compose shortcut, matching X: the "+" only earns its place
-        below xl, where the right rail (and its search field) isn't there
-        yet, so search needs somewhere to live.
-      */}
+      {/* Feed tabs only — Search and Post live in the bottom tab bar. */}
       <div className="sticky top-[53px] z-10 border-b border-[var(--cz-border)] bg-[var(--cz-bg)]/90 backdrop-blur md:top-0">
-        <div className="flex items-stretch">
-          <div role="tablist" aria-label="Feed" className="flex min-w-0 flex-1">
-            {[
-              { id: "following", label: "Following" },
-              { id: "discovery", label: "For you" },
-            ].map((t) => (
-              <button
-                key={t.id}
-                role="tab"
-                onClick={() => setTab(t.id)}
-                aria-selected={tab === t.id}
-                className={`relative h-[53px] flex-1 cursor-pointer px-4 text-center text-[17px] transition-colors ${
-                  tab === t.id
-                    ? "font-bold text-[var(--cz-text-primary)]"
-                    : "font-medium text-[var(--cz-text-secondary)] hover:bg-[var(--cz-surface-strong)] hover:text-[var(--cz-text-primary)]"
-                }`}
-              >
-                {t.label}
-                {tab === t.id ? (
-                  <span
-                    aria-hidden
-                    className="absolute inset-x-0 bottom-0 h-[4px] rounded-t-full bg-[var(--cz-accent)]"
-                  />
-                ) : null}
-              </button>
-            ))}
-          </div>
-          <div className="flex shrink-0 items-center gap-1 pr-3">
-            <Link
-              href="/app/search"
-              aria-label="Search"
-              className="grid h-[40px] w-[40px] place-items-center rounded-full text-[var(--cz-text-primary)] transition-colors hover:bg-[var(--cz-surface-strong)] xl:hidden"
+        <div role="tablist" aria-label="Feed" className="flex min-w-0 flex-1">
+          {[
+            { id: "following", label: "Following" },
+            { id: "discovery", label: "For you" },
+          ].map((t) => (
+            <button
+              key={t.id}
+              role="tab"
+              onClick={() => setTab(t.id)}
+              aria-selected={tab === t.id}
+              className={`relative h-[53px] flex-1 cursor-pointer px-4 text-center text-[17px] transition-colors ${
+                tab === t.id
+                  ? "font-bold text-[var(--cz-text-primary)]"
+                  : "font-medium text-[var(--cz-text-secondary)] hover:bg-[var(--cz-surface-strong)] hover:text-[var(--cz-text-primary)]"
+              }`}
             >
-              <Search className="h-[21px] w-[21px]" strokeWidth={1.9} aria-hidden />
-            </Link>
-            <Link
-              href="/app/create"
-              aria-label="Create post"
-              className="grid h-[40px] w-[40px] place-items-center rounded-full text-[var(--cz-text-primary)] transition-colors hover:bg-[var(--cz-surface-strong)]"
-            >
-              <Plus className="h-[21px] w-[21px]" strokeWidth={1.9} aria-hidden />
-            </Link>
-          </div>
+              {t.label}
+              {tab === t.id ? (
+                <span
+                  aria-hidden
+                  className="absolute inset-x-0 bottom-0 h-[4px] rounded-t-full bg-[var(--cz-accent)]"
+                />
+              ) : null}
+            </button>
+          ))}
         </div>
       </div>
 
