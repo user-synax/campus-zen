@@ -8,6 +8,7 @@ import {
   Plus,
   School,
   Search,
+  Settings,
   User,
   Users,
 } from "lucide-react";
@@ -109,10 +110,6 @@ export function LeftNav({ user }) {
 
       {/* theme + account sit at the very bottom, like X */}
       <div className="flex shrink-0 flex-col gap-0.5 pb-2">
-        <ThemeToggle
-          side="right"
-          className="flex h-[50px] items-center gap-5 rounded-full px-4 text-[20px] leading-none font-bold transition-colors duration-150 lg:justify-start"
-        />
         {user ? <LeftUserCard user={user} /> : null}
       </div>
     </div>
@@ -169,7 +166,7 @@ export function LeftUserCard({ user }) {
         aria-label="More options and settings"
         className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-full text-[var(--cz-text-primary)] transition-colors hover:bg-[var(--cz-border)]"
       >
-        <MoreHorizontal className="h-[18px] w-[18px]" aria-hidden />
+        <Settings className="h-[18px] w-[18px]" aria-hidden />
       </Link>
     </div>
   );

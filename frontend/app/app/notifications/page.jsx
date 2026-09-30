@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Bell,
@@ -204,7 +204,7 @@ export default function NotificationsPage() {
   const readInView = notifications.length - unreadInView;
 
   return (
-    <div>
+    <div className="min-w-0 overflow-x-clip">
       <PageHeader
         title="Notifications"
         right={

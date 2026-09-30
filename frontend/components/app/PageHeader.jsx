@@ -50,7 +50,11 @@ export function PageHeader({
       </div>
 
       {tabs?.length ? (
-        <div role="tablist" aria-label={title} className="flex">
+        <div
+          role="tablist"
+          aria-label={title}
+          className="flex overflow-x-auto scrollbar-none"
+        >
           {tabs.map((t) => {
             const on = t.id === activeTab;
             return (
@@ -61,7 +65,7 @@ export function PageHeader({
                 onClick={() => onTabChange?.(t.id)}
                 disabled={t.disabled}
                 className={cn(
-                  "relative h-[52px] flex-1 cursor-pointer px-3 text-[15px] font-medium transition-colors",
+                  "relative h-[52px] min-w-[64px] flex-1 shrink-0 cursor-pointer whitespace-nowrap px-4 text-[15px] font-medium transition-colors",
                   t.disabled && "cursor-not-allowed opacity-45",
                   on
                     ? "font-bold text-[var(--cz-text-primary)]"

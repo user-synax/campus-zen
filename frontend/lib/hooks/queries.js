@@ -63,6 +63,9 @@ export function useFeed(tab = "following") {
       lastPage.hasMore ? lastPage.page + 1 : undefined,
     initialPageParam: 1,
     staleTime: 15_000,
+    // Tab switches stay instant: keep the last feed on screen while the
+    // fresh page loads in the background.
+    placeholderData: (prev) => prev,
   });
 }
 
@@ -162,6 +165,7 @@ export function useNotifications(filter = "all", type = "all") {
       lastPage.hasMore ? lastPage.page + 1 : undefined,
     initialPageParam: 1,
     staleTime: 10_000,
+    placeholderData: (prev) => prev,
   });
 }
 
@@ -169,7 +173,22 @@ export function useUnreadCount() {
   return useQuery({
     queryKey: queryKeys.unreadCount,
     queryFn: () => api.getUnreadCount(),
-    staleTime: 30_000,
+    staleTime: 15_000,
+    // The badge must never block the tab bar: render 0 instantly and patch
+    // it when the network (or SSE) answers.
+    placeholderData: (prev) => prev ?? { data: { count: 0 } },
+    refetchOnMount: false,
+  });
+}
+
+export function useBlocks(enabled = true) {
+  return useQuery({
+    queryKey: ["blocks"],
+    queryFn: () => api.getBlocks(),
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
+    enabled,
+    placeholderData: (prev) => prev,
   });
 }
 
@@ -210,6 +229,9 @@ export function useSearch(q, type = "all") {
     queryFn: () => api.search({ q, type }),
     staleTime: 30_000,
     enabled: !!q && q.length >= 2,
+    // Typing a new letter keeps old results on screen instead of flashing a
+    // skeleton — the tab feels instant even on slow networks.
+    placeholderData: (prev) => prev,
   });
 }
 

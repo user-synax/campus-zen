@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   Search as SearchIcon,
@@ -12,11 +12,27 @@ import { EmptyState } from "@/components/app/EmptyState";
 import { PageHeader } from "@/components/app/PageHeader";
 import { UserCard } from "@/components/app/UserCard";
 import { PostCard } from "@/components/app/PostCard";
-import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useMe, useSearch } from "@/lib/hooks/queries";
 
 export default function SearchPage() {
+  return (
+    <Suspense
+      fallback={
+        <div>
+          <PageHeader title="Search" />
+          <div className="border-b border-[var(--cz-border)] px-4 py-3">
+            <div className="h-[44px] animate-pulse rounded-full bg-[var(--cz-surface-strong)]" />
+          </div>
+        </div>
+      }
+    >
+      <SearchInner />
+    </Suspense>
+  );
+}
+
+function SearchInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialQ = searchParams.get("q") || "";
@@ -27,12 +43,13 @@ export default function SearchPage() {
   const { data: meData } = useMe();
   const me = meData?.data?.user || null;
 
-  const { data, isPending, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useSearch(debouncedQ, type);
+  // Single-shot query (backend returns one page). placeholderData keeps the
+  // previous results on screen while the new query loads — no skeleton flash.
+  const { data, isPending, isFetching } = useSearch(debouncedQ, type);
 
-  const users = data?.pages?.flatMap((p) => p.data?.users || []) || [];
-  const posts = data?.pages?.flatMap((p) => p.data?.posts || []) || [];
-  const colleges = data?.pages?.flatMap((p) => p.data?.colleges || []) || [];
+  const users = data?.data?.users || [];
+  const posts = data?.data?.posts || [];
+  const colleges = data?.data?.colleges || [];
 
   // Debounce search input
   useEffect(() => {
@@ -83,6 +100,11 @@ export default function SearchPage() {
               className="h-4 w-4 shrink-0 animate-spin text-[var(--cz-text-secondary)]"
               aria-hidden
             />
+          ) : isFetching && debouncedQ ? (
+            <span
+              className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-[var(--cz-accent)]"
+              aria-hidden
+            />
           ) : null}
           {q ? (
             <button
@@ -97,7 +119,7 @@ export default function SearchPage() {
       </div>
 
       {showTabs ? (
-        <div className="flex border-b border-[var(--cz-border)]">
+        <div className="flex overflow-x-auto border-b border-[var(--cz-border)] scrollbar-none">
           {[
             { id: "all", label: "All" },
             { id: "users", label: "Students" },
@@ -109,7 +131,7 @@ export default function SearchPage() {
               role="tab"
               onClick={() => setType(t.id)}
               aria-selected={type === t.id}
-              className={`relative h-[52px] flex-1 cursor-pointer text-[15px] font-medium transition-colors ${
+              className={`relative h-[52px] min-w-[72px] flex-1 shrink-0 cursor-pointer whitespace-nowrap px-4 text-[15px] font-medium transition-colors ${
                 type === t.id
                   ? "font-bold text-[var(--cz-text-primary)]"
                   : "text-[var(--cz-text-secondary)] hover:bg-[var(--cz-surface-strong)] hover:text-[var(--cz-text-primary)]"
@@ -150,7 +172,7 @@ export default function SearchPage() {
           title="Search CampusZen"
           description="Find students by name, username, college or course, and posts by text."
         />
-      ) : isPending ? (
+      ) : isPending && users.length === 0 && posts.length === 0 && colleges.length === 0 ? (
         <div>
           <div className="border-b border-[var(--cz-border)] px-4 py-2 text-[15px] font-bold text-[var(--cz-text-primary)]">
             Students
@@ -232,29 +254,11 @@ export default function SearchPage() {
             </div>
           ) : null}
 
-          {hasNextPage ? (
-            <div className="p-4">
-              <Button
-                onClick={() => fetchNextPage()}
-                disabled={isFetchingNextPage}
-                variant="secondary"
-                className="w-full"
-              >
-                {isFetchingNextPage ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                    Loading
-                  </>
-                ) : (
-                  "Show more results"
-                )}
-              </Button>
-            </div>
-          ) : (
-            <p className="py-6 text-center text-[13px] text-[var(--cz-text-secondary)]">
-              {users.length + posts.length} results
-            </p>
-          )}
+          <p className="py-6 text-center text-[13px] text-[var(--cz-text-secondary)]">
+            {users.length + posts.length + colleges.length} result
+            {users.length + posts.length + colleges.length === 1 ? "" : "s"}
+            {isFetching ? " · updating…" : ""}
+          </p>
         </div>
       )}
     </div>

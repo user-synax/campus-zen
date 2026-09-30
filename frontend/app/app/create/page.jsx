@@ -1,18 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PostComposer } from "@/components/app/PostComposer";
 import { PageHeader } from "@/components/app/PageHeader";
-import { api } from "@/lib/api";
+import { useMe } from "@/lib/hooks/queries";
 
 export default function CreatePage() {
   const router = useRouter();
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
-    api.me().then((r) => setUser(r.data?.user)).catch(() => {});
-  }, []);
+  // Cached session from the shell — the composer paints without waiting on /me.
+  const { data: meData } = useMe();
+  const user = meData?.data?.user || null;
 
   return (
     <div>

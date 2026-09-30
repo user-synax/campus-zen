@@ -39,7 +39,7 @@ export const notificationService = {
     const skip = (pg - 1) * lim;
     const query = { recipient: recipientId };
     if (filter === "unread") query.read = false;
-    if (type) query.type = type;
+    if (type && type !== "all") query.type = type;
 
     const [notifications, total, unreadCount] = await Promise.all([
       Notification.find(query)

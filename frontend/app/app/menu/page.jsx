@@ -20,39 +20,49 @@ import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/app/PageHeader";
 import { VerifiedBadge } from "@/components/ui/verified-badge";
 import { api } from "@/lib/api";
+import { useBlocks, useMe } from "@/lib/hooks/queries";
 import { applyTheme, persistTheme, readTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function MenuPage() {
   const router = useRouter();
-  const [user, setUser] = useState(null);
-  const [loadingUser, setLoadingUser] = useState(true);
+  const queryClient = useQueryClient();
+  // Reuse the shell's cached session — no second /me on tab open.
+  const { data: meData, isPending: loadingUser } = useMe();
+  const user = meData?.data?.user || null;
   const [loggingOut, setLoggingOut] = useState(false);
-  const [blocked, setBlocked] = useState([]);
-  const [loadingBlocked, setLoadingBlocked] = useState(true);
   const [unblocking, setUnblocking] = useState(null);
   const [showBlocked, setShowBlocked] = useState(false);
   const [theme, setTheme] = useState("light");
 
+  // Blocked list loads lazily, only when the section is expanded, so the
+  // Menu tab paints instantly.
+  const { data: blocksData, isFetching: fetchingBlocked } =
+    useBlocks(showBlocked);
+  const blocked = blocksData?.data?.users || [];
+  const loadingBlocked = showBlocked && fetchingBlocked && blocked.length === 0;
+
   useEffect(() => {
     setTheme(readTheme());
-    api
-      .me()
-      .then((r) => setUser(r.data?.user))
-      .catch(() => {})
-      .finally(() => setLoadingUser(false));
-    api
-      .getBlocks()
-      .then((r) => setBlocked(r.data?.users || []))
-      .catch(() => {})
-      .finally(() => setLoadingBlocked(false));
   }, []);
 
   const onUnblock = async (id) => {
     setUnblocking(id);
     try {
       await api.unblockUser(id);
-      setBlocked((prev) => prev.filter((u) => String(u._id) !== String(id)));
+      queryClient.setQueryData(["blocks"], (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          data: {
+            ...old.data,
+            users: (old.data?.users || []).filter(
+              (u) => String(u._id) !== String(id),
+            ),
+          },
+        };
+      });
     } catch {}
     setUnblocking(null);
   };
