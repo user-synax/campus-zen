@@ -355,6 +355,7 @@ export const postService = {
       cache.delPattern("publicFeed:*");
       cache.delPattern(`userPosts:${post.author}:*`);
       cache.delPattern("hashtag:*");
+      cache.delPattern(`bookmarks:${userId}:*`);
       return { bookmarked: false };
     }
     try {
@@ -368,6 +369,7 @@ export const postService = {
     cache.delPattern("publicFeed:*");
     cache.delPattern(`userPosts:${post.author}:*`);
     cache.delPattern("hashtag:*");
+    cache.delPattern(`bookmarks:${userId}:*`);
     return { bookmarked: true };
   },
 

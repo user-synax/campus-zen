@@ -213,11 +213,15 @@ export function useHashtagPosts(tag, page = 1) {
 
 // ─── Bookmarks ───────────────────────────────────────────────────────────────
 
-export function useBookmarks(page = 1) {
-  return useQuery({
-    queryKey: queryKeys.bookmarks(page),
-    queryFn: () => api.getBookmarks({ page }),
+export function useBookmarks() {
+  return useInfiniteQuery({
+    queryKey: ["bookmarks"],
+    queryFn: ({ pageParam = 1 }) => api.getBookmarks({ page: pageParam }),
+    getNextPageParam: (lastPage) =>
+      lastPage.data?.hasMore ? (lastPage.data?.page || 1) + 1 : undefined,
+    initialPageParam: 1,
     staleTime: 15_000,
+    placeholderData: (prev) => prev,
   });
 }
 
