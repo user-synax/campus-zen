@@ -328,9 +328,6 @@ export function PostCard({
                 {author.isEmailVerified ? (
                   <VerifiedBadge size="sm" aria-label="Verified account" />
                 ) : null}
-                <span className="truncate text-[15px] text-[var(--cz-text-secondary)]">
-                  @{author.username}
-                </span>
                 <span className="shrink-0 whitespace-nowrap text-[15px] text-[var(--cz-text-secondary)]">
                   <Link
                     href={`/app/p/${post._id}`}
@@ -476,7 +473,7 @@ export function PostCard({
                 ? `Reply — ${replyCount} ${replyCount === 1 ? "reply" : "replies"}`
                 : "Reply"
             }
-            className="group/act -ml-2 flex items-center gap-1 rounded-full px-2 py-1 text-[13px] font-medium text-[var(--cz-text-secondary)] transition-colors hover:bg-[var(--cz-accent-soft)] hover:text-[var(--cz-accent)]"
+            className="group/act -ml-2 flex items-center gap-1 rounded-full px-2 py-1 text-[13px] font-medium text-[var(--cz-text-secondary)] transition-colors hover:cursor-pointer hover:bg-[var(--cz-accent-soft)] hover:text-[var(--cz-accent)]"
           >
             <MessageCircle
               className="h-[18.75px] w-[18.75px] transition-transform group-hover/act:scale-110"
@@ -491,7 +488,7 @@ export function PostCard({
             data-reposted={reposted ? "true" : "false"}
             aria-label={reposted ? "Undo repost" : "Repost"}
             aria-pressed={reposted}
-            className="group/act -ml-2 flex items-center gap-1 rounded-full px-2 py-1 text-[13px] font-medium transition-colors data-[reposted=false]:text-[var(--cz-text-secondary)] hover:bg-[color-mix(in_srgb,var(--cz-repost)_12%,transparent)] hover:text-[var(--cz-repost)] data-[reposted=true]:text-[var(--cz-repost)]"
+            className="group/act -ml-2 flex items-center gap-1 rounded-full px-2 py-1 text-[13px] font-medium transition-colors data-[reposted=false]:text-[var(--cz-text-secondary)] hover:cursor-pointer hover:bg-[color-mix(in_srgb,var(--cz-repost)_12%,transparent)] hover:text-[var(--cz-repost)] data-[reposted=true]:text-[var(--cz-repost)]"
           >
             <Repeat2
               className="h-[18.75px] w-[18.75px] transition-transform group-hover/act:scale-110"
@@ -506,7 +503,7 @@ export function PostCard({
             data-liked={liked ? "true" : "false"}
             aria-label={liked ? "Unlike" : "Like"}
             aria-pressed={liked}
-            className="t-like group/act -ml-2 flex items-center gap-1 rounded-full px-2 py-1 text-[13px] font-medium transition-colors data-[liked=false]:text-[var(--cz-text-secondary)] hover:bg-[color-mix(in_srgb,var(--cz-like)_12%,transparent)] hover:text-[var(--cz-like)] data-[liked=true]:text-[var(--cz-like)]"
+            className="t-like group/act -ml-2 flex items-center gap-1 rounded-full px-2 py-1 text-[13px] font-medium transition-colors data-[liked=false]:text-[var(--cz-text-secondary)] hover:cursor-pointer hover:bg-[color-mix(in_srgb,var(--cz-like)_12%,transparent)] hover:text-[var(--cz-like)] data-[liked=true]:text-[var(--cz-like)]"
           >
             <span className="t-like-icon grid place-items-center">
               <Heart
@@ -531,7 +528,7 @@ export function PostCard({
             data-saved={saved ? "true" : "false"}
             aria-label={saved ? "Remove bookmark" : "Bookmark"}
             aria-pressed={saved}
-            className="group/act -ml-2 grid place-items-center rounded-full p-2 transition-colors data-[saved=false]:text-[var(--cz-text-secondary)] hover:bg-[var(--cz-accent-soft)] hover:text-[var(--cz-accent)] data-[saved=true]:text-[var(--cz-accent)]"
+            className="group/act -ml-2 grid place-items-center rounded-full p-2 transition-colors data-[saved=false]:text-[var(--cz-text-secondary)] hover:cursor-pointer hover:bg-[var(--cz-accent-soft)] hover:text-[var(--cz-accent)] data-[saved=true]:text-[var(--cz-accent)]"
           >
             <Bookmark
               className="h-[18.75px] w-[18.75px] transition-transform group-hover/act:scale-110"
@@ -544,7 +541,7 @@ export function PostCard({
           <button
             onClick={handleShare}
             aria-label={copied ? "Link copied" : "Share post"}
-            className="group/act -ml-2 grid place-items-center rounded-full p-2 text-[var(--cz-text-secondary)] transition-colors hover:bg-[var(--cz-accent-soft)] hover:text-[var(--cz-accent)]"
+            className="group/act -ml-2 grid place-items-center rounded-full p-2 text-[var(--cz-text-secondary)] transition-colors hover:cursor-pointer hover:bg-[var(--cz-accent-soft)] hover:text-[var(--cz-accent)]"
           >
             {copied ? (
               <Check

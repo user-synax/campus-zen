@@ -1,7 +1,8 @@
 "use client";
 
 import { Loader2, Settings } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { EditProfileModal } from "@/components/app/EditProfileModal";
 import { EmptyState } from "@/components/app/EmptyState";
 import { FollowModal } from "@/components/app/FollowModal";
@@ -14,37 +15,28 @@ import {
   TabReplies,
   TabReposts,
 } from "@/components/app/ProfileTabsContent";
-import { api } from "@/lib/api";
+import { useMe } from "@/lib/hooks/queries";
 
 export default function OwnProfilePage() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  // Cached session from the shell — no second /me, the header paints instantly.
+  const { data: meData, isPending: loading } = useMe();
+  const [override, setOverride] = useState(null);
+  const user = override || meData?.data?.user || null;
   const [tab, setTab] = useState("posts");
-  const [error, setError] = useState("");
   const [editOpen, setEditOpen] = useState(false);
   const [followModal, setFollowModal] = useState({
     open: false,
     type: "followers",
   });
 
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .me()
-      .then((r) => {
-        if (!cancelled) setUser(r.data?.user);
-      })
-      .catch((e) => {
-        if (!cancelled)
-          setError(e.message || "Failed to load profile");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const handleSaved = (u) => {
+    setOverride(u);
+    queryClient.setQueryData(["me"], (old) => {
+      if (!old) return old;
+      return { ...old, data: { ...old.data, user: u } };
+    });
+  };
 
   if (loading) {
     return (
@@ -57,12 +49,12 @@ export default function OwnProfilePage() {
     );
   }
 
-  if (error || !user) {
+  if (!user) {
     return (
       <EmptyState
         icon={Settings}
         title="Profile unavailable"
-        description={error || "Could not load your profile. Try refreshing."}
+        description="Could not load your profile. Try refreshing."
       />
     );
   }
@@ -88,7 +80,9 @@ export default function OwnProfilePage() {
           username={user.username}
           currentUser={user}
           pinnedPost={user.pinnedPost}
-          onPinChange={(p) => setUser((u) => ({ ...u, pinnedPost: p }))}
+          onPinChange={(p) =>
+            handleSaved({ ...user, pinnedPost: p })
+          }
         />
       ) : tab === "replies" ? (
         <TabReplies username={user.username} isOwn />
@@ -109,7 +103,7 @@ export default function OwnProfilePage() {
         open={editOpen}
         onClose={() => setEditOpen(false)}
         user={user}
-        onSaved={(u) => setUser(u)}
+        onSaved={handleSaved}
       />
       <FollowModal
         open={followModal.open}
