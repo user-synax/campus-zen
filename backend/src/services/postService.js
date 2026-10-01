@@ -127,7 +127,7 @@ export const postService = {
     cache.delPattern("trending:*");
     cache.delPattern("hashtag:*");
     cache.delPattern(`media:${authorId}:*`);
-    const populated = await Post.findById(post._id).populate("author", "fullName username avatarUrl isEmailVerified");
+    const populated = await Post.findById(post._id).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner");
     return populated;
   },
 
@@ -136,7 +136,7 @@ export const postService = {
     let post = cache.get(cacheKey);
 
     if (!post) {
-      post = await Post.findById(postId).populate("author", "fullName username avatarUrl isEmailVerified").lean();
+      post = await Post.findById(postId).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner").lean();
       if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
       cache.set(cacheKey, post, TTL.POST);
     }
@@ -185,7 +185,7 @@ export const postService = {
     cache.delPattern(`userPosts:${post.author}:*`);
     cache.delPattern("hashtag:*");
     cache.delPattern(`media:${post.author}:*`);
-    const populated = await Post.findById(post._id).populate("author", "fullName username avatarUrl isEmailVerified");
+    const populated = await Post.findById(post._id).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner");
     return populated;
   },
 
@@ -242,7 +242,7 @@ export const postService = {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(lim)
-        .populate("author", "fullName username avatarUrl isEmailVerified")
+        .populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner")
         .lean(),
       Post.countDocuments({ author: authorFilter }),
     ]);
@@ -299,7 +299,7 @@ export const postService = {
     const hidden = viewerId ? await blockService.blockedIdsFor(viewerId) : [];
     const filter = hidden.length ? { author: { $nin: hidden } } : {};
     const [posts, total] = await Promise.all([
-      Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified").lean(),
+      Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner").lean(),
       Post.countDocuments(filter),
     ]);
     if (posts.length && viewerId) {
@@ -498,7 +498,7 @@ export const postService = {
       return result;
     }
     const posts = await Post.find({ _id: { $in: postIds } })
-      .populate("author", "fullName username avatarUrl isEmailVerified")
+      .populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner")
       .lean();
     const map = new Map(posts.map((p) => [String(p._id), p]));
     let ordered = postIds.map((id) => map.get(String(id))).filter(Boolean);
@@ -547,7 +547,7 @@ export const postService = {
     cache.delPattern(`userPosts:${post.author}:*`);
     cache.delPattern("hashtag:*");
     cache.delPattern(`comments:${postId}:*`);
-    const populated = await Comment.findById(comment._id).populate("author", "fullName username avatarUrl isEmailVerified");
+    const populated = await Comment.findById(comment._id).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner");
     const updatedPost = await Post.findById(postId).select("replyCount");
     return { comment: populated, replyCount: updatedPost.replyCount };
   },
@@ -564,7 +564,7 @@ export const postService = {
     const cached = cache.get(cacheKey);
     if (cached) return cached;
     const [comments, total] = await Promise.all([
-      Comment.find({ post: postId }).sort({ createdAt: 1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified").lean(),
+      Comment.find({ post: postId }).sort({ createdAt: 1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner").lean(),
       Comment.countDocuments({ post: postId }),
     ]);
     const result = { comments, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
@@ -593,7 +593,7 @@ export const postService = {
       }
       filter = { _id: { $in: postIds } };
       // preserve like order
-      const posts = await Post.find(filter).populate("author", "fullName username avatarUrl isEmailVerified").lean();
+      const posts = await Post.find(filter).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner").lean();
       const map = new Map(posts.map((p) => [String(p._id), p]));
       let ordered = postIds.map((id) => map.get(String(id))).filter(Boolean);
       if (viewerId) ordered = await withoutBlockedAuthors(ordered, viewerId);
@@ -631,7 +631,7 @@ export const postService = {
         return result;
       }
       filter = { _id: { $in: postIds } };
-      const posts = await Post.find(filter).populate("author", "fullName username avatarUrl isEmailVerified").lean();
+      const posts = await Post.find(filter).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner").lean();
       const map = new Map(posts.map((p) => [String(p._id), p]));
       let ordered = postIds.map((id) => map.get(String(id))).filter(Boolean);
       if (viewerId) ordered = await withoutBlockedAuthors(ordered, viewerId);
@@ -667,7 +667,7 @@ export const postService = {
     }
 
     const [posts, total] = await Promise.all([
-      Post.find(filter).sort(sort).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified").lean(),
+      Post.find(filter).sort(sort).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner").lean(),
       Post.countDocuments(filter),
     ]);
 
@@ -721,7 +721,7 @@ export const postService = {
     const cached = cache.get(cacheKey);
     if (cached) return cached;
     const [comments, total] = await Promise.all([
-      Comment.find({ author: authorId }).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("post", "text author createdAt").populate("author", "fullName username avatarUrl isEmailVerified").lean(),
+      Comment.find({ author: authorId }).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("post", "text author createdAt").populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner").lean(),
       Comment.countDocuments({ author: authorId }),
     ]);
     // also populate post author for context
@@ -772,7 +772,7 @@ export const postService = {
     const filter = { hashtags: tag };
     if (hidden.length) filter.author = { $nin: hidden };
     const [posts, total] = await Promise.all([
-      Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified").lean(),
+      Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner").lean(),
       Post.countDocuments(filter),
     ]);
     if (posts.length && viewerId) {

@@ -28,7 +28,7 @@ import { PollBlock } from "@/components/app/PollBlock";
 import { useAutogrowTextarea } from "@/components/app/useAutogrowTextarea";
 import { ReportDialog } from "@/components/app/ReportDialog";
 import { Button } from "@/components/ui/button";
-import { VerifiedBadge } from "@/components/ui/verified-badge";
+import { UserBadge } from "@/components/ui/verified-badge";
 import { api } from "@/lib/api";
 import { hidePostId, isHiddenPost } from "@/lib/hiddenPosts";
 import { cn } from "@/lib/utils";
@@ -328,9 +328,7 @@ export function PostCard({
                 >
                   {author.fullName || author.username}
                 </Link>
-                {author.isEmailVerified ? (
-                  <VerifiedBadge size="sm" aria-label="Verified account" />
-                ) : null}
+                <UserBadge user={author} size="sm" />
                 <span className="shrink-0 whitespace-nowrap text-[15px] text-[var(--cz-text-secondary)]">
                   <Link
                     href={`/app/p/${post._id}`}

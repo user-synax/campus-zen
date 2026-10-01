@@ -17,6 +17,9 @@ export const env = {
   JWT_REFRESH_REMEMBER_EXPIRES: process.env.JWT_REFRESH_REMEMBER_EXPIRES || "7d",
   JWT_REFRESH_DEFAULT_EXPIRES: process.env.JWT_REFRESH_DEFAULT_EXPIRES || "1d",
   FRONTEND_URL: process.env.FRONTEND_URL || "http://localhost:3000",
+  // Owner badge (red) — exactly one account. Compared case-insensitively
+  // against the user's email; synced on signup (pre-save) and login.
+  OWNER_EMAIL: (process.env.OWNER_EMAIL || "usersynax@gmail.com").toLowerCase().trim(),
   COOKIE_SECURE: process.env.COOKIE_SECURE === "true",
   // lax for same-origin prod, "none" when frontend and API live on different hosts
   COOKIE_SAMESITE: ["lax", "strict", "none"].includes(process.env.COOKIE_SAMESITE)

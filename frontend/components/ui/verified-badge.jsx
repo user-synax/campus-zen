@@ -22,6 +22,18 @@ const verifiedBadgeSizePixels = {
 const verifiedBadgeToneClassNames = {
   brand: "text-[var(--cz-accent)]",
   neutral: "text-[var(--cz-text-secondary)]",
+  // owner badge — red, exactly one account (OWNER_EMAIL)
+  owner: "text-[#e11d48]",
+  // pro badge — gold, future subscription tier
+  pro: "text-[#eab308]",
+};
+
+// Inline fallback so tier colors never depend on Tailwind regenerating the
+// arbitrary-value classes above (a missing rule renders as inherited
+// white-in-dark-mode instead of red/gold). Inline style always wins.
+const verifiedBadgeToneStyles = {
+  owner: { color: "#eb1c49" },
+  pro: { color: "#eab308" },
 };
 
 export function resolveVerifiedBadgePixelSize(size = "md") {
@@ -73,7 +85,12 @@ const VerifiedBadge = forwardRef(function VerifiedBadge(
         verifiedBadgeToneClassNames[tone] ?? verifiedBadgeToneClassNames.brand,
         className,
       )}
-      style={{ width: pixelSize, height: pixelSize, ...style }}
+      style={{
+        width: pixelSize,
+        height: pixelSize,
+        ...verifiedBadgeToneStyles[tone],
+        ...style,
+      }}
       {...props}
       {...a11yProps}
     >
@@ -105,3 +122,59 @@ VerifiedBadge.displayName = "VerifiedBadge";
 
 export { VerifiedBadge };
 export default VerifiedBadge;
+
+// ─── Badge tiers ─────────────────────────────────────────────────────────────
+// owner (red) > pro (gold) > verified (blue). Only OWNER_EMAIL ever resolves
+// to owner; pro reads user.isPro (subscription later); verified reads the
+// existing isEmailVerified flag. Email allowlist (gmail.com, proton.me) is
+// enforced at signup/login, so no other domain can reach verified.
+export const OWNER_EMAIL = "usersynax@gmail.com";
+
+export function getBadgeKind(user) {
+  if (!user) return null;
+  if (
+    user.isOwner ||
+    String(user.email || "")
+      .toLowerCase()
+      .trim() === OWNER_EMAIL
+  )
+    return "owner";
+  if (user.isPro) return "pro";
+  if (user.isEmailVerified) return "verified";
+  return null;
+}
+
+export function badgeToneFor(kind) {
+  if (kind === "owner") return "owner";
+  if (kind === "pro") return "pro";
+  return "brand";
+}
+
+export function badgeLabelFor(kind) {
+  if (kind === "owner") return "Owner";
+  if (kind === "pro") return "Pro user";
+  return "Verified user";
+}
+
+export function UserBadge({ user, size = "md", className }) {
+  const kind = getBadgeKind(user);
+  if (!kind) return null;
+  const label = badgeLabelFor(kind);
+  return (
+    <span className="group relative inline-flex shrink-0 items-center align-middle">
+      <VerifiedBadge
+        size={size}
+        tone={badgeToneFor(kind)}
+        aria-label={label}
+        className={className}
+      />
+      <span
+        role="tooltip"
+        aria-hidden="true"
+        className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-1.5 -translate-x-1/2 scale-95 rounded-full border border-[var(--cz-border)] bg-[var(--cz-elevated)] px-2 py-0.5 text-[12px] leading-[16px] font-bold whitespace-nowrap text-[var(--cz-text-primary)] opacity-0 shadow-[var(--shadow-sm)] transition-all duration-150 group-hover:scale-100 group-hover:opacity-100"
+      >
+        {label}
+      </span>
+    </span>
+  );
+}

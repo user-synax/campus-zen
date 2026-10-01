@@ -18,7 +18,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/app/PageHeader";
-import { VerifiedBadge } from "@/components/ui/verified-badge";
+import { UserBadge } from "@/components/ui/verified-badge";
 import { api } from "@/lib/api";
 import { useBlocks, useMe } from "@/lib/hooks/queries";
 import { applyTheme, persistTheme, readTheme } from "@/lib/theme";
@@ -128,9 +128,7 @@ export default function MenuPage() {
                   <span className="truncate text-[20px] leading-6 font-extrabold">
                     {user?.fullName || "CampusZen Student"}
                   </span>
-                  {user?.isEmailVerified ? (
-                    <VerifiedBadge size="md" aria-label="Verified account" />
-                  ) : null}
+                  <UserBadge user={user} size="md" />
                 </span>
                 <span className="mt-0.5 block truncate text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">
                   @{user?.username || "username"}

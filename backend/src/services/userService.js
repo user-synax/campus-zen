@@ -75,7 +75,7 @@ export const userService = {
     const candidates = await User.find({ _id: { $nin: excluded } })
       .sort({ createdAt: -1 })
       .limit(poolSize)
-      .select("fullName username avatarUrl bio college course academicYear followersCount createdAt")
+      .select("fullName username avatarUrl bio college course academicYear followersCount createdAt isEmailVerified isPro isOwner")
       .lean();
 
     let mutualCounts = {};

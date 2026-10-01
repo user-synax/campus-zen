@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { VerifiedBadge } from "@/components/ui/verified-badge";
+import { UserBadge } from "@/components/ui/verified-badge";
 import { api } from "@/lib/api";
 
 function initialsFor(u) {
@@ -67,9 +67,7 @@ function SuggestRow({ user, onFollowed }) {
           <span className="truncate text-[15px] font-bold text-[var(--cz-text-primary)]">
             {user.fullName || user.username}
           </span>
-          {user.isEmailVerified ? (
-            <VerifiedBadge size="sm" aria-label="Verified" />
-          ) : null}
+          <UserBadge user={user} size="sm" />
         </span>
         <span className="block truncate text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">
           {user.suggestReason ||

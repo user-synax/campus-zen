@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { AnimatedNumber } from "@/components/app/AnimatedNumber";
 import { Button } from "@/components/ui/button";
-import { VerifiedBadge } from "@/components/ui/verified-badge";
+import { UserBadge } from "@/components/ui/verified-badge";
 import { api } from "@/lib/api";
 import { collegeHrefFor } from "@/lib/college";
 
@@ -46,9 +46,7 @@ export function UserCard({ user: initialUser, isOwn, isGuest }) {
             <span className="truncate text-[15px] font-bold leading-[20px] text-[var(--cz-text-primary)]">
               {user.fullName || user.username}
             </span>
-            {user.isEmailVerified ? (
-              <VerifiedBadge size="sm" aria-label="Verified account" />
-            ) : null}
+            <UserBadge user={user} size="sm" />
           </span>
           <span className="block truncate text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">
             @{user.username}

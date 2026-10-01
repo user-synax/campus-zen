@@ -54,7 +54,7 @@ export const searchService = {
             .sort(useText ? { score: { $meta: "textScore" } } : { createdAt: -1 })
             .skip(skip)
             .limit(lim)
-            .select("fullName username avatarUrl bio college course academicYear followersCount followingCount isEmailVerified")
+            .select("fullName username avatarUrl bio college course academicYear followersCount followingCount isEmailVerified isPro isOwner")
             .lean(),
           User.countDocuments(filter),
         ]);
@@ -87,7 +87,7 @@ export const searchService = {
           const pg2 = Math.max(1, Number(page));
           const skip2 = (pg2 - 1) * lim2;
           const [posts, total] = await Promise.all([
-            Post.find(filter).sort({ createdAt: -1 }).skip(skip2).limit(lim2).populate("author", "fullName username avatarUrl isEmailVerified").lean(),
+            Post.find(filter).sort({ createdAt: -1 }).skip(skip2).limit(lim2).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner").lean(),
             Post.countDocuments(filter),
           ]);
           if (viewerId && posts.length) {
@@ -122,7 +122,7 @@ export const searchService = {
           if (hidden.length) filter.author = { $nin: hidden };
         }
         const [posts, total] = await Promise.all([
-          Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified").lean(),
+          Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner").lean(),
           Post.countDocuments(filter),
         ]);
         // add isLiked/isReposted/isBookmarked for viewer

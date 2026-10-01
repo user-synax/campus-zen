@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { env } from "../config/env.js";
 
 const userSchema = new mongoose.Schema(
   {
@@ -77,6 +78,11 @@ const userSchema = new mongoose.Schema(
     refreshTokenHash: { type: String, default: null, select: false },
 
     role: { type: String, enum: ["user", "admin"], default: "user" },
+    // badge tiers — owner (red, exactly OWNER_EMAIL), pro (gold, future
+    // subscription), verified (blue, email verified). isOwner syncs from
+    // email on save so no email ever leaks to clients for badge checks.
+    isPro: { type: Boolean, default: false },
+    isOwner: { type: Boolean, default: false, index: true },
     lastLoginAt: { type: Date, default: null },
   },
   { timestamps: true }
@@ -95,5 +101,16 @@ userSchema.methods.toSafeObject = function () {
   delete obj.__v;
   return obj;
 };
+
+// Owner flag follows the email — single source of truth is OWNER_EMAIL,
+// so clients never need the email address to decide the red badge.
+userSchema.pre("save", function (next) {
+  try {
+    if (this.isNew || this.isModified("email")) {
+      this.isOwner = String(this.email || "").toLowerCase().trim() === env.OWNER_EMAIL;
+    }
+  } catch {}
+  next();
+});
 
 export const User = mongoose.model("User", userSchema);

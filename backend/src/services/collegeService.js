@@ -204,7 +204,7 @@ export const collegeService = {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(lim)
-        .populate("author", "fullName username avatarUrl isEmailVerified college collegeSlug")
+        .populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner college collegeSlug")
         .lean(),
       Post.countDocuments(filter),
     ]);

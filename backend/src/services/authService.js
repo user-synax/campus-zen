@@ -146,6 +146,12 @@ export const authService = {
 
     user.refreshTokenHash = hashToken(refreshToken);
     user.lastLoginAt = new Date();
+    // backfill: accounts created before isOwner existed get flagged here
+    // (pre-save hook covers all future saves)
+    try {
+      const { env } = await import("../config/env.js");
+      user.isOwner = String(user.email || "").toLowerCase().trim() === env.OWNER_EMAIL;
+    } catch {}
     await user.save();
 
     const safe = user.toSafeObject();

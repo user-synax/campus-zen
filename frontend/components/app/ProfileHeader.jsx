@@ -12,7 +12,7 @@ import Link from "next/link";
 import { memo, useMemo, useState } from "react";
 import { AnimatedNumber } from "@/components/app/AnimatedNumber";
 import { Button } from "@/components/ui/button";
-import { VerifiedBadge } from "@/components/ui/verified-badge";
+import { UserBadge } from "@/components/ui/verified-badge";
 import { collegeHrefFor } from "@/lib/college";
 import { cn } from "@/lib/utils";
 
@@ -297,9 +297,7 @@ export function ProfileHeader({
         <div className="mt-3">
           <h1 className="flex items-center gap-1.5 text-[20px] leading-6 font-extrabold text-[var(--cz-text-primary)]">
             <span className="truncate">{displayName}</span>
-            {user.isEmailVerified ? (
-              <VerifiedBadge size="md" aria-label="Verified account" />
-            ) : null}
+            <UserBadge user={user} size="md" />
           </h1>
           <p className="mt-0.5 text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">
             {user.followersCount != null || user.followingCount != null ? (
