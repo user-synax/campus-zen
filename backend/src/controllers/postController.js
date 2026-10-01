@@ -16,7 +16,16 @@ export const postController = {
   }),
 
   create: asyncHandler(async (req, res) => {
-    const post = await postService.create(req.user._id, req.body.text, req.file);
+    let poll = req.body.poll;
+    // multipart (image upload) delivers fields as strings — accept JSON-encoded poll
+    if (typeof poll === "string") {
+      try {
+        poll = JSON.parse(poll);
+      } catch {
+        poll = undefined;
+      }
+    }
+    const post = await postService.create(req.user._id, req.body.text, req.file, poll);
     res.status(201).json({ success: true, data: { post } });
   }),
 
@@ -61,6 +70,11 @@ export const postController = {
 
   toggleBookmark: asyncHandler(async (req, res) => {
     const result = await postService.toggleBookmark(req.user._id, req.params.id);
+    res.json({ success: true, data: result });
+  }),
+
+  vote: asyncHandler(async (req, res) => {
+    const result = await postService.vote(req.user._id, req.params.id, req.body.optionIndex);
     res.json({ success: true, data: result });
   }),
 

@@ -24,6 +24,7 @@ import {
   useMentionAutocomplete,
 } from "@/components/app/MentionAutocomplete";
 import { RichText } from "@/components/app/RichText";
+import { PollBlock } from "@/components/app/PollBlock";
 import { useAutogrowTextarea } from "@/components/app/useAutogrowTextarea";
 import { ReportDialog } from "@/components/app/ReportDialog";
 import { Button } from "@/components/ui/button";
@@ -457,6 +458,15 @@ export function PostCard({
                   loading="lazy"
                 />
               </div>
+            ) : null}
+
+            {post.poll?.options?.length ? (
+              <PollBlock
+                postId={post._id}
+                poll={post.poll}
+                myVote={post.myVote}
+                canVote={Boolean(currentUser)}
+              />
             ) : null}
           </div>
         </div>

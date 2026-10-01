@@ -3,6 +3,7 @@ import { Comment } from "../models/Comment.js";
 import { Like } from "../models/Like.js";
 import { Repost } from "../models/Repost.js";
 import { Bookmark } from "../models/Bookmark.js";
+import { PollVote } from "../models/PollVote.js";
 import { Follow } from "../models/Follow.js";
 import { User } from "../models/User.js";
 import { notificationService } from "./notificationService.js";
@@ -13,6 +14,55 @@ import { AppError } from "../utils/AppError.js";
 import { cache, CacheKeys, TTL } from "../utils/cache.js";
 
 const EDIT_WINDOW_MS = 5 * 60 * 1000;
+
+// poll durations allowed by the composer (days)
+const POLL_DURATIONS = new Set([1, 3, 7]);
+
+function buildPoll(pollInput) {
+  if (!pollInput) return null;
+  const rawOptions = Array.isArray(pollInput.options) ? pollInput.options : [];
+  const options = rawOptions.map((o) => String(o ?? "").trim()).filter(Boolean);
+  if (options.length < 2) throw new AppError("Poll needs 2-4 options", 400, "INVALID_POLL");
+  if (options.length > 4) throw new AppError("Poll needs 2-4 options", 400, "INVALID_POLL");
+  for (const o of options) {
+    if (o.length > 80) throw new AppError("Poll options max 80 characters", 400, "INVALID_POLL");
+  }
+  const days = Number(pollInput.durationDays);
+  if (!POLL_DURATIONS.has(days)) throw new AppError("Poll duration must be 1, 3 or 7 days", 400, "INVALID_POLL");
+  return {
+    options: options.map((text) => ({ text, votes: 0 })),
+    totalVotes: 0,
+    expiresAt: new Date(Date.now() + days * 24 * 60 * 60 * 1000),
+  };
+}
+
+function pollClosed(poll) {
+  if (!poll?.expiresAt) return false;
+  return new Date(poll.expiresAt).getTime() <= Date.now();
+}
+
+// Attach viewer-specific poll state in ONE query per list (only when a poll
+// post is present). Guests get closed flags but no myVote. Keeps feed fast.
+async function attachPollVotes(posts, viewerId) {
+  if (!posts?.length) return;
+  const withPoll = posts.filter((p) => p.poll?.options?.length);
+  if (!withPoll.length) return;
+  for (const p of withPoll) {
+    if (p.poll) p.poll = { ...p.poll, closed: pollClosed(p.poll) };
+  }
+  if (!viewerId) {
+    withPoll.forEach((p) => {
+      p.myVote = null;
+    });
+    return;
+  }
+  const ids = withPoll.map((p) => p._id);
+  const votes = await PollVote.find({ post: { $in: ids }, user: viewerId }).select("post optionIndex").lean();
+  const map = new Map(votes.map((v) => [String(v.post), v.optionIndex]));
+  withPoll.forEach((p) => {
+    p.myVote = map.has(String(p._id)) ? map.get(String(p._id)) : null;
+  });
+}
 
 // strip posts whose author is blocked (either direction) from a fetched list
 async function withoutBlockedAuthors(posts, viewerId) {
@@ -52,10 +102,12 @@ async function notifyMentions(actorId, usernames, postId, skipId = null) {
 }
 
 export const postService = {
-  async create(authorId, text, imageFile) {
+  async create(authorId, text, imageFile, pollInput) {
     const t = text?.trim() || "";
     if (t.length > 500) throw new AppError("Post must be 1-500 characters", 400, "INVALID_TEXT");
-    if (!t && !imageFile) throw new AppError("Post must have text or an image", 400, "EMPTY_POST");
+    const poll = buildPoll(pollInput);
+    if (poll && imageFile) throw new AppError("Poll and image can't be combined", 400, "INVALID_POLL");
+    if (!t && !imageFile && !poll) throw new AppError("Post must have text, an image or a poll", 400, "EMPTY_POST");
 
     let imageUrl = null;
     if (imageFile) {
@@ -65,7 +117,7 @@ export const postService = {
       imageUrl = uploaded.viewUrl;
     }
 
-    const post = await Post.create({ author: authorId, text: t || undefined, imageUrl, hashtags: extractHashtags(t), mentions: extractMentions(t) });
+    const post = await Post.create({ author: authorId, text: t || undefined, imageUrl, poll: poll || undefined, hashtags: extractHashtags(t), mentions: extractMentions(t) });
     await User.findByIdAndUpdate(authorId, { $inc: { postCount: 1 } });
     await notifyMentions(authorId, extractMentions(t), post._id);
     // Invalidate caches that include this post
@@ -96,6 +148,7 @@ export const postService = {
     }
     // Clone to avoid mutating cached object
     const result = { ...post };
+    await attachPollVotes([result], viewerId);
     if (viewerId) {
       const [liked, reposted, bookmarked] = await Promise.all([
         Like.exists({ user: viewerId, post: postId }),
@@ -148,6 +201,7 @@ export const postService = {
       Like.deleteMany({ post: postId }),
       Repost.deleteMany({ post: postId }),
       Bookmark.deleteMany({ post: postId }),
+      PollVote.deleteMany({ post: postId }),
     ]);
     // clamp
     await User.updateOne({ _id: userId, postCount: { $lt: 0 } }, { $set: { postCount: 0 } });
@@ -207,6 +261,7 @@ export const postService = {
       });
       await attachBookmarked(posts, userId);
     }
+    await attachPollVotes(posts, userId);
     const result = { posts, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
     cache.set(cacheKey, result, TTL.FEED);
     return result;
@@ -233,9 +288,12 @@ export const postService = {
           p.isReposted = repostSet.has(String(p._id));
         });
         await attachBookmarked(posts, viewerId);
+        await attachPollVotes(posts, viewerId);
         return { ...cached, posts };
       }
-      return cached;
+      const freshPosts = cached.posts.map((p) => ({ ...p }));
+      await attachPollVotes(freshPosts, viewerId || null);
+      return { ...cached, posts: freshPosts };
     }
 
     const hidden = viewerId ? await blockService.blockedIdsFor(viewerId) : [];
@@ -257,6 +315,7 @@ export const postService = {
         p.isReposted = repostSet.has(String(p._id));
       });
       await attachBookmarked(posts, viewerId);
+      await attachPollVotes(posts, viewerId);
     }
     const result = { posts, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
     cache.set(cacheKey, result, TTL.PUBLIC_FEED);
@@ -373,6 +432,54 @@ export const postService = {
     return { bookmarked: true };
   },
 
+  // single-choice poll vote, changeable until expiry. No feed invalidation —
+  // feed caches are 30s and vote counts ride along; only the single-post
+  // cache is dropped so detail stays fresh without cache stampedes.
+  async vote(userId, postId, optionIndex) {
+    const idx = Number(optionIndex);
+    if (!Number.isInteger(idx) || idx < 0 || idx > 3) throw new AppError("Invalid option", 400, "INVALID_POLL_VOTE");
+    const post = await Post.findById(postId);
+    if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
+    if (!post.poll?.options?.length) throw new AppError("Post has no poll", 400, "NO_POLL");
+    if (idx >= post.poll.options.length) throw new AppError("Invalid option", 400, "INVALID_POLL_VOTE");
+    if (pollClosed(post.poll)) throw new AppError("Poll is closed", 400, "POLL_CLOSED");
+    await blockService.assertNoBlock(userId, post.author, "You can't interact with this account's posts.");
+
+    const existing = await PollVote.findOne({ post: postId, user: userId });
+    if (existing && existing.optionIndex === idx) {
+      const fresh = await Post.findById(postId).lean();
+      return { poll: { ...fresh.poll, closed: pollClosed(fresh.poll) }, myVote: idx };
+    }
+    if (existing) {
+      const prev = existing.optionIndex;
+      existing.optionIndex = idx;
+      await existing.save();
+      const inc = {
+        [`poll.options.${idx}.votes`]: 1,
+        [`poll.options.${prev}.votes`]: -1,
+      };
+      await Post.updateOne({ _id: postId }, { $inc: inc });
+      await Post.updateOne({ _id: postId, [`poll.options.${prev}.votes`]: { $lt: 0 } }, { $set: { [`poll.options.${prev}.votes`]: 0 } });
+    } else {
+      try {
+        await PollVote.create({ post: postId, user: userId, optionIndex: idx });
+      } catch (e) {
+        if (e.code === 11000) {
+          // lost a race with another vote — treat as change path
+          return this.vote(userId, postId, idx);
+        }
+        throw e;
+      }
+      await Post.updateOne(
+        { _id: postId },
+        { $inc: { [`poll.options.${idx}.votes`]: 1, "poll.totalVotes": 1 } },
+      );
+    }
+    cache.del(CacheKeys.post(postId));
+    const fresh = await Post.findById(postId).lean();
+    return { poll: { ...fresh.poll, closed: pollClosed(fresh.poll) }, myVote: idx };
+  },
+
   // own saved posts, newest-saved-first — private, viewerId must equal userId
   async bookmarks(userId, { page = 1, limit = 20 }) {
     const lim = Math.max(1, Math.min(50, Number(limit)));
@@ -409,6 +516,7 @@ export const postService = {
         p.isReposted = repostSet.has(String(p._id));
         p.isBookmarked = true;
       });
+      await attachPollVotes(ordered, userId);
     }
     const result = { posts: ordered, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
     cache.set(cacheKey, result, TTL.BOOKMARKS);
@@ -503,6 +611,7 @@ export const postService = {
           p.isReposted = repostSet.has(String(p._id));
         });
         await attachBookmarked(ordered, viewerId);
+        await attachPollVotes(ordered, viewerId);
       }
       const total = await Like.countDocuments({ user: likedBy });
       const result = { posts: ordered, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
@@ -539,6 +648,7 @@ export const postService = {
           p.isReposted = repostSet.has(String(p._id));
         });
         await attachBookmarked(ordered, viewerId);
+        await attachPollVotes(ordered, viewerId);
       }
       const total = await Repost.countDocuments({ user: repostedBy });
       const result = { posts: ordered, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
@@ -574,6 +684,7 @@ export const postService = {
         p.isReposted = repostSet.has(String(p._id));
       });
       await attachBookmarked(posts, viewerId);
+      await attachPollVotes(posts, viewerId);
     }
 
     const result = { posts, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
@@ -650,9 +761,12 @@ export const postService = {
           p.isReposted = repostSet.has(String(p._id));
         });
         await attachBookmarked(posts, viewerId);
+        await attachPollVotes(posts, viewerId);
         return { ...cached, posts };
       }
-      return cached;
+      const freshPosts = cached.posts.map((p) => ({ ...p }));
+      await attachPollVotes(freshPosts, viewerId || null);
+      return { ...cached, posts: freshPosts };
     }
     const hidden = viewerId ? await blockService.blockedIdsFor(viewerId) : [];
     const filter = { hashtags: tag };
@@ -674,6 +788,7 @@ export const postService = {
         p.isReposted = repostSet.has(String(p._id));
       });
       await attachBookmarked(posts, viewerId);
+      await attachPollVotes(posts, viewerId);
     }
     const result = { tag, posts, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
     cache.set(cacheKey, result, TTL.HASHTAG);

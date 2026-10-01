@@ -265,15 +265,20 @@ export const api = {
       { method: "GET" },
     );
   },
-  createPost: (text, image) => {
+  createPost: (text, image, poll) => {
     if (image) {
       const form = new FormData();
       if (text) form.append("text", text);
       form.append("image", image);
       return request("/api/posts", { method: "POST", form });
     }
-    return request("/api/posts", { method: "POST", body: { text } });
+    return request("/api/posts", { method: "POST", body: { text, poll } });
   },
+  votePoll: (id, optionIndex) =>
+    request(`/api/posts/${encodeURIComponent(id)}/vote`, {
+      method: "POST",
+      body: { optionIndex },
+    }),
   getPost: (id) =>
     request(`/api/posts/${encodeURIComponent(id)}`, { method: "GET" }),
   updatePost: (id, text) =>

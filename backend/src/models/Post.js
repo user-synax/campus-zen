@@ -16,6 +16,28 @@ const postSchema = new mongoose.Schema(
     edited: { type: Boolean, default: false },
     hashtags: { type: [String], default: [], index: true },
     mentions: { type: [String], default: [], index: true },
+    // poll attachment (V1) — counts denormalized here so feeds never aggregate.
+    // Per-user votes live in PollVote; expiry is computed (no cron on free tier).
+    poll: {
+      type: {
+        options: {
+          type: [
+            {
+              text: { type: String, required: true, trim: true, maxlength: 80 },
+              votes: { type: Number, default: 0, min: 0 },
+              _id: false,
+            },
+          ],
+          validate: {
+            validator: (v) => Array.isArray(v) && v.length >= 2 && v.length <= 4,
+            message: "Poll needs 2-4 options",
+          },
+        },
+        totalVotes: { type: Number, default: 0, min: 0 },
+        expiresAt: { type: Date, required: true },
+      },
+      default: null,
+    },
   },
   { timestamps: true }
 );

@@ -51,6 +51,10 @@ router.delete("/:id/repost", protect, interactionLimiter, validate(idParam, "par
 router.post("/:id/bookmark", protect, interactionLimiter, validate(idParam, "params"), postController.toggleBookmark);
 router.delete("/:id/bookmark", protect, interactionLimiter, validate(idParam, "params"), postController.toggleBookmark);
 
+// polls — single-choice, changeable until expiry
+const voteSchema = z.object({ optionIndex: z.coerce.number().int().min(0).max(3) });
+router.post("/:id/vote", protect, interactionLimiter, validate(idParam, "params"), validate(voteSchema), postController.vote);
+
 // comments (replies)
 router.post("/:id/replies", protect, interactionLimiter, validate(idParam, "params"), validate(textSchema), postController.createComment);
 router.get("/:id/replies", optionalAuth, validate(idParam, "params"), validate(paginationQuery, "query"), postController.getComments);
