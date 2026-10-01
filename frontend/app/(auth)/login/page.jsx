@@ -15,8 +15,7 @@ import { AuthShell } from "@/components/auth/AuthShell";
 import { GuestGuard } from "@/components/auth/GuestGuard";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ErrorMsg, InputShell, InputWrap } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FloatingInput } from "@/components/ui/input";
 import { api } from "@/lib/api";
 
 export default function LoginPage() {
@@ -143,37 +142,27 @@ export default function LoginPage() {
             </div>
           ) : null}
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="username">Username</Label>
-            <InputWrap error={!!errors.username}>
-              <InputShell error={!!errors.username} shaking={!!shake.username}>
-                <span className="select-none text-[15px] text-[var(--cz-text-secondary)]">
-                  @
-                </span>
-                <input
-                  ref={userRef}
-                  id="username"
-                  autoComplete="username"
-                  placeholder="username"
-                  value={username}
-                  onChange={(e) => {
-                    setUsername(
-                      e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""),
-                    );
-                    if (errors.username)
-                      setErrors((p) => ({ ...p, username: undefined }));
-                    setServerMsg(null);
-                  }}
-                  className="h-full flex-1 bg-transparent text-[15px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)]"
-                />
-              </InputShell>
-              <ErrorMsg>{errors.username}</ErrorMsg>
-            </InputWrap>
-          </div>
+          <FloatingInput
+            ref={userRef}
+            id="username"
+            label="Username"
+            prefix="@"
+            autoComplete="username"
+            value={username}
+            error={errors.username}
+            shaking={!!shake.username}
+            onChange={(e) => {
+              setUsername(
+                e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""),
+              );
+              if (errors.username)
+                setErrors((p) => ({ ...p, username: undefined }));
+              setServerMsg(null);
+            }}
+          />
 
           <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="password">Password</Label>
+            <div className="flex items-center justify-end">
               <Link
                 href="/forgot-password"
                 className="text-[15px] font-bold text-[var(--cz-accent)] hover:underline"
@@ -181,23 +170,22 @@ export default function LoginPage() {
                 Forgot password?
               </Link>
             </div>
-            <InputWrap error={!!errors.password}>
-              <InputShell error={!!errors.password} shaking={!!shake.password}>
-                <input
-                  ref={pwRef}
-                  id="password"
-                  type={showPw ? "text" : "password"}
-                  autoComplete="current-password"
-                  placeholder="Password"
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    if (errors.password)
-                      setErrors((p) => ({ ...p, password: undefined }));
-                    setServerMsg(null);
-                  }}
-                  className="h-full flex-1 bg-transparent text-[15px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)]"
-                />
+            <FloatingInput
+              ref={pwRef}
+              id="password"
+              label="Password"
+              type={showPw ? "text" : "password"}
+              autoComplete="current-password"
+              value={password}
+              error={errors.password}
+              shaking={!!shake.password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (errors.password)
+                  setErrors((p) => ({ ...p, password: undefined }));
+                setServerMsg(null);
+              }}
+              suffix={
                 <button
                   type="button"
                   aria-label={showPw ? "Hide password" : "Show password"}
@@ -213,9 +201,8 @@ export default function LoginPage() {
                     </span>
                   </span>
                 </button>
-              </InputShell>
-              <ErrorMsg>{errors.password}</ErrorMsg>
-            </InputWrap>
+              }
+            />
           </div>
 
           <Checkbox

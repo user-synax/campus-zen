@@ -1022,6 +1022,144 @@ body {
   box-shadow: 0 0 0 1px var(--cz-accent);
 }
 
+/* ── Floating-label auth fields ──────────────────────────
+   Premium outlined style: label rests inside at rest, docks to the top
+   border on focus / filled with a bg cutout. Focus ring is accent-blue
+   (2px visual via border + 1px shadow) with a soft outer glow. */
+.cz-float-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 56px;
+  padding: 0 16px;
+  border-radius: 12px;
+  border: 1px solid var(--cz-border-strong);
+  background: var(--cz-bg);
+  cursor: text;
+  transition:
+    border-color 180ms ease-out,
+    box-shadow 180ms ease-out,
+    background-color 180ms ease-out;
+}
+.cz-float-box:hover {
+  border-color: var(--cz-text-secondary);
+}
+.cz-float-box:focus-within {
+  border-color: var(--cz-accent);
+  box-shadow:
+    0 0 0 1px var(--cz-accent),
+    0 0 0 4px rgba(29, 155, 240, 0.12);
+}
+.cz-float-box.is-error {
+  border-color: var(--cz-error);
+}
+.cz-float-box.is-error:hover {
+  border-color: var(--cz-error);
+}
+.cz-float-box.is-error:focus-within {
+  border-color: var(--cz-error);
+  box-shadow:
+    0 0 0 1px var(--cz-error),
+    0 0 0 4px rgba(244, 33, 46, 0.12);
+}
+.cz-float-prefix {
+  flex-shrink: 0;
+  user-select: none;
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--cz-text-secondary);
+}
+.cz-float-box:focus-within .cz-float-prefix {
+  color: var(--cz-accent);
+}
+.cz-float-box.is-error .cz-float-prefix {
+  color: var(--cz-error);
+}
+.cz-float-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  background: transparent;
+  border: 0;
+  outline: none;
+  font-size: 16px;
+  line-height: 22px;
+  color: var(--cz-text-primary);
+  caret-color: var(--cz-accent);
+}
+.cz-float-input::placeholder {
+  color: transparent;
+}
+/* kill yellow autofill while keeping the float docked */
+.cz-float-input:-webkit-autofill {
+  -webkit-text-fill-color: var(--cz-text-primary);
+  caret-color: var(--cz-text-primary);
+  transition: background-color 99999s ease-in-out 0s;
+}
+.cz-float-suffix {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+}
+.cz-float-label {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  max-width: calc(100% - 32px);
+  padding: 0 4px;
+  margin-left: -4px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--cz-text-secondary);
+  background: var(--cz-bg);
+  pointer-events: none;
+  transition:
+    top 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    font-size 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 150ms ease-out;
+  will-change: top, transform, font-size;
+}
+.cz-float-box.has-prefix .cz-float-label {
+  left: 37px;
+  max-width: calc(100% - 53px);
+}
+/* docked state: focused, filled (JS + CSS), or browser-autofilled */
+.cz-float-box:focus-within .cz-float-label,
+.cz-float-box.is-filled .cz-float-label,
+.cz-float-input:focus + .cz-float-label,
+.cz-float-input:not(:placeholder-shown) + .cz-float-label,
+.cz-float-input:-webkit-autofill + .cz-float-label,
+.cz-float-input:autofill + .cz-float-label {
+  top: 0;
+  transform: translateY(-50%);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--cz-text-secondary);
+}
+.cz-float-box:focus-within .cz-float-label {
+  color: var(--cz-accent);
+  font-weight: 600;
+}
+.cz-float-box.is-error .cz-float-label,
+.cz-float-box.is-error:focus-within .cz-float-label {
+  color: var(--cz-error);
+}
+@media (prefers-reduced-motion: reduce) {
+  .cz-float-box,
+  .cz-float-label {
+    transition: none !important;
+  }
+}
+
 /* Feed rows: no card outline, hairline separator only */
 .cz-row {
   border-bottom: 1px solid var(--cz-border);

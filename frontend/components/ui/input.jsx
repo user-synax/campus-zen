@@ -59,6 +59,76 @@ export function InputShell({ children, className, error, shaking }) {
   );
 }
 
+/**
+ * Floating-label auth field — premium outlined style.
+ *
+ * Label rests inside the input at rest; on focus or when filled it docks
+ * to the top border (with a bg cutout), tinting accent-blue on focus and
+ * error-red on error. Pure CSS `:placeholder-shown` drives the float, with
+ * an `is-filled` fallback for controlled values + autofill.
+ *
+ * Usage:
+ *   <FloatingInput id="name" label="Name" value={v} onChange={...} />
+ *   <FloatingInput id="u" label="Username" prefix="@" suffix={<Eye/>} />
+ */
+export const FloatingInput = forwardRef(
+  (
+    {
+      id,
+      label,
+      error,
+      shaking,
+      prefix,
+      suffix,
+      className,
+      inputClassName,
+      value,
+      defaultValue,
+      placeholder: _placeholder,
+      ...props
+    },
+    ref,
+  ) => {
+    const filled = String(value ?? defaultValue ?? "").length > 0;
+
+    return (
+      <div className={cn("t-input-wrap", error && "is-error", className)}>
+        <div
+          className={cn(
+            "cz-float-box t-input",
+            error && "is-error",
+            shaking && "is-shaking",
+            filled && "is-filled",
+            prefix && "has-prefix",
+          )}
+        >
+          {prefix ? (
+            <span aria-hidden className="cz-float-prefix">
+              {prefix}
+            </span>
+          ) : null}
+          <input
+            ref={ref}
+            id={id}
+            placeholder=" "
+            data-filled={filled ? "true" : undefined}
+            {...props}
+            value={value}
+            defaultValue={defaultValue}
+            className={cn("cz-float-input", inputClassName)}
+          />
+          <label htmlFor={id} className="cz-float-label">
+            {label}
+          </label>
+          {suffix ? <span className="cz-float-suffix">{suffix}</span> : null}
+        </div>
+        <ErrorMsg>{error}</ErrorMsg>
+      </div>
+    );
+  },
+);
+FloatingInput.displayName = "FloatingInput";
+
 export function ErrorMsg({ children }) {
   if (!children) return <p className="t-error-msg" aria-live="polite" />;
   return (

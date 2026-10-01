@@ -15,8 +15,7 @@ import { AuthShell } from "@/components/auth/AuthShell";
 import { GuestGuard } from "@/components/auth/GuestGuard";
 import { PasswordStrength } from "@/components/auth/PasswordStrength";
 import { Button } from "@/components/ui/button";
-import { ErrorMsg, InputShell, InputWrap } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FloatingInput } from "@/components/ui/input";
 import { api } from "@/lib/api";
 
 const EMAIL_ALLOW = ["gmail.com", "proton.me"];
@@ -191,60 +190,56 @@ export default function SignupPage() {
             </div>
           ) : null}
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="fullName">Full name</Label>
-            <InputWrap error={!!errors.fullName}>
-              <InputShell error={!!errors.fullName} shaking={!!shake.fullName}>
-                <input
-                  ref={nameRef}
-                  id="fullName"
-                  autoComplete="name"
-                  placeholder="Ayush Sharma"
-                  value={fullName}
-                  onChange={(e) => {
-                    setFullName(e.target.value);
-                    if (errors.fullName)
-                      setErrors((p) => ({ ...p, fullName: undefined }));
-                    setServerError("");
-                  }}
-                  className="h-full flex-1 bg-transparent text-[15px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)]"
-                />
-              </InputShell>
-              <ErrorMsg>{errors.fullName}</ErrorMsg>
-            </InputWrap>
-          </div>
+          <FloatingInput
+            ref={nameRef}
+            id="fullName"
+            label="Full name"
+            autoComplete="name"
+            value={fullName}
+            error={errors.fullName}
+            shaking={!!shake.fullName}
+            onChange={(e) => {
+              setFullName(e.target.value);
+              if (errors.fullName)
+                setErrors((p) => ({ ...p, fullName: undefined }));
+              setServerError("");
+            }}
+          />
 
           <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="username">Username</Label>
+            <div className="flex items-center justify-end">
               <span className="text-[13px] text-[var(--cz-text-secondary)]">
                 @username
               </span>
             </div>
-            <InputWrap error={!!errors.username}>
-              <InputShell error={!!errors.username} shaking={!!shake.username}>
-                <span className="select-none text-[15px] text-[var(--cz-text-secondary)]">
-                  @
-                </span>
-                <input
-                  ref={userRef}
-                  id="username"
-                  autoComplete="username"
-                  placeholder="username"
-                  value={username}
-                  onChange={(e) => {
-                    const v = e.target.value
-                      .toLowerCase()
-                      .replace(/[^a-z0-9_]/g, "");
-                    setUsername(v);
-                    if (errors.username)
-                      setErrors((p) => ({ ...p, username: undefined }));
-                    setServerError("");
-                  }}
-                  className="h-full flex-1 bg-transparent text-[15px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)]"
-                  maxLength={20}
-                />
-                {username ? (
+            <FloatingInput
+              ref={userRef}
+              id="username"
+              label="Username"
+              prefix="@"
+              autoComplete="username"
+              value={username}
+              maxLength={20}
+              error={
+                errors.username ||
+                (userAvail.state !== "available" &&
+                userAvail.state !== "idle" &&
+                !checkingUser
+                  ? userAvail.msg
+                  : "")
+              }
+              shaking={!!shake.username}
+              onChange={(e) => {
+                const v = e.target.value
+                  .toLowerCase()
+                  .replace(/[^a-z0-9_]/g, "");
+                setUsername(v);
+                if (errors.username)
+                  setErrors((p) => ({ ...p, username: undefined }));
+                setServerError("");
+              }}
+              suffix={
+                username ? (
                   <span
                     className={`inline-flex shrink-0 items-center gap-1 text-[13px] ${
                       userAvail.state === "available"
@@ -270,65 +265,50 @@ export default function SignupPage() {
                             ? "Invalid"
                             : ""}
                   </span>
-                ) : null}
-              </InputShell>
-              <ErrorMsg>
-                {errors.username ||
-                  (userAvail.state !== "available" &&
-                  userAvail.state !== "idle" &&
-                  !checkingUser
-                    ? userAvail.msg
-                    : "")}
-              </ErrorMsg>
-            </InputWrap>
+                ) : null
+              }
+            />
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="email">Email</Label>
-            <InputWrap error={!!errors.email}>
-              <InputShell error={!!errors.email} shaking={!!shake.email}>
-                <input
-                  ref={emailRef}
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="you@gmail.com"
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    if (errors.email)
-                      setErrors((p) => ({ ...p, email: undefined }));
-                    setServerError("");
-                  }}
-                  className="h-full flex-1 bg-transparent text-[15px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)]"
-                />
-              </InputShell>
-              <ErrorMsg>{errors.email}</ErrorMsg>
-              <p className="mt-1 text-[13px] leading-[17px] text-[var(--cz-text-secondary)]">
-                Allowed: gmail.com, proton.me
-              </p>
-            </InputWrap>
+            <FloatingInput
+              ref={emailRef}
+              id="email"
+              label="Email"
+              type="email"
+              autoComplete="email"
+              value={email}
+              error={errors.email}
+              shaking={!!shake.email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (errors.email)
+                  setErrors((p) => ({ ...p, email: undefined }));
+                setServerError("");
+              }}
+            />
+            <p className="mt-1 text-[13px] leading-[17px] text-[var(--cz-text-secondary)]">
+              Allowed: gmail.com, proton.me
+            </p>
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="password">Password</Label>
-            <InputWrap error={!!errors.password}>
-              <InputShell error={!!errors.password} shaking={!!shake.password}>
-                <input
-                  ref={pwRef}
-                  id="password"
-                  type={showPw ? "text" : "password"}
-                  autoComplete="new-password"
-                  placeholder="Password"
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    if (errors.password)
-                      setErrors((p) => ({ ...p, password: undefined }));
-                    setServerError("");
-                  }}
-                  className="h-full flex-1 bg-transparent text-[15px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)]"
-                />
+            <FloatingInput
+              ref={pwRef}
+              id="password"
+              label="Password"
+              type={showPw ? "text" : "password"}
+              autoComplete="new-password"
+              value={password}
+              error={errors.password}
+              shaking={!!shake.password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (errors.password)
+                  setErrors((p) => ({ ...p, password: undefined }));
+                setServerError("");
+              }}
+              suffix={
                 <button
                   type="button"
                   aria-label={showPw ? "Hide password" : "Show password"}
@@ -344,10 +324,9 @@ export default function SignupPage() {
                     </span>
                   </span>
                 </button>
-              </InputShell>
-              <ErrorMsg>{errors.password}</ErrorMsg>
-              <PasswordStrength password={password} />
-            </InputWrap>
+              }
+            />
+            <PasswordStrength password={password} />
           </div>
 
           <Button type="submit" disabled={loading} size="lg" className="w-full">

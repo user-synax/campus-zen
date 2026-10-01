@@ -5,8 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Loader2, Shield } from "lucide-react";
 import { AuthShell } from "@/components/auth/AuthShell";
-import { Label } from "@/components/ui/label";
-import { InputWrap, InputShell, ErrorMsg } from "@/components/ui/input";
+import { FloatingInput } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 
@@ -91,29 +90,24 @@ export default function ForgotPasswordPage() {
         ) : null}
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="email">Email</Label>
-          <InputWrap error={!!error}>
-            <InputShell error={!!error} shaking={shake}>
-              <input
-                ref={ref}
-                id="email"
-                type="email"
-                autoComplete="email"
-                placeholder="you@gmail.com"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  setError("");
-                  setInfo("");
-                }}
-                className="h-full flex-1 bg-transparent text-[15px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)]"
-              />
-            </InputShell>
-            <ErrorMsg>{error}</ErrorMsg>
-            <p className="mt-1 text-[13px] leading-[17px] text-[var(--cz-text-secondary)]">
-              We only send codes to gmail.com or proton.me.
-            </p>
-          </InputWrap>
+          <FloatingInput
+            ref={ref}
+            id="email"
+            label="Email"
+            type="email"
+            autoComplete="email"
+            value={email}
+            error={error}
+            shaking={shake}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setError("");
+              setInfo("");
+            }}
+          />
+          <p className="mt-1 text-[13px] leading-[17px] text-[var(--cz-text-secondary)]">
+            We only send codes to gmail.com or proton.me.
+          </p>
         </div>
 
         <Button type="submit" disabled={loading} size="lg" className="w-full">

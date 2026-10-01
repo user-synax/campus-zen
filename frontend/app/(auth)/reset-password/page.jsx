@@ -5,8 +5,7 @@ import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Eye, EyeOff, Lock, CheckCircle2, Loader2, KeyRound, AlertCircle } from "lucide-react";
 import { AuthShell } from "@/components/auth/AuthShell";
-import { Label } from "@/components/ui/label";
-import { InputWrap, InputShell, ErrorMsg } from "@/components/ui/input";
+import { FloatingInput } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { PasswordStrength } from "@/components/auth/PasswordStrength";
 import { OtpInput } from "@/components/auth/OtpInput";
@@ -248,21 +247,19 @@ function ResetPasswordInner() {
       ) : (
         <form onSubmit={onReset} noValidate className="flex flex-col gap-5">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="newpw">New password</Label>
-            <InputWrap error={!!pwError}>
-              <InputShell error={!!pwError} shaking={shakePw}>
-                <input
-                  id="newpw"
-                  type={showPw ? "text" : "password"}
-                  autoComplete="new-password"
-                  placeholder="Password"
-                  value={pw}
-                  onChange={(e) => {
-                    setPw(e.target.value);
-                    setPwError("");
-                  }}
-                  className="h-full flex-1 bg-transparent text-[15px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)]"
-                />
+            <FloatingInput
+              id="newpw"
+              label="New password"
+              type={showPw ? "text" : "password"}
+              autoComplete="new-password"
+              value={pw}
+              error={pwError}
+              shaking={shakePw}
+              onChange={(e) => {
+                setPw(e.target.value);
+                setPwError("");
+              }}
+              suffix={
                 <button
                   type="button"
                   aria-label={showPw ? "Hide password" : "Show password"}
@@ -274,10 +271,9 @@ function ResetPasswordInner() {
                     <span className="t-icon" data-icon="b"><EyeOff className="h-[18px] w-[18px]" aria-hidden /></span>
                   </span>
                 </button>
-              </InputShell>
-              <ErrorMsg>{pwError}</ErrorMsg>
-              <PasswordStrength password={pw} />
-            </InputWrap>
+              }
+            />
+            <PasswordStrength password={pw} />
           </div>
 
           <Button type="submit" disabled={loading} size="lg" className="w-full">
