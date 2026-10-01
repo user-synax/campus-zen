@@ -114,43 +114,70 @@ export function ProfileHeader({
     .filter(Boolean)
     .join(" · ");
 
-  const socialEntries = useMemo(
-    () =>
-      [
-        user.socialLinks?.github && {
-          key: "github",
-          href: `https://github.com/${user.socialLinks.github}`,
-          label: user.socialLinks.github,
-          Icon: GithubIcon,
-        },
-        user.socialLinks?.twitter && {
-          key: "twitter",
-          href: `https://x.com/${user.socialLinks.twitter.replace(/^@/, "")}`,
-          label: `@${user.socialLinks.twitter.replace(/^@/, "")}`,
-          Icon: XIcon,
-        },
-        user.socialLinks?.linkedin && {
-          key: "linkedin",
-          href: user.socialLinks.linkedin.startsWith("http")
-            ? user.socialLinks.linkedin
-            : `https://linkedin.com/in/${user.socialLinks.linkedin}`,
-          label: "LinkedIn",
-          Icon: LinkedinIcon,
-        },
-        user.socialLinks?.instagram && {
-          key: "instagram",
-          href: `https://instagram.com/${user.socialLinks.instagram.replace(/^@/, "")}`,
-          label: `@${user.socialLinks.instagram.replace(/^@/, "")}`,
-          Icon: InstagramIcon,
-        },
-      ].filter(Boolean),
-    [
-      user.socialLinks?.github,
-      user.socialLinks?.twitter,
-      user.socialLinks?.linkedin,
-      user.socialLinks?.instagram,
-    ],
-  );
+  const socialEntries = useMemo(() => {
+    // Treat null/empty/"null"/"undefined" (legacy rows saved as the string
+    // "null" by String(null)) as missing — never render a /null link.
+    const clean = (v) => {
+      if (v == null) return "";
+      const s = String(v).trim();
+      if (!s) return "";
+      const low = s.toLowerCase();
+      if (low === "null" || low === "undefined" || low === "none") return "";
+      return s;
+    };
+
+    const github = clean(user.socialLinks?.github);
+    const twitter = clean(user.socialLinks?.twitter).replace(/^@/, "").trim();
+    const linkedinRaw = clean(user.socialLinks?.linkedin);
+    const instagram = clean(user.socialLinks?.instagram)
+      .replace(/^@/, "")
+      .trim();
+    // linkedin may be a full URL or a bare handle
+    const linkedin = linkedinRaw
+      .replace(/^https?:\/\/(www\.)?linkedin\.com\/in\//i, "")
+      .replace(/\/$/, "")
+      .trim();
+
+    const isValid = (s) => {
+      if (!s) return false;
+      const low = s.toLowerCase();
+      return low !== "null" && low !== "undefined" && s !== "@";
+    };
+
+    return [
+      isValid(github) && {
+        key: "github",
+        href: `https://github.com/${github}`,
+        label: github,
+        Icon: GithubIcon,
+      },
+      isValid(twitter) && {
+        key: "twitter",
+        href: `https://x.com/${twitter}`,
+        label: `@${twitter}`,
+        Icon: XIcon,
+      },
+      isValid(linkedin) && {
+        key: "linkedin",
+        href: linkedinRaw.toLowerCase().startsWith("http")
+          ? linkedinRaw
+          : `https://linkedin.com/in/${linkedin}`,
+        label: "LinkedIn",
+        Icon: LinkedinIcon,
+      },
+      isValid(instagram) && {
+        key: "instagram",
+        href: `https://instagram.com/${instagram}`,
+        label: `@${instagram}`,
+        Icon: InstagramIcon,
+      },
+    ].filter(Boolean);
+  }, [
+    user.socialLinks?.github,
+    user.socialLinks?.twitter,
+    user.socialLinks?.linkedin,
+    user.socialLinks?.instagram,
+  ]);
 
   return (
     <div>
@@ -331,8 +358,9 @@ export function ProfileHeader({
           </span>
         </div>
 
-        {/* links — simple pill chips with minimal brand marks. External
-            domains are preconnected so the first tap isn't a cold TLS. */}
+        {/* links — bare brand icons (no circle). Rendered only when a real
+            handle exists; external domains are preconnected so the first
+            tap isn't a cold TLS. */}
         <SocialLinks entries={socialEntries} />
 
         <div className="mt-4 flex items-center gap-6 text-[15px] leading-[20px]">
@@ -369,9 +397,12 @@ export function ProfileHeader({
 }
 
 /**
- * Social link chips. Memoized so typing in the edit modal or paginating tabs
- * never re-renders the pills, and external origins are preconnected once so
- * the first outbound tap skips DNS+TLS setup.
+ * Social link icons — bare brand marks, no circle / border / background.
+ * Memoized so typing in the edit modal or paginating tabs never re-renders
+ * the row, and external origins are preconnected once so the first outbound
+ * tap skips DNS+TLS setup. `items-center justify-center` (not
+ * `place-items-center`, which is grid-only) keeps the glyph optically
+ * centered inside its touch target on all viewports.
  */
 const SocialLinks = memo(function SocialLinks({ entries }) {
   if (!entries?.length) return null;
@@ -381,7 +412,10 @@ const SocialLinks = memo(function SocialLinks({ entries }) {
       <link rel="preconnect" href="https://x.com" />
       <link rel="preconnect" href="https://linkedin.com" />
       <link rel="preconnect" href="https://instagram.com" />
-      <div className="mt-3 flex flex-wrap gap-2.5 sm:gap-2" aria-label="Links">
+      <div
+        className="-ml-2 mt-2 flex flex-wrap items-center gap-0.5 sm:-ml-1.5 sm:gap-1"
+        aria-label="Links"
+      >
         {entries.map(({ key, href, label, Icon }) => (
           <a
             key={key}
@@ -389,9 +423,10 @@ const SocialLinks = memo(function SocialLinks({ entries }) {
             target="_blank"
             rel="noopener noreferrer"
             aria-label={`${key}: ${label} (opens in new tab)`}
-            className="inline-flex h-11 w-11 shrink-0 cursor-pointer touch-manipulation place-items-center rounded-full border border-[var(--cz-border-strong)] bg-[var(--cz-bg)] text-[var(--cz-text-primary)] transition-all duration-200 ease-out select-none hover:-translate-y-px hover:border-[var(--cz-accent)] hover:text-[var(--cz-accent)] hover:shadow-sm active:translate-y-0 active:scale-95 active:border-[var(--cz-accent)] active:bg-[var(--cz-accent-soft)] sm:h-9 sm:w-9"
+            title={`${key}: ${label}`}
+            className="inline-flex h-10 w-10 shrink-0 cursor-pointer touch-manipulation items-center justify-center text-[var(--cz-text-primary)] transition-colors duration-150 select-none hover:text-[var(--cz-accent)] active:scale-90 sm:h-9 sm:w-9"
           >
-            <Icon className="shrink-0" aria-hidden />
+            <Icon className="block h-5 w-5 shrink-0" aria-hidden />
           </a>
         ))}
       </div>

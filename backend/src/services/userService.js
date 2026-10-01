@@ -231,15 +231,23 @@ export const userService = {
       const sl = {};
       for (const k of ["github", "twitter", "linkedin", "instagram"]) {
         if (data.socialLinks[k] !== undefined) {
-          let v = String(data.socialLinks[k]).trim();
-          if (v === "") v = null;
+          const raw = data.socialLinks[k];
+          // null stays null — never String(null) -> "null" (that was the /null bug)
+          if (raw === null) {
+            sl[k] = null;
+            continue;
+          }
+          let v = String(raw).trim();
+          if (v === "" || v.toLowerCase() === "null" || v.toLowerCase() === "undefined" || v === "@") v = null;
           // strip leading @ for twitter/instagram, strip url prefix for linkedin/github if pasted
-          if (v && (k === "twitter" || k === "instagram")) v = v.replace(/^@/, "");
-          if (v && k === "github") v = v.replace(/^https?:\/\/(www\.)?github\.com\//i, "").replace(/\/$/, "").split("/")[0];
+          if (v && (k === "twitter" || k === "instagram")) v = v.replace(/^@/, "").trim();
+          if (v && k === "github") v = v.replace(/^https?:\/\/(www\.)?github\.com\//i, "").replace(/\/$/, "").split("/")[0].trim();
           if (v && k === "linkedin") {
             // allow full URL or handle
-            v = v.replace(/^https?:\/\/(www\.)?linkedin\.com\/in\//i, "").replace(/\/$/, "");
+            v = v.replace(/^https?:\/\/(www\.)?linkedin\.com\/in\//i, "").replace(/\/$/, "").trim();
           }
+          // re-check after stripping (e.g. "@" -> "" or pasted "null")
+          if (!v || v.toLowerCase() === "null" || v.toLowerCase() === "undefined" || v === "@") v = null;
           sl[k] = v;
         }
       }

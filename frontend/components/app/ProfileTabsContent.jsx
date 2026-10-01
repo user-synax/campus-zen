@@ -242,7 +242,9 @@ export function TabMedia({ username, currentUser }) {
 }
 
 export function TabGitHub({ github, onLink }) {
-  if (!github) {
+  const clean = typeof github === "string" ? github.trim() : github;
+  const low = typeof clean === "string" ? clean.toLowerCase() : "";
+  if (!clean || low === "null" || low === "undefined" || clean === "@") {
     return (
       <EmptyState
         icon={Github}
