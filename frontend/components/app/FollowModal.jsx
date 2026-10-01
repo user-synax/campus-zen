@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
-import { createPortal } from "react-dom";
+import { Loader2, Users, X } from "lucide-react";
 import Link from "next/link";
-import { X, Users, Loader2 } from "lucide-react";
-import { api } from "@/lib/api";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
+import { api } from "@/lib/api";
 
 function UserRow({ user, viewerId, onToggle }) {
   const isOwn = viewerId && String(viewerId) === String(user._id);
@@ -33,23 +33,40 @@ function UserRow({ user, viewerId, onToggle }) {
 
   return (
     <div className="flex items-center gap-3 px-1 py-2.5">
-      <Link href={`/u/${user.username}`} className="flex min-w-0 flex-1 items-center gap-3">
+      <Link
+        href={`/u/${user.username}`}
+        className="flex min-w-0 flex-1 items-center gap-3"
+      >
         <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[13px] font-bold text-[var(--cz-text-primary)]">
           {user.avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={user.avatarUrl} alt={user.username} className="h-full w-full object-cover" />
+            <img
+              src={user.avatarUrl}
+              alt={user.username}
+              className="h-full w-full object-cover"
+            />
           ) : (
             (user.fullName || user.username || "U").slice(0, 1).toUpperCase()
           )}
         </span>
         <span className="min-w-0 flex-1 text-left">
-          <span className="block truncate text-[15px] font-bold leading-[20px] text-[var(--cz-text-primary)]">{user.fullName || user.username}</span>
-          <span className="block truncate text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">@{user.username}</span>
-          {user.bio ? <span className="mt-0.5 block truncate text-[13px] leading-[16px] text-[var(--cz-text-secondary)]">{user.bio}</span> : null}
+          <span className="block truncate text-[15px] font-bold leading-[20px] text-[var(--cz-text-primary)]">
+            {user.fullName || user.username}
+          </span>
+          <span className="block truncate text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">
+            @{user.username}
+          </span>
+          {user.bio ? (
+            <span className="mt-0.5 block truncate text-[13px] leading-[16px] text-[var(--cz-text-secondary)]">
+              {user.bio}
+            </span>
+          ) : null}
         </span>
       </Link>
       {isOwn ? (
-        <span className="shrink-0 px-2 text-[13px] text-[var(--cz-text-secondary)]">You</span>
+        <span className="shrink-0 px-2 text-[13px] text-[var(--cz-text-secondary)]">
+          You
+        </span>
       ) : (
         <Button
           variant={following ? "secondary" : "primary"}
@@ -58,14 +75,27 @@ function UserRow({ user, viewerId, onToggle }) {
           disabled={loading}
           className="min-w-[92px] shrink-0"
         >
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : following ? "Following" : "Follow"}
+          {loading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : following ? (
+            "Following"
+          ) : (
+            "Follow"
+          )}
         </Button>
       )}
     </div>
   );
 }
 
-export function FollowModal({ open, onClose, userId, type = "followers", title, viewerId }) {
+export function FollowModal({
+  open,
+  onClose,
+  userId,
+  type = "followers",
+  title,
+  viewerId,
+}) {
   const [users, setUsers] = useState([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -94,7 +124,7 @@ export function FollowModal({ open, onClose, userId, type = "followers", title, 
         setLoadingMore(false);
       }
     },
-    [userId, type]
+    [userId, type],
   );
 
   // open animation + fetch
@@ -106,7 +136,10 @@ export function FollowModal({ open, onClose, userId, type = "followers", title, 
       setPage(1);
       setHasMore(true);
       fetchPage(1, true);
-      const t = setTimeout(() => modalRef.current?.classList.add("is-open"), 10);
+      const t = setTimeout(
+        () => modalRef.current?.classList.add("is-open"),
+        10,
+      );
       return () => clearTimeout(t);
     } else if (show) {
       modalRef.current?.classList.remove("is-open");
@@ -127,9 +160,10 @@ export function FollowModal({ open, onClose, userId, type = "followers", title, 
     if (!el || !root) return;
     const obs = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore) fetchPage(page + 1);
+        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore)
+          fetchPage(page + 1);
       },
-      { root, rootMargin: "200px" }
+      { root, rootMargin: "200px" },
     );
     obs.observe(el);
     return () => obs.disconnect();
@@ -146,7 +180,13 @@ export function FollowModal({ open, onClose, userId, type = "followers", title, 
 
   const content = (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <button aria-label="Close" onClick={onClose} className="absolute inset-0 cursor-default border-0 bg-[var(--cz-overlay)] p-0 backdrop-blur-[2px] m-0" tabIndex={-1} />
+      <button
+        type="button"
+        aria-label="Close"
+        onClick={onClose}
+        className={`t-backdrop ${open ? "is-open" : "is-closing"} absolute inset-0 cursor-default border-0 bg-[var(--cz-overlay)] p-0 backdrop-blur-[2px] m-0`}
+        tabIndex={-1}
+      />
       <div
         ref={modalRef}
         role="dialog"
@@ -180,13 +220,17 @@ export function FollowModal({ open, onClose, userId, type = "followers", title, 
               <span className="mb-3 grid h-12 w-12 place-items-center rounded-full text-[var(--cz-text-secondary)]">
                 <Users className="h-6 w-6" strokeWidth={1.6} />
               </span>
-              <p className="text-[20px] font-extrabold leading-6">No {type} yet</p>
+              <p className="text-[20px] font-extrabold leading-6">
+                No {type} yet
+              </p>
               <p className="mt-2 text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">
                 When students follow, they&apos;ll appear here.
               </p>
             </div>
           ) : (
-            users.map((u) => <UserRow key={u._id} user={u} viewerId={viewerId} />)
+            users.map((u) => (
+              <UserRow key={u._id} user={u} viewerId={viewerId} />
+            ))
           )}
           <div ref={sentinelRef} className="h-1" aria-hidden />
           {loadingMore ? (

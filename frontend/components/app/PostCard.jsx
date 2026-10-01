@@ -23,10 +23,11 @@ import {
   MentionSuggest,
   useMentionAutocomplete,
 } from "@/components/app/MentionAutocomplete";
-import { RichText } from "@/components/app/RichText";
 import { PollBlock } from "@/components/app/PollBlock";
-import { useAutogrowTextarea } from "@/components/app/useAutogrowTextarea";
 import { ReportDialog } from "@/components/app/ReportDialog";
+import { RichText } from "@/components/app/RichText";
+import { useAnimatedMount } from "@/components/app/useAnimatedMount";
+import { useAutogrowTextarea } from "@/components/app/useAutogrowTextarea";
 import { Button } from "@/components/ui/button";
 import { UserBadge } from "@/components/ui/verified-badge";
 import { api } from "@/lib/api";
@@ -71,12 +72,23 @@ function Avatar({ author }) {
 const menuItemClass =
   "flex w-full items-center gap-3 px-4 py-2 text-left text-[15px] leading-[20px] text-[var(--cz-text-primary)] transition-colors hover:bg-[var(--cz-surface-strong)] disabled:opacity-50";
 
-function OverflowMenu({ open, setOpen, isOwn, isPinned, pinLoading, post, onPin, onEdit, onDelete, onReport }) {
-  if (!open) return null;
+function OverflowMenu({
+  open,
+  isOwn,
+  isPinned,
+  pinLoading,
+  post,
+  onPin,
+  onEdit,
+  onDelete,
+  onReport,
+}) {
+  const { show, mountClass } = useAnimatedMount(open);
+  if (!show) return null;
   return (
     <div
       role="menu"
-      className="absolute right-0 top-8 z-20 w-[232px] overflow-hidden rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-elevated)] py-1 shadow-[var(--shadow-sm)]"
+      className={`t-menu ${mountClass} absolute right-0 top-8 z-20 w-[232px] overflow-hidden rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-elevated)] py-1 shadow-[var(--shadow-sm)]`}
     >
       {isOwn ? (
         <>
@@ -102,7 +114,10 @@ function OverflowMenu({ open, setOpen, isOwn, isPinned, pinLoading, post, onPin,
           <button
             role="menuitem"
             onClick={onDelete}
-            className={cn(menuItemClass, "text-[var(--cz-error)] hover:bg-[color-mix(in_srgb,var(--cz-error)_10%,transparent)]")}
+            className={cn(
+              menuItemClass,
+              "text-[var(--cz-error)] hover:bg-[color-mix(in_srgb,var(--cz-error)_10%,transparent)]",
+            )}
           >
             <Trash2 className="h-[18px] w-[18px] shrink-0" aria-hidden />
             Delete post
@@ -151,6 +166,7 @@ export function PostCard({
   const [pinLoading, setPinLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const copyTimer = useRef(null);
+  const menuWrapRef = useRef(null);
 
   useEffect(
     () => () => {
@@ -158,6 +174,26 @@ export function PostCard({
     },
     [],
   );
+
+  // Dismiss the overflow menu on outside tap or Escape.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e) => {
+      if (menuWrapRef.current && !menuWrapRef.current.contains(e.target))
+        setMenuOpen(false);
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("touchstart", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("touchstart", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [menuOpen]);
 
   // Counts are local so likes/reposts feel instant, but they must not drift
   // from the server — the detail page bumps replyCount when a reply lands,
@@ -265,7 +301,8 @@ export function PostCard({
         await navigator.share({
           title: `Post by @${post.author?.username || "campuszen"}`,
           text:
-            (post.text || "").slice(0, 120) || "Check out this post on CampusZen",
+            (post.text || "").slice(0, 120) ||
+            "Check out this post on CampusZen",
           url,
         });
       } catch {
@@ -330,10 +367,7 @@ export function PostCard({
                 </Link>
                 <UserBadge user={author} size="sm" />
                 <span className="shrink-0 whitespace-nowrap text-[15px] text-[var(--cz-text-secondary)]">
-                  <Link
-                    href={`/app/p/${post._id}`}
-                    className="hover:underline"
-                  >
+                  <Link href={`/app/p/${post._id}`} className="hover:underline">
                     · {timeAgo(post.createdAt)}
                     {post.edited ? " · edited" : ""}
                   </Link>
@@ -341,18 +375,21 @@ export function PostCard({
               </div>
 
               {!editing ? (
-                <div className="relative -mr-1 -mt-1 shrink-0">
+                <div
+                  ref={menuWrapRef}
+                  className="relative -mr-1 -mt-1 shrink-0"
+                >
                   <button
                     onClick={() => setMenuOpen((v) => !v)}
                     aria-label="More post actions"
                     aria-expanded={menuOpen}
+                    aria-haspopup="menu"
                     className="grid h-[34px] w-[34px] place-items-center rounded-full text-[var(--cz-accent)] transition-colors hover:bg-[var(--cz-accent-soft)]"
                   >
                     <MoreHorizontal className="h-[18px] w-[18px]" aria-hidden />
                   </button>
                   <OverflowMenu
                     open={menuOpen}
-                    setOpen={setMenuOpen}
                     isOwn={isOwn}
                     isPinned={isPinned}
                     pinLoading={pinLoading}
@@ -390,14 +427,13 @@ export function PostCard({
                     aria-label="Edit post"
                     className="max-h-[200px] w-full resize-none overflow-y-auto rounded-[4px] bg-[var(--cz-surface-strong)] px-3 py-2 text-[15px] leading-[20px] text-[var(--cz-text-primary)] outline-none ring-1 ring-[var(--cz-accent)]"
                   />
-                  {editMention.open ? (
-                    <MentionSuggest
-                      users={editMention.users}
-                      active={editMention.active}
-                      onSelect={editMention.insert}
-                      onHover={editMention.setActive}
-                    />
-                  ) : null}
+                  <MentionSuggest
+                    open={editMention.open}
+                    users={editMention.users}
+                    active={editMention.active}
+                    onSelect={editMention.insert}
+                    onHover={editMention.setActive}
+                  />
                 </div>
                 <div className="mt-3 flex items-center justify-end gap-2">
                   <Button
@@ -570,19 +606,18 @@ export function PostCard({
         </div>
       </article>
 
-      {reportOpen ? (
-        <ReportDialog
-          targetType="post"
-          targetId={post._id}
-          targetLabel={`@${author.username || "user"}`}
-          onClose={() => setReportOpen(false)}
-          onSubmitted={() => {
-            hidePostId(post._id);
-            setReportOpen(false);
-            setIsHidden(true);
-          }}
-        />
-      ) : null}
+      <ReportDialog
+        open={reportOpen}
+        targetType="post"
+        targetId={post._id}
+        targetLabel={`@${author.username || "user"}`}
+        onClose={() => setReportOpen(false)}
+        onSubmitted={() => {
+          hidePostId(post._id);
+          setReportOpen(false);
+          setIsHidden(true);
+        }}
+      />
     </>
   );
 }

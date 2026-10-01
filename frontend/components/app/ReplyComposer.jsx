@@ -23,7 +23,12 @@ function initialsFor(u) {
  * detail page, so the composer moved with them — the feed stays a pure
  * read-only list of posts.
  */
-export function ReplyComposer({ postId, currentUser, onCreated, autoFocus = false }) {
+export function ReplyComposer({
+  postId,
+  currentUser,
+  onCreated,
+  autoFocus = false,
+}) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -31,7 +36,11 @@ export function ReplyComposer({ postId, currentUser, onCreated, autoFocus = fals
   const fileRef = useRef(null);
   const [fileName, setFileName] = useState("");
 
-  const mention = useMentionAutocomplete({ value: text, setValue: setText, inputRef });
+  const mention = useMentionAutocomplete({
+    value: text,
+    setValue: setText,
+    inputRef,
+  });
   useAutogrowTextarea(inputRef, text, 200);
 
   const submit = async (e) => {
@@ -62,7 +71,10 @@ export function ReplyComposer({ postId, currentUser, onCreated, autoFocus = fals
   const disabled = busy || !text.trim() || over;
 
   return (
-    <form onSubmit={submit} className="cz-row flex gap-3 border-b border-[var(--cz-border)] px-4 py-3">
+    <form
+      onSubmit={submit}
+      className="cz-row flex gap-3 border-b border-[var(--cz-border)] px-4 py-3"
+    >
       <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[13px] font-bold text-[var(--cz-text-primary)]">
         {currentUser?.avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -101,14 +113,13 @@ export function ReplyComposer({ postId, currentUser, onCreated, autoFocus = fals
             aria-label="Post your reply"
             className="max-h-[200px] min-h-[52px] w-full resize-none overflow-y-auto bg-transparent py-2 text-[15px] leading-[20px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)]"
           />
-          {mention.open ? (
-            <MentionSuggest
-              users={mention.users}
-              active={mention.active}
-              onSelect={mention.insert}
-              onHover={mention.setActive}
-            />
-          ) : null}
+          <MentionSuggest
+            open={mention.open}
+            users={mention.users}
+            active={mention.active}
+            onSelect={mention.insert}
+            onHover={mention.setActive}
+          />
         </div>
 
         {/* attachment chip — picked but not uploaded, so it reads as intent */}
@@ -141,7 +152,11 @@ export function ReplyComposer({ postId, currentUser, onCreated, autoFocus = fals
               aria-label="Add media"
               className="grid h-[34px] w-[34px] place-items-center rounded-full text-[var(--cz-accent)] transition-colors hover:bg-[var(--cz-accent-soft)]"
             >
-              <ImageIcon className="h-[19px] w-[19px]" strokeWidth={1.9} aria-hidden />
+              <ImageIcon
+                className="h-[19px] w-[19px]"
+                strokeWidth={1.9}
+                aria-hidden
+              />
             </button>
             <button
               type="button"
@@ -151,7 +166,11 @@ export function ReplyComposer({ postId, currentUser, onCreated, autoFocus = fals
               aria-label="Add emoji"
               className="grid h-[34px] w-[34px] place-items-center rounded-full text-[var(--cz-accent)] transition-colors hover:bg-[var(--cz-accent-soft)]"
             >
-              <Smile className="h-[19px] w-[19px]" strokeWidth={1.9} aria-hidden />
+              <Smile
+                className="h-[19px] w-[19px]"
+                strokeWidth={1.9}
+                aria-hidden
+              />
             </button>
           </div>
 
@@ -159,7 +178,9 @@ export function ReplyComposer({ postId, currentUser, onCreated, autoFocus = fals
             {text.length > MAX * 0.75 ? (
               <span
                 className={`text-[13px] tabular-nums ${
-                  over ? "text-[var(--cz-error)]" : "text-[var(--cz-text-secondary)]"
+                  over
+                    ? "text-[var(--cz-error)]"
+                    : "text-[var(--cz-text-secondary)]"
                 }`}
               >
                 {MAX - text.length}

@@ -67,7 +67,9 @@ export function PostComposer({ user, onCreated }) {
   const [pollDays, setPollDays] = useState(1);
   const cleanOptions = pollOptions.map((o) => o.trim()).filter(Boolean);
   const pollValid =
-    pollOpen && cleanOptions.length >= 2 && cleanOptions.every((o) => o.length <= 80);
+    pollOpen &&
+    cleanOptions.length >= 2 &&
+    cleanOptions.every((o) => o.length <= 80);
   const hasContent = (len > 0 && len <= MAX) || image || pollValid;
   const canPost = hasContent && !loading;
 
@@ -110,8 +112,14 @@ export function PostComposer({ user, onCreated }) {
     setError("");
     setLoading(true);
     try {
-      const poll = pollValid ? { options: cleanOptions, durationDays: pollDays } : undefined;
-      const res = await api.createPost(text.trim() || undefined, image || undefined, poll);
+      const poll = pollValid
+        ? { options: cleanOptions, durationDays: pollDays }
+        : undefined;
+      const res = await api.createPost(
+        text.trim() || undefined,
+        image || undefined,
+        poll,
+      );
       setText("");
       removeImage();
       resetPoll();
@@ -167,14 +175,13 @@ export function PostComposer({ user, onCreated }) {
               maxLength={520}
               className="max-h-[200px] min-h-[56px] w-full resize-none overflow-y-auto bg-transparent pb-2 text-[20px] leading-[24px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)]"
             />
-            {mention.open ? (
-              <MentionSuggest
-                users={mention.users}
-                active={mention.active}
-                onSelect={mention.insert}
-                onHover={mention.setActive}
-              />
-            ) : null}
+            <MentionSuggest
+              open={mention.open}
+              users={mention.users}
+              active={mention.active}
+              onSelect={mention.insert}
+              onHover={mention.setActive}
+            />
           </div>
 
           {imagePreview ? (
@@ -199,7 +206,9 @@ export function PostComposer({ user, onCreated }) {
           {pollOpen ? (
             <div className="mt-2 overflow-hidden rounded-[16px] border border-[var(--cz-border)]">
               <div className="flex items-center justify-between border-b border-[var(--cz-border)] px-3 py-2">
-                <span className="text-[14px] font-bold text-[var(--cz-text-primary)]">Poll</span>
+                <span className="text-[14px] font-bold text-[var(--cz-text-primary)]">
+                  Poll
+                </span>
                 <button
                   type="button"
                   onClick={resetPoll}
@@ -216,7 +225,9 @@ export function PostComposer({ user, onCreated }) {
                       <input
                         value={opt}
                         onChange={(e) =>
-                          setPollOptions((prev) => prev.map((p, j) => (j === i ? e.target.value : p)))
+                          setPollOptions((prev) =>
+                            prev.map((p, j) => (j === i ? e.target.value : p)),
+                          )
                         }
                         placeholder={`Option ${i + 1}`}
                         maxLength={80}
@@ -227,7 +238,11 @@ export function PostComposer({ user, onCreated }) {
                     {pollOptions.length > 2 ? (
                       <button
                         type="button"
-                        onClick={() => setPollOptions((prev) => prev.filter((_, j) => j !== i))}
+                        onClick={() =>
+                          setPollOptions((prev) =>
+                            prev.filter((_, j) => j !== i),
+                          )
+                        }
                         aria-label={`Remove option ${i + 1}`}
                         className="grid h-[32px] w-[32px] shrink-0 place-items-center rounded-full text-[var(--cz-text-secondary)] transition-colors hover:bg-[var(--cz-surface-strong)] hover:text-[var(--cz-text-primary)]"
                       >
@@ -275,7 +290,11 @@ export function PostComposer({ user, onCreated }) {
                 aria-label="Add image"
                 className="grid h-[36px] w-[36px] place-items-center rounded-full text-[var(--cz-accent)] transition-colors hover:bg-[var(--cz-accent-soft)] disabled:opacity-40 disabled:hover:bg-transparent"
               >
-                <ImageIcon className="h-[20px] w-[20px]" strokeWidth={1.9} aria-hidden />
+                <ImageIcon
+                  className="h-[20px] w-[20px]"
+                  strokeWidth={1.9}
+                  aria-hidden
+                />
               </button>
               <button
                 type="button"
@@ -294,7 +313,11 @@ export function PostComposer({ user, onCreated }) {
                   image && "opacity-40 hover:bg-transparent",
                 )}
               >
-                <BarChart2 className="h-[20px] w-[20px]" strokeWidth={1.9} aria-hidden />
+                <BarChart2
+                  className="h-[20px] w-[20px]"
+                  strokeWidth={1.9}
+                  aria-hidden
+                />
               </button>
               <input
                 ref={fileInputRef}

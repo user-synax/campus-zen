@@ -233,9 +233,10 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       {/* backdrop */}
       <button
+        type="button"
         aria-label="Close"
         onClick={onClose}
-        className="absolute inset-0 cursor-default border-0 bg-[var(--cz-overlay)] p-0 backdrop-blur-[2px] m-0"
+        className={`t-backdrop ${open ? "is-open" : "is-closing"} absolute inset-0 cursor-default border-0 bg-[var(--cz-overlay)] p-0 backdrop-blur-[2px] m-0`}
         tabIndex={-1}
       />
       {/* modal */}

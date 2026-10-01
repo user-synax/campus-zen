@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useAnimatedMount } from "@/components/app/useAnimatedMount";
 import { api } from "@/lib/api";
 
 // find @query immediately before caret (partial allowed, 1-20 chars)
@@ -166,13 +167,15 @@ function initialsFor(u) {
   return (u.fullName || u.username || "U").trim().slice(0, 1).toUpperCase();
 }
 
-export function MentionSuggest({ users, active, onSelect, onHover }) {
-  if (!users.length) return null;
+export function MentionSuggest({ open, users, active, onSelect, onHover }) {
+  const { show, mountClass } = useAnimatedMount(open, { closeMs: 120 });
+  if (!show || !users.length) return null;
   return (
     <div
       role="listbox"
       aria-label="Mention suggestions"
-      className="absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-elevated)] py-1 shadow-[var(--shadow-sm)]"
+      style={{ "--menu-origin": "top center" }}
+      className={`t-menu ${mountClass} absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-elevated)] py-1 shadow-[var(--shadow-sm)]`}
     >
       {users.map((u, i) => (
         <button

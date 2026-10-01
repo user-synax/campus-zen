@@ -1,7 +1,8 @@
 "use client";
 
 import { CheckCircle2, Flag, Loader2, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useAnimatedMount } from "@/components/app/useAnimatedMount";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 
@@ -15,17 +16,28 @@ const REASONS = [
 ];
 
 export function ReportDialog({
+  open,
   targetType,
   targetId,
   targetLabel,
   onClose,
   onSubmitted,
 }) {
+  const { show, mountClass } = useAnimatedMount(open);
   const [reason, setReason] = useState("");
   const [details, setDetails] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose?.();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -48,6 +60,8 @@ export function ReportDialog({
     }
   };
 
+  if (!show) return null;
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4"
@@ -56,12 +70,15 @@ export function ReportDialog({
       aria-label="Report"
     >
       <button
+        type="button"
         aria-label="Close"
         onClick={onClose}
-        className="absolute inset-0 cursor-default border-0 bg-[var(--cz-overlay)] backdrop-blur-[2px]"
+        className={`t-backdrop ${mountClass} absolute inset-0 cursor-default border-0 bg-[var(--cz-overlay)] backdrop-blur-[2px]`}
         tabIndex={-1}
       />
-      <div className="t-modal is-open relative w-full max-w-[440px] overflow-hidden rounded-t-[16px] border border-[var(--cz-border)] bg-[var(--cz-elevated)] sm:rounded-[16px] shadow-[var(--shadow-sm)]">
+      <div
+        className={`t-modal ${mountClass} relative w-full max-w-[440px] overflow-hidden rounded-t-[16px] border border-[var(--cz-border)] bg-[var(--cz-elevated)] sm:rounded-[16px] shadow-[var(--shadow-sm)]`}
+      >
         {done ? (
           <div className="flex flex-col items-center px-6 py-10 text-center">
             <span className="grid h-12 w-12 place-items-center rounded-full border border-[var(--cz-border-strong)]">
@@ -137,7 +154,9 @@ export function ReportDialog({
                 className="w-full resize-none rounded-[4px] bg-[var(--cz-surface-strong)] px-3 py-2 text-[15px] leading-[20px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)] focus:ring-1 focus:ring-[var(--cz-accent)]"
               />
               {error ? (
-                <p className="mt-2 text-[13px] text-[var(--cz-error)]">{error}</p>
+                <p className="mt-2 text-[13px] text-[var(--cz-error)]">
+                  {error}
+                </p>
               ) : null}
             </div>
 

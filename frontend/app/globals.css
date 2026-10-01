@@ -40,7 +40,8 @@
   --color-cz-error: var(--cz-error);
   --color-cz-accent: var(--cz-accent);
 
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
+  --font-sans:
+    var(--font-inter), ui-sans-serif, system-ui, -apple-system,
     BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-heading: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains);
@@ -137,8 +138,9 @@
   --cz-brand-contrast: #ffffff;
 
   /* ── DESIGN.md · Typography ──────────────────────────── */
-  --font-jetbrains: ui-monospace, "SF Mono", "Cascadia Mono", "Segoe UI Mono",
-    "Roboto Mono", Menlo, Consolas, monospace;
+  --font-jetbrains:
+    ui-monospace, "SF Mono", "Cascadia Mono", "Segoe UI Mono", "Roboto Mono",
+    Menlo, Consolas, monospace;
 
   --text-caption: 11px;
   --leading-caption: 1.22;
@@ -174,8 +176,7 @@
   /* ── Elevation — dropdown overlays only, never cards ──── */
   --shadow-subtle: rgba(0, 0, 0, 0.03) 0 0 2px 0 inset;
   --shadow-sm:
-    rgba(101, 119, 134, 0.2) 0 0 8px 0,
-    rgba(101, 119, 134, 0.25) 0 1px 3px 1px;
+    rgba(101, 119, 134, 0.2) 0 0 8px 0, rgba(101, 119, 134, 0.25) 0 1px 3px 1px;
   --shadow-pop: 0 0 16px rgba(0, 0, 0, 0.25);
 
   /* ── Motion tokens ───────────────────────────────────── */
@@ -352,9 +353,7 @@
   --cz-brand-contrast: #000000;
 
   --shadow-subtle: rgba(255, 255, 255, 0.06) 0 0 2px 0 inset;
-  --shadow-sm:
-    rgba(0, 0, 0, 0.65) 0 0 8px 0,
-    rgba(0, 0, 0, 0.75) 0 1px 3px 1px;
+  --shadow-sm: rgba(0, 0, 0, 0.65) 0 0 8px 0, rgba(0, 0, 0, 0.75) 0 1px 3px 1px;
   --shadow-pop: 0 0 16px rgba(0, 0, 0, 0.9);
 
   --background: #000000;
@@ -380,7 +379,6 @@
   --sidebar-border: #2f3336;
 }
 
-
 /* ── Base ────────────────────────────────────────────────── */
 * {
   font-variant-ligatures: common-ligatures;
@@ -396,9 +394,12 @@ html {
 body {
   background: var(--cz-bg);
   color: var(--cz-text-primary);
-  font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
+  font-family:
+    var(--font-inter), ui-sans-serif, system-ui, -apple-system,
     BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  font-feature-settings: "ss01" on, "cv11" on;
+  font-feature-settings:
+    "ss01" on,
+    "cv11" on;
   font-size: var(--font-size-base);
   line-height: var(--font-line-base);
   font-weight: 400;
@@ -449,7 +450,9 @@ body {
 
 /* ── Transitions: error shake ────────────────────────────── */
 .t-input {
-  transition: border-color 150ms ease-out, box-shadow 150ms ease-out,
+  transition:
+    border-color 150ms ease-out,
+    box-shadow 150ms ease-out,
     background 150ms ease-out;
   will-change: transform;
 }
@@ -463,9 +466,11 @@ body {
   visibility: hidden;
   max-height: 0;
   overflow: hidden;
-  transition: opacity var(--revert-dur, 280ms) ease-out,
+  transition:
+    opacity var(--revert-dur, 280ms) ease-out,
     visibility 0s linear var(--revert-dur, 280ms),
-    max-height var(--revert-dur) ease-out, margin var(--revert-dur) ease-out;
+    max-height var(--revert-dur) ease-out,
+    margin var(--revert-dur) ease-out;
   font-size: 13px;
   line-height: 17px;
   color: var(--cz-error);
@@ -476,8 +481,10 @@ body {
   visibility: visible;
   max-height: 32px;
   margin-top: 6px;
-  transition: opacity var(--revert-dur, 280ms) ease-out,
-    visibility 0s linear 0s, max-height var(--revert-dur) ease-out,
+  transition:
+    opacity var(--revert-dur, 280ms) ease-out,
+    visibility 0s linear 0s,
+    max-height var(--revert-dur) ease-out,
     margin var(--revert-dur) ease-out;
 }
 .t-input.is-shaking {
@@ -522,7 +529,8 @@ body {
   grid-area: 1 / 1;
   display: grid;
   place-items: center;
-  transition: opacity var(--icon-swap-dur) var(--icon-swap-ease),
+  transition:
+    opacity var(--icon-swap-dur) var(--icon-swap-ease),
     filter var(--icon-swap-dur) var(--icon-swap-ease),
     transform var(--icon-swap-dur) var(--icon-swap-ease);
   will-change: opacity, filter, transform;
@@ -547,7 +555,8 @@ body {
 
 /* ── Transitions: checkbox check ─────────────────────────── */
 .t-check {
-  transition: background var(--check-box) var(--check-ease),
+  transition:
+    background var(--check-box) var(--check-ease),
     box-shadow var(--check-box) var(--check-ease),
     border-color var(--check-box) var(--check-ease);
 }
@@ -574,7 +583,8 @@ body {
   opacity: 0;
   transform: translateY(var(--stagger-distance));
   filter: blur(var(--stagger-blur));
-  transition: opacity var(--stagger-dur) var(--stagger-ease),
+  transition:
+    opacity var(--stagger-dur) var(--stagger-ease),
     transform var(--stagger-dur) var(--stagger-ease),
     filter var(--stagger-dur) var(--stagger-ease);
   will-change: transform, opacity, filter;
@@ -600,7 +610,10 @@ body {
   opacity: 0;
   transform: translateY(0);
   filter: blur(0);
-  transition: opacity 200ms ease, transform 0s linear, filter 0s linear;
+  transition:
+    opacity 200ms ease,
+    transform 0s linear,
+    filter 0s linear;
   transition-delay: 0s;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -625,8 +638,8 @@ body {
   stroke-dashoffset: 20;
 }
 .t-success-check[data-state="in"] {
-  animation: t-check-fade var(--check-opacity-dur) var(--check-ease-opacity)
-      forwards,
+  animation:
+    t-check-fade var(--check-opacity-dur) var(--check-ease-opacity) forwards,
     t-check-rotate var(--check-rotate-dur) var(--check-ease-rotate) forwards,
     t-check-blur var(--check-blur-dur) var(--check-ease-out) forwards,
     t-check-bob var(--check-bob-dur) var(--check-ease-bob) forwards;
@@ -689,7 +702,8 @@ body {
   transform: scale(var(--modal-scale));
   opacity: 0;
   pointer-events: none;
-  transition: transform var(--modal-open-dur) var(--modal-ease),
+  transition:
+    transform var(--modal-open-dur) var(--modal-ease),
     opacity var(--modal-open-dur) var(--modal-ease);
   will-change: transform, opacity;
 }
@@ -702,7 +716,8 @@ body {
   transform: scale(var(--modal-scale-close));
   opacity: 0;
   pointer-events: none;
-  transition: transform var(--modal-close-dur) var(--modal-ease),
+  transition:
+    transform var(--modal-close-dur) var(--modal-ease),
     opacity var(--modal-close-dur) var(--modal-ease);
 }
 @media (prefers-reduced-motion: reduce) {
@@ -711,11 +726,68 @@ body {
   }
 }
 
+/* ── Transitions: menu / popover ─────────────────────────
+   Dropdown overlays (OverflowMenu, MentionSuggest): same 16px radius +
+   shadow-sm surface as DESIGN.md, with a small scale + rise + deblur.
+   Origin is configurable via --menu-origin (top right for overflow,
+   top center for mention lists). */
+.t-menu {
+  transform-origin: var(--menu-origin, top right);
+  transform: scale(var(--modal-scale)) translateY(-4px);
+  opacity: 0;
+  filter: blur(var(--blur-small));
+  pointer-events: none;
+  transition:
+    transform var(--modal-open-dur) var(--modal-ease),
+    opacity var(--modal-open-dur) var(--modal-ease),
+    filter var(--modal-open-dur) var(--modal-ease);
+  will-change: transform, opacity, filter;
+}
+.t-menu.is-open {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+  filter: blur(0);
+  pointer-events: auto;
+}
+.t-menu.is-closing {
+  transform: scale(var(--modal-scale-close)) translateY(-4px);
+  opacity: 0;
+  filter: blur(var(--blur-small));
+  pointer-events: none;
+  transition:
+    transform var(--modal-close-dur) var(--modal-ease),
+    opacity var(--modal-close-dur) var(--modal-ease),
+    filter var(--modal-close-dur) var(--modal-ease);
+}
+
+/* ── Transitions: backdrop fade ──────────────────────────── */
+.t-backdrop {
+  opacity: 0;
+  transition: opacity var(--modal-open-dur) var(--modal-ease);
+}
+.t-backdrop.is-open {
+  opacity: 1;
+}
+.t-backdrop.is-closing {
+  opacity: 0;
+  transition: opacity var(--modal-close-dur) var(--modal-ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-menu,
+  .t-backdrop {
+    transition: none !important;
+    transform: none !important;
+    filter: none !important;
+  }
+}
+
 /* ── Transitions: number pop-in ──────────────────────────── */
 @keyframes t-digit-pop-in {
   0% {
-    transform: translate(calc(var(--digit-distance) * var(--digit-dir-x)),
-      calc(var(--digit-distance) * var(--digit-dir-y)));
+    transform: translate(
+      calc(var(--digit-distance) * var(--digit-dir-x)),
+      calc(var(--digit-distance) * var(--digit-dir-y))
+    );
     opacity: 0;
     filter: blur(var(--digit-blur));
   }
@@ -754,7 +826,8 @@ body {
   opacity: 0;
   filter: blur(var(--panel-blur));
   pointer-events: none;
-  transition: transform var(--panel-close-dur) var(--panel-ease),
+  transition:
+    transform var(--panel-close-dur) var(--panel-ease),
     opacity var(--panel-close-dur) var(--panel-ease),
     filter var(--panel-close-dur) var(--panel-ease);
   will-change: transform, opacity, filter;
@@ -764,7 +837,8 @@ body {
   opacity: 1;
   filter: blur(0);
   pointer-events: auto;
-  transition: transform var(--panel-open-dur) var(--panel-ease),
+  transition:
+    transform var(--panel-open-dur) var(--panel-ease),
     opacity var(--panel-open-dur) var(--panel-ease),
     filter var(--panel-open-dur) var(--panel-ease);
 }
@@ -782,7 +856,8 @@ body {
 .t-like-heart path {
   fill: transparent;
   stroke: currentColor;
-  transition: fill var(--like-fill) var(--like-ease),
+  transition:
+    fill var(--like-fill) var(--like-ease),
     stroke var(--like-fill) var(--like-ease);
 }
 .t-like[data-liked="true"] .t-like-heart {
@@ -876,7 +951,11 @@ body {
   transition: background-color 150ms ease-out;
 }
 .cz-row:hover {
-  background-color: color-mix(in srgb, var(--cz-surface-strong) 50%, transparent);
+  background-color: color-mix(
+    in srgb,
+    var(--cz-surface-strong) 50%,
+    transparent
+  );
 }
 
 /* hide number input spinners */
