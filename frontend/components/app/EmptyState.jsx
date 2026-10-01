@@ -23,11 +23,27 @@ export function PostSkeleton({ rows = 4 }) {
 }
 
 /** End-of-feed / pagination footer shared by every timeline. */
-export function FeedFooter({ loading, hasMore, emptyLabel = "You're all caught up" }) {
+export function FeedFooter({ loading, hasMore, emptyLabel = "You're all caught up", error = null, onRetry = null }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center gap-2 py-6 text-[15px] text-[var(--cz-text-secondary)]">
         <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading more posts
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="flex flex-col items-center gap-2 py-6">
+        <p className="text-[15px] text-[var(--cz-text-secondary)]">{error}</p>
+        {onRetry ? (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="inline-flex h-[36px] items-center rounded-full border border-[var(--cz-border-strong)] px-4 text-[14px] font-bold text-[var(--cz-accent)] transition-colors hover:bg-[var(--cz-accent-soft)]"
+          >
+            Try again
+          </button>
+        ) : null}
       </div>
     );
   }

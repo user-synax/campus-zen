@@ -237,15 +237,16 @@ export const postService = {
     ids.push(userId);
     const hidden = await blockService.blockedIdsFor(userId);
     const authorFilter = hidden.length ? { $in: ids, $nin: hidden } : { $in: ids };
-    const [posts, total] = await Promise.all([
-      Post.find({ author: authorFilter })
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(lim)
-        .populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner")
-        .lean(),
-      Post.countDocuments({ author: authorFilter }),
-    ]);
+    // limit+1 probe instead of a second countDocuments scan — one query per
+    // page instead of two (free-tier Mongo thanks us on every scroll)
+    const posts = await Post.find({ author: authorFilter })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(lim + 1)
+      .populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner")
+      .lean();
+    const hasMore = posts.length > lim;
+    if (hasMore) posts.pop();
     // add isLiked/isReposted/isBookmarked
     if (posts.length && userId) {
       const postIds = posts.map((p) => p._id);
@@ -262,7 +263,7 @@ export const postService = {
       await attachBookmarked(posts, userId);
     }
     await attachPollVotes(posts, userId);
-    const result = { posts, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
+    const result = { posts, page: Number(page), limit: lim, hasMore };
     cache.set(cacheKey, result, TTL.FEED);
     return result;
   },
@@ -298,10 +299,10 @@ export const postService = {
 
     const hidden = viewerId ? await blockService.blockedIdsFor(viewerId) : [];
     const filter = hidden.length ? { author: { $nin: hidden } } : {};
-    const [posts, total] = await Promise.all([
-      Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner").lean(),
-      Post.countDocuments(filter),
-    ]);
+    // same limit+1 probe as feed — no countDocuments scan per scroll page
+    const posts = await Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim + 1).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner").lean();
+    const hasMore = posts.length > lim;
+    if (hasMore) posts.pop();
     if (posts.length && viewerId) {
       const postIds = posts.map((p) => p._id);
       const [likes, reposts] = await Promise.all([
@@ -317,7 +318,7 @@ export const postService = {
       await attachBookmarked(posts, viewerId);
       await attachPollVotes(posts, viewerId);
     }
-    const result = { posts, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
+    const result = { posts, page: Number(page), limit: lim, hasMore };
     cache.set(cacheKey, result, TTL.PUBLIC_FEED);
     return result;
   },

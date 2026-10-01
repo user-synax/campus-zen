@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { ArrowUp, FileText, Users } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -33,9 +33,22 @@ export default function AppHome() {
     hasNextPage,
     isPending,
     isFetchingNextPage,
+    isError,
+    refetch,
   } = useFeed(tab);
 
-  const posts = data?.pages?.flatMap((p) => p.data?.posts || []) || [];
+  // Dedupe by _id — offset pages shift when new posts land mid-scroll, so
+  // page N+1 can repeat page N's tail. First occurrence wins (newest).
+  const posts = useMemo(() => {
+    const seen = new Set();
+    const out = [];
+    for (const p of data?.pages?.flatMap((pg) => pg.data?.posts || []) || []) {
+      if (!p || seen.has(p._id)) continue;
+      seen.add(p._id);
+      out.push(p);
+    }
+    return out;
+  }, [data]);
   postsRef.current = posts;
 
   const queryClient = useQueryClient();
@@ -77,13 +90,14 @@ export default function AppHome() {
     });
   };
 
-  // Background freshness check
+  // Background freshness check — limit 5 is enough to spot new posts,
+  // full pages would just burn free-tier Mongo on every focus.
   const checkForNew = useCallback(async () => {
     if (checkingRef.current || document.hidden) return;
     checkingRef.current = true;
     try {
       const fn = tab === "following" ? api.getFeed : api.getPublicFeed;
-      const res = await fn({ page: 1, limit: 20 });
+      const res = await fn({ page: 1, limit: 5 });
       const fresh = res.data?.posts || [];
       const known = new Set([
         ...postsRef.current.map((p) => p._id),
@@ -264,7 +278,12 @@ export default function AppHome() {
             />
           ))}
           <div ref={sentinelRef} className="h-1" aria-hidden />
-          <FeedFooter loading={isFetchingNextPage} hasMore={hasNextPage} />
+          <FeedFooter
+            loading={isFetchingNextPage}
+            hasMore={hasNextPage}
+            error={isError ? "Couldn't load more posts." : null}
+            onRetry={() => refetch()}
+          />
         </div>
       )}
     </div>
