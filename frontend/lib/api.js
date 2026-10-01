@@ -10,10 +10,14 @@ function toApiError(res, data) {
 }
 
 // Auth endpoints must never trigger a refresh — a 401 here means
-// bad credentials / expired OTP, not an expired access token. /api/auth/me
-// belongs here too: a 401 from it means there is no session at all, so
-// rotating tokens cannot rescue the request. Retrying it just spends the
-// refresh rate limit and delays the redirect to /login.
+// bad credentials / expired OTP, not an expired access token.
+// NOTE: /api/auth/me is deliberately NOT in this set. The access cookie lives
+// only 15m while the refresh cookie lives 7d/1d, so after ~15m idle the next
+// /me returns 401 with a still-valid refresh token. Excluding /me from retry
+// is what caused the "auto logout every 15 min" bug — the shell treats a /me
+// 401 as signedOut and redirects to /login without ever trying rotation.
+// Retrying /me once via refresh is loop-safe: the retry uses _retried=true and
+// /refresh itself never retries.
 const NO_AUTO_RETRY = new Set([
   "/api/auth/login",
   "/api/auth/signup",
@@ -24,7 +28,6 @@ const NO_AUTO_RETRY = new Set([
   "/api/auth/forgot-password",
   "/api/auth/reset-password",
   "/api/auth/check-username",
-  "/api/auth/me",
 ]);
 
 function shouldAutoRetry(path) {
