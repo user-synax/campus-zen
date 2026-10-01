@@ -1,19 +1,23 @@
-import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
-/** Loading placeholder shaped like a post row — same rhythm, no card. */
+/** Loading placeholder shaped like a post row — same rhythm, no card.
+ *  Bars sweep a shimmer band; rows stagger in at 40ms via --skel-idx. */
 export function PostSkeleton({ rows = 4 }) {
   return (
     <div>
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="cz-row animate-pulse px-4 py-3">
+        <div
+          key={i}
+          style={{ "--skel-idx": i }}
+          className="t-skel-item cz-row px-4 py-3"
+        >
           <div className="flex gap-3">
-            <div className="h-10 w-10 shrink-0 rounded-full bg-[var(--cz-skeleton)]" />
+            <div className="t-shimmer h-10 w-10 shrink-0 rounded-full" />
             <div className="flex-1 space-y-2">
-              <div className="h-3 w-40 rounded bg-[var(--cz-skeleton)]" />
-              <div className="h-4 w-full rounded bg-[var(--cz-skeleton)]" />
-              <div className="h-4 w-3/4 rounded bg-[var(--cz-skeleton)]" />
+              <div className="t-shimmer h-3 w-40 rounded" />
+              <div className="t-shimmer h-4 w-full rounded" />
+              <div className="t-shimmer h-4 w-3/4 rounded" />
             </div>
           </div>
         </div>
@@ -23,11 +27,33 @@ export function PostSkeleton({ rows = 4 }) {
 }
 
 /** End-of-feed / pagination footer shared by every timeline. */
-export function FeedFooter({ loading, hasMore, emptyLabel = "You're all caught up", error = null, onRetry = null, onLoadMore = null }) {
+export function FeedFooter({
+  loading,
+  hasMore,
+  emptyLabel = "You're all caught up",
+  error = null,
+  onRetry = null,
+  onLoadMore = null,
+}) {
   if (loading) {
     return (
-      <div className="flex items-center justify-center gap-2 py-6 text-[15px] text-[var(--cz-text-secondary)]">
-        <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading more posts
+      <div role="status" aria-label="Loading more posts">
+        {[0, 1].map((i) => (
+          <div
+            key={i}
+            style={{ "--skel-idx": i }}
+            className="t-skel-item cz-row px-4 py-3"
+          >
+            <div className="flex gap-3">
+              <div className="t-shimmer h-10 w-10 shrink-0 rounded-full" />
+              <div className="flex-1 space-y-2">
+                <div className="t-shimmer h-3 w-40 rounded" />
+                <div className="t-shimmer h-4 w-full rounded" />
+                <div className="t-shimmer h-4 w-3/4 rounded" />
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     );
   }

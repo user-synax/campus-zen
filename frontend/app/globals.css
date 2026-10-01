@@ -781,6 +781,83 @@ body {
   }
 }
 
+/* ── Transitions: image blur-up + skeleton shimmer ─────
+   Remote images fade in from blur(8px) over their skeleton slot —
+   no layout shift, the slot is already reserved. Skeleton bars sweep
+   a highlight band instead of a flat pulse. Rows stagger in at 40ms
+   (--duration-stagger) via --skel-idx. */
+.t-img {
+  opacity: 0;
+  filter: blur(8px);
+  transition:
+    opacity var(--duration-slow) var(--ease-smooth-out),
+    filter var(--duration-slow) var(--ease-smooth-out);
+  will-change: opacity, filter;
+}
+.t-img.is-loaded {
+  opacity: 1;
+  filter: blur(0);
+}
+.t-shimmer {
+  position: relative;
+  overflow: hidden;
+  background: var(--cz-skeleton);
+  isolation: isolate;
+}
+.t-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    color-mix(in srgb, var(--cz-text-secondary) 14%, transparent) 50%,
+    transparent 80%
+  );
+  animation: t-shimmer-sweep 1800ms linear infinite;
+  pointer-events: none;
+}
+@keyframes t-shimmer-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+.t-skel-item {
+  opacity: 0;
+  transform: translateY(var(--distance-small));
+  filter: blur(var(--blur-small));
+  animation: t-skel-in var(--duration-slow) var(--ease-smooth-out) forwards;
+  animation-delay: calc(var(--skel-idx, 0) * var(--duration-stagger));
+  will-change: transform, opacity, filter;
+}
+@keyframes t-skel-in {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-img {
+    transition: none !important;
+    opacity: 1 !important;
+    filter: none !important;
+  }
+  .t-shimmer::after {
+    animation: none !important;
+  }
+  .t-skel-item {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+}
+
 /* ── Transitions: number pop-in ──────────────────────────── */
 @keyframes t-digit-pop-in {
   0% {

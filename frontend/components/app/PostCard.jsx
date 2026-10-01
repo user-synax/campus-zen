@@ -19,6 +19,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { AnimatedNumber } from "@/components/app/AnimatedNumber";
+import { CzImage } from "@/components/app/CzImage";
 import {
   MentionSuggest,
   useMentionAutocomplete,
@@ -55,11 +56,11 @@ function Avatar({ author }) {
   return (
     <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[13px] font-bold text-[var(--cz-text-primary)]">
       {author.avatarUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <CzImage
           src={author.avatarUrl}
           alt={author.username}
-          className="h-full w-full object-cover"
+          className="h-full w-full rounded-full"
+          imgClassName="h-full w-full"
         />
       ) : (
         initials
@@ -483,13 +484,12 @@ export function PostCard({
             )}
 
             {post.imageUrl ? (
-              <div className="mt-3 overflow-hidden rounded-[16px] border border-[var(--cz-border)]">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+              <div className="mt-3 min-h-[200px] overflow-hidden rounded-[16px] border border-[var(--cz-border)]">
+                <CzImage
                   src={post.imageUrl}
                   alt="Post attachment"
-                  className="max-h-[510px] w-full object-cover"
-                  loading="lazy"
+                  className="w-full"
+                  imgClassName="max-h-[510px] w-full"
                 />
               </div>
             ) : null}

@@ -15,6 +15,7 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatedNumber } from "@/components/app/AnimatedNumber";
+import { CzImage } from "@/components/app/CzImage";
 import { ThemeToggle } from "@/components/app/ThemeToggle";
 import { BrandMark } from "@/components/BrandLogo";
 import { useUnreadCount } from "@/lib/hooks/queries";
@@ -33,7 +34,12 @@ const items = [
   { href: "/u", label: "Students", icon: Users, exact: true },
   { href: "/c", label: "Colleges", icon: School, exact: true },
   { href: "/app/bookmarks", label: "Bookmarks", icon: Bookmark },
-  { href: "/app/notifications", label: "Notifications", icon: Bell, badge: true },
+  {
+    href: "/app/notifications",
+    label: "Notifications",
+    icon: Bell,
+    badge: true,
+  },
   { href: "/app/profile", label: "Profile", icon: User },
 ];
 
@@ -103,7 +109,11 @@ export function LeftNav({ user }) {
           aria-label="Create post"
           className="mt-3 flex h-[52px] shrink-0 cursor-pointer items-center justify-center gap-2 rounded-full bg-[var(--cz-text-primary)] px-6 text-[17px] font-extrabold text-[var(--cz-brand-contrast)] transition-opacity hover:opacity-90"
         >
-          <Plus className="h-[22px] w-[22px] shrink-0" strokeWidth={2.4} aria-hidden />
+          <Plus
+            className="h-[22px] w-[22px] shrink-0"
+            strokeWidth={2.4}
+            aria-hidden
+          />
           <span className="hidden lg:inline">Post</span>
         </Link>
       </nav>
@@ -127,13 +137,11 @@ function Avatar({ user, size = 40 }) {
       style={{ height: size, width: size, fontSize: size * 0.36 }}
     >
       {user.avatarUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <CzImage
           src={user.avatarUrl}
           alt=""
-          loading="lazy"
-          decoding="async"
-          className="h-full w-full object-cover"
+          className="h-full w-full rounded-full"
+          imgClassName="h-full w-full"
         />
       ) : (
         initials

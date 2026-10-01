@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
-import { Search, Users, Loader2 } from "lucide-react";
-import { UserCard } from "@/components/app/UserCard";
+import { Loader2, Search, Users } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { EmptyState } from "@/components/app/EmptyState";
+import { UserCard } from "@/components/app/UserCard";
 import { api } from "@/lib/api";
 import { useRequireSession } from "@/lib/hooks/useRequireSession";
 
@@ -19,27 +19,28 @@ export default function UsersDirectoryPage() {
 
   const { user: me, checking } = useRequireSession();
 
-  const fetchPage = useCallback(
-    async (p, query, reset = false) => {
-      if (reset) setLoading(true);
-      else setLoadingMore(true);
-      try {
-        const res = await api.listUsers({ q: query || undefined, page: p, limit: 20 });
-        const data = res.data;
-        setHasMore(Boolean(data.hasMore));
-        setUsers((prev) => (reset ? data.users : [...prev, ...data.users]));
-        setPage(p);
-      } catch {
-        // keep hasMore false on error
-        if (reset) setUsers([]);
-        setHasMore(false);
-      } finally {
-        setLoading(false);
-        setLoadingMore(false);
-      }
-    },
-    []
-  );
+  const fetchPage = useCallback(async (p, query, reset = false) => {
+    if (reset) setLoading(true);
+    else setLoadingMore(true);
+    try {
+      const res = await api.listUsers({
+        q: query || undefined,
+        page: p,
+        limit: 20,
+      });
+      const data = res.data;
+      setHasMore(Boolean(data.hasMore));
+      setUsers((prev) => (reset ? data.users : [...prev, ...data.users]));
+      setPage(p);
+    } catch {
+      // keep hasMore false on error
+      if (reset) setUsers([]);
+      setHasMore(false);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, []);
 
   // initial + search debounce
   useEffect(() => {
@@ -60,7 +61,7 @@ export default function UsersDirectoryPage() {
           fetchPage(page + 1, q);
         }
       },
-      { rootMargin: "400px" }
+      { rootMargin: "400px" },
     );
     observerRef.current.observe(el);
     return () => observerRef.current?.disconnect();
@@ -118,18 +119,19 @@ export default function UsersDirectoryPage() {
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
-              className="rounded-[16px] border border-[var(--cz-border)] p-4 animate-pulse"
+              style={{ "--skel-idx": i % 3 }}
+              className="t-skel-item rounded-[16px] border border-[var(--cz-border)] p-4"
             >
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-[var(--cz-skeleton)]" />
+                <div className="t-shimmer h-10 w-10 rounded-full" />
                 <div className="flex-1 space-y-2">
-                  <div className="h-3 w-24 rounded bg-[var(--cz-skeleton)]" />
-                  <div className="h-3 w-16 rounded bg-[var(--cz-skeleton)]" />
+                  <div className="t-shimmer h-3 w-24 rounded" />
+                  <div className="t-shimmer h-3 w-16 rounded" />
                 </div>
               </div>
               <div className="mt-4 space-y-2">
-                <div className="h-3 w-full rounded bg-[var(--cz-skeleton)]" />
-                <div className="h-3 w-3/4 rounded bg-[var(--cz-skeleton)]" />
+                <div className="t-shimmer h-3 w-full rounded" />
+                <div className="t-shimmer h-3 w-3/4 rounded" />
               </div>
             </div>
           ))}
@@ -159,8 +161,25 @@ export default function UsersDirectoryPage() {
       <div ref={sentinelRef} className="h-1" aria-hidden />
 
       {loadingMore ? (
-        <div className="flex items-center justify-center gap-2 py-6 text-[15px] text-[var(--cz-text-secondary)]">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading more
+        <div
+          className="grid gap-3 p-4 sm:grid-cols-2"
+          aria-label="Loading more students"
+        >
+          {[0, 1].map((i) => (
+            <div
+              key={i}
+              style={{ "--skel-idx": i }}
+              className="t-skel-item rounded-[16px] border border-[var(--cz-border)] p-4"
+            >
+              <div className="flex items-center gap-3">
+                <div className="t-shimmer h-10 w-10 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <div className="t-shimmer h-3 w-24 rounded" />
+                  <div className="t-shimmer h-3 w-16 rounded" />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       ) : !hasMore && users.length > 0 ? (
         <p className="py-6 text-center text-[13px] text-[var(--cz-text-secondary)]">

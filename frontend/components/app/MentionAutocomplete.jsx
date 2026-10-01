@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { CzImage } from "@/components/app/CzImage";
 import { useAnimatedMount } from "@/components/app/useAnimatedMount";
 import { api } from "@/lib/api";
 
@@ -196,11 +197,11 @@ export function MentionSuggest({ open, users, active, onSelect, onHover }) {
         >
           <span className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[11px] font-bold text-[var(--cz-text-primary)]">
             {u.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <CzImage
                 src={u.avatarUrl}
                 alt={u.username}
-                className="h-full w-full object-cover"
+                className="h-full w-full rounded-full"
+                imgClassName="h-full w-full"
               />
             ) : (
               initialsFor(u)

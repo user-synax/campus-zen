@@ -1,9 +1,10 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
+import { CzImage } from "@/components/app/CzImage";
 import { EmptyState } from "@/components/app/EmptyState";
 import { PageHeader } from "@/components/app/PageHeader";
 import { PostCard } from "@/components/app/PostCard";
@@ -165,9 +166,7 @@ export default function PostDetailPage() {
       <div className="flex items-center justify-between px-4 py-3">
         <h2 className="text-[20px] leading-6 font-extrabold text-[var(--cz-text-primary)]">
           {post.replyCount || replies.length}{" "}
-          {(post.replyCount || replies.length) === 1
-            ? "reply"
-            : "replies"}
+          {(post.replyCount || replies.length) === 1 ? "reply" : "replies"}
         </h2>
         {isGuest ? (
           <Link
@@ -214,11 +213,11 @@ export default function PostDetailPage() {
               <Link href={`/u/${c.author?.username}`} className="shrink-0">
                 <span className="grid h-10 w-10 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[13px] font-bold text-[var(--cz-text-primary)]">
                   {c.author?.avatarUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <CzImage
                       src={c.author.avatarUrl}
                       alt={c.author.username}
-                      className="h-full w-full object-cover"
+                      className="h-full w-full rounded-full"
+                      imgClassName="h-full w-full"
                     />
                   ) : (
                     (c.author?.username || "U").slice(0, 1).toUpperCase()
@@ -263,8 +262,7 @@ export default function PostDetailPage() {
             </div>
           ) : (
             <p className="py-6 text-center text-[13px] text-[var(--cz-text-secondary)]">
-              {replies.length}{" "}
-              {replies.length === 1 ? "reply" : "replies"}
+              {replies.length} {replies.length === 1 ? "reply" : "replies"}
             </p>
           )}
         </div>

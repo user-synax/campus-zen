@@ -1,5 +1,6 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Bookmark,
   ChevronRight,
@@ -17,13 +18,13 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { CzImage } from "@/components/app/CzImage";
 import { PageHeader } from "@/components/app/PageHeader";
 import { UserBadge } from "@/components/ui/verified-badge";
 import { api } from "@/lib/api";
 import { useBlocks, useMe } from "@/lib/hooks/queries";
 import { applyTheme, persistTheme, readTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
-import { useQueryClient } from "@tanstack/react-query";
 
 export default function MenuPage() {
   const router = useRouter();
@@ -91,8 +92,7 @@ export default function MenuPage() {
     "flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--cz-surface-strong)]";
   const iconWrap =
     "grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[var(--cz-surface-strong)] text-[var(--cz-text-primary)]";
-  const chevron =
-    "h-[18px] w-[18px] shrink-0 text-[var(--cz-text-secondary)]";
+  const chevron = "h-[18px] w-[18px] shrink-0 text-[var(--cz-text-secondary)]";
 
   return (
     <div>
@@ -106,11 +106,11 @@ export default function MenuPage() {
         >
           <span className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[18px] font-bold text-[var(--cz-text-primary)]">
             {user?.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <CzImage
                 src={user.avatarUrl}
                 alt=""
-                className="h-full w-full object-cover"
+                className="h-full w-full rounded-full"
+                imgClassName="h-full w-full"
               />
             ) : (
               initial
@@ -119,8 +119,8 @@ export default function MenuPage() {
           <span className="min-w-0 flex-1">
             {loadingUser ? (
               <span className="block space-y-2" aria-hidden="true">
-                <span className="block h-4 w-32 animate-pulse rounded-full bg-[var(--cz-skeleton)]" />
-                <span className="block h-3 w-24 animate-pulse rounded-full bg-[var(--cz-skeleton)]" />
+                <span className="t-shimmer block h-4 w-32 rounded-full" />
+                <span className="t-shimmer block h-3 w-24 rounded-full" />
               </span>
             ) : (
               <>
@@ -250,7 +250,11 @@ export default function MenuPage() {
               </span>
             )}
             <ChevronRight
-              className={cn(chevron, "transition-transform", showBlocked && "rotate-90")}
+              className={cn(
+                chevron,
+                "transition-transform",
+                showBlocked && "rotate-90",
+              )}
               aria-hidden
             />
           </button>
@@ -259,7 +263,8 @@ export default function MenuPage() {
             <div className="bg-[var(--cz-surface-strong)]/50 px-4 py-2">
               {loadingBlocked ? (
                 <p className="flex items-center gap-2 py-3 text-[15px] text-[var(--cz-text-secondary)]">
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />{" "}
+                  Loading…
                 </p>
               ) : blocked.length === 0 ? (
                 <p className="py-3 text-[15px] text-[var(--cz-text-secondary)]">
@@ -271,11 +276,11 @@ export default function MenuPage() {
                     <li key={u._id} className="flex items-center gap-3 py-2.5">
                       <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[12px] font-bold text-[var(--cz-text-primary)]">
                         {u.avatarUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
+                          <CzImage
                             src={u.avatarUrl}
                             alt=""
-                            className="h-full w-full object-cover"
+                            className="h-full w-full rounded-full"
+                            imgClassName="h-full w-full"
                           />
                         ) : (
                           (u.fullName || u.username || "U")

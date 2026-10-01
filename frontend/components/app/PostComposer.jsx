@@ -2,6 +2,7 @@
 
 import { BarChart2, Image as ImageIcon, Loader2, Smile, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { CzImage } from "@/components/app/CzImage";
 import {
   MentionSuggest,
   useMentionAutocomplete,
@@ -146,11 +147,11 @@ export function PostComposer({ user, onCreated }) {
       <div className="flex gap-3">
         <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[13px] font-bold text-[var(--cz-text-primary)]">
           {user?.avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <CzImage
               src={user.avatarUrl}
               alt={user?.username}
-              className="h-full w-full object-cover"
+              className="h-full w-full rounded-full"
+              imgClassName="h-full w-full"
             />
           ) : (
             initials

@@ -11,6 +11,7 @@ import {
 import Link from "next/link";
 import { memo, useMemo, useState } from "react";
 import { AnimatedNumber } from "@/components/app/AnimatedNumber";
+import { CzImage } from "@/components/app/CzImage";
 import { Button } from "@/components/ui/button";
 import { UserBadge } from "@/components/ui/verified-badge";
 import { collegeHrefFor } from "@/lib/college";
@@ -188,12 +189,11 @@ export function ProfileHeader({
       */}
       <div className="relative z-0 h-[132px] w-full overflow-hidden bg-[var(--cz-surface-strong)] sm:h-[190px]">
         {user.coverUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <CzImage
             src={user.coverUrl}
             alt=""
-            decoding="async"
-            className="absolute inset-0 h-full w-full object-cover"
+            className="absolute inset-0 h-full w-full"
+            imgClassName="absolute inset-0 h-full w-full"
           />
         ) : null}
       </div>
@@ -203,12 +203,11 @@ export function ProfileHeader({
         <div className="relative z-10 flex items-start justify-between">
           <span className="-mt-[33px] block h-[100px] w-[100px] overflow-hidden rounded-full border-4 border-[var(--cz-bg)] bg-[var(--cz-border-strong)] text-[26px] font-bold text-[var(--cz-text-primary)] transition-transform duration-200 ease-out hover:scale-[1.02] sm:h-[133px] sm:w-[133px]">
             {user.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <CzImage
                 src={user.avatarUrl}
                 alt={displayName}
-                decoding="async"
-                className="h-full w-full object-cover"
+                className="h-full w-full rounded-full"
+                imgClassName="h-full w-full"
               />
             ) : (
               <span className="grid h-full w-full place-items-center">
@@ -267,7 +266,10 @@ export function ProfileHeader({
                         "text-[var(--cz-error)] hover:bg-[color-mix(in_srgb,var(--cz-error)_10%,transparent)]",
                       )}
                     >
-                      <Flag className="h-[18px] w-[18px] shrink-0" aria-hidden />
+                      <Flag
+                        className="h-[18px] w-[18px] shrink-0"
+                        aria-hidden
+                      />
                       Report @{user.username}
                     </button>
                     <button

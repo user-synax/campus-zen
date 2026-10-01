@@ -2,6 +2,7 @@
 
 import { ImageIcon, Loader2, Smile, X } from "lucide-react";
 import { useRef, useState } from "react";
+import { CzImage } from "@/components/app/CzImage";
 import {
   MentionSuggest,
   useMentionAutocomplete,
@@ -77,13 +78,11 @@ export function ReplyComposer({
     >
       <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[13px] font-bold text-[var(--cz-text-primary)]">
         {currentUser?.avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <CzImage
             src={currentUser.avatarUrl}
             alt=""
-            loading="lazy"
-            decoding="async"
-            className="h-full w-full object-cover"
+            className="h-full w-full rounded-full"
+            imgClassName="h-full w-full"
           />
         ) : (
           initialsFor(currentUser)

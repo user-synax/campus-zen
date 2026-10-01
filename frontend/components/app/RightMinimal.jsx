@@ -4,6 +4,7 @@ import { Hash, Search } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { CzImage } from "@/components/app/CzImage";
 import { Button } from "@/components/ui/button";
 import { UserBadge } from "@/components/ui/verified-badge";
 import { api } from "@/lib/api";
@@ -19,13 +20,11 @@ function Avatar({ user, size = 40 }) {
       style={{ height: size, width: size, fontSize: size * 0.36 }}
     >
       {user.avatarUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <CzImage
           src={user.avatarUrl}
           alt=""
-          loading="lazy"
-          decoding="async"
-          className="h-full w-full object-cover"
+          className="h-full w-full rounded-full"
+          imgClassName="h-full w-full"
         />
       ) : (
         initialsFor(user)
@@ -100,13 +99,17 @@ function Skeleton() {
   return (
     <div className="flex flex-col divide-y divide-[var(--cz-border)]">
       {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i} className="flex animate-pulse items-center gap-3 py-3">
-          <div className="h-10 w-10 rounded-full bg-[var(--cz-skeleton)]" />
+        <div
+          key={i}
+          style={{ "--skel-idx": i }}
+          className="t-skel-item flex items-center gap-3 py-3"
+        >
+          <div className="t-shimmer h-10 w-10 rounded-full" />
           <div className="flex-1 space-y-2">
-            <div className="h-3 w-28 rounded bg-[var(--cz-skeleton)]" />
-            <div className="h-3 w-20 rounded bg-[var(--cz-skeleton)]" />
+            <div className="t-shimmer h-3 w-28 rounded" />
+            <div className="t-shimmer h-3 w-20 rounded" />
           </div>
-          <div className="h-8 w-20 rounded-full bg-[var(--cz-skeleton)]" />
+          <div className="t-shimmer h-8 w-20 rounded-full" />
         </div>
       ))}
     </div>
@@ -144,7 +147,9 @@ export function RightMinimal({ currentUser }) {
             const me = currentUser?.username?.toLowerCase();
             setSuggested(
               users
-                .filter((u) => u.username?.toLowerCase() !== me && !u.isFollowing)
+                .filter(
+                  (u) => u.username?.toLowerCase() !== me && !u.isFollowing,
+                )
                 .slice(0, 3),
             );
           } catch {
@@ -185,7 +190,8 @@ export function RightMinimal({ currentUser }) {
   }, []);
 
   const handleFollowed = (id, isNowFollowing) => {
-    if (isNowFollowing) setSuggested((prev) => prev.filter((u) => u._id !== id));
+    if (isNowFollowing)
+      setSuggested((prev) => prev.filter((u) => u._id !== id));
   };
 
   const submitSearch = (e) => {
@@ -223,7 +229,8 @@ export function RightMinimal({ currentUser }) {
             {Array.from({ length: 3 }).map((_, i) => (
               <div
                 key={i}
-                className="h-9 animate-pulse rounded bg-[var(--cz-skeleton)]"
+                style={{ "--skel-idx": i }}
+                className="t-skel-item t-shimmer h-9 rounded"
               />
             ))}
           </div>

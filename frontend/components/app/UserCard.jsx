@@ -4,6 +4,7 @@ import { GraduationCap, MapPin } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { AnimatedNumber } from "@/components/app/AnimatedNumber";
+import { CzImage } from "@/components/app/CzImage";
 import { Button } from "@/components/ui/button";
 import { UserBadge } from "@/components/ui/verified-badge";
 import { api } from "@/lib/api";
@@ -31,11 +32,11 @@ export function UserCard({ user: initialUser, isOwn, isGuest }) {
       >
         <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[13px] font-bold text-[var(--cz-text-primary)]">
           {user.avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <CzImage
               src={user.avatarUrl}
               alt={user.username}
-              className="h-full w-full object-cover"
+              className="h-full w-full rounded-full"
+              imgClassName="h-full w-full"
             />
           ) : (
             initials
@@ -79,7 +80,10 @@ export function UserCard({ user: initialUser, isOwn, isGuest }) {
           ) : null}
           {user.course || user.academicYear ? (
             <span className="flex items-center gap-1.5">
-              <GraduationCap className="h-[14px] w-[14px] shrink-0" aria-hidden />
+              <GraduationCap
+                className="h-[14px] w-[14px] shrink-0"
+                aria-hidden
+              />
               <span className="truncate">
                 {user.course || "—"}
                 {user.academicYear ? ` · ${user.academicYear}` : ""}

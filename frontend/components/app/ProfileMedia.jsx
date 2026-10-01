@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { CzImage } from "@/components/app/CzImage";
 import { EmptyState } from "@/components/app/EmptyState";
 import { PostCard } from "@/components/app/PostCard";
 import { Button } from "@/components/ui/button";
@@ -26,12 +27,11 @@ function MediaTile({ item, onOpen }) {
       }
       className="group relative block w-full overflow-hidden bg-[var(--cz-surface-strong)] text-left"
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+      <CzImage
         src={item.imageUrl}
         alt={item.text || "Post photo"}
-        loading="lazy"
-        className="w-full object-cover transition-opacity duration-200 group-hover:opacity-90"
+        className="aspect-square w-full"
+        imgClassName="aspect-square w-full transition-opacity duration-200 group-hover:opacity-90"
       />
       <span
         aria-hidden
@@ -236,8 +236,11 @@ export function ProfileMediaGrid({ username, currentUser }) {
         {Array.from({ length: 9 }).map((_, i) => (
           <div
             key={i}
-            className="aspect-square animate-pulse bg-[var(--cz-skeleton)]"
-          />
+            style={{ "--skel-idx": i % 3 }}
+            className="t-skel-item aspect-square"
+          >
+            <div className="t-shimmer h-full w-full" />
+          </div>
         ))}
       </div>
     );

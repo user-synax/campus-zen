@@ -4,6 +4,7 @@ import { Loader2, Users, X } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { CzImage } from "@/components/app/CzImage";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 
@@ -39,11 +40,11 @@ function UserRow({ user, viewerId, onToggle }) {
       >
         <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[13px] font-bold text-[var(--cz-text-primary)]">
           {user.avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <CzImage
               src={user.avatarUrl}
               alt={user.username}
-              className="h-full w-full object-cover"
+              className="h-full w-full rounded-full"
+              imgClassName="h-full w-full"
             />
           ) : (
             (user.fullName || user.username || "U").slice(0, 1).toUpperCase()

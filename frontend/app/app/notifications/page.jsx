@@ -1,31 +1,29 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import {
-  Bell,
-  Heart,
-  MessageCircle,
-  Repeat2,
-  UserPlus,
-  AtSign,
-  Loader2,
-  CheckCheck,
-  Check,
-  Trash2,
-} from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  EmptyState,
-  PostSkeleton,
-} from "@/components/app/EmptyState";
+  AtSign,
+  Bell,
+  Check,
+  CheckCheck,
+  Heart,
+  Loader2,
+  MessageCircle,
+  Repeat2,
+  Trash2,
+  UserPlus,
+} from "lucide-react";
+import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { CzImage } from "@/components/app/CzImage";
+import { EmptyState, PostSkeleton } from "@/components/app/EmptyState";
 import { PageHeader } from "@/components/app/PageHeader";
-import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { api } from "@/lib/api";
 import {
-  useNotifications,
-  useMarkNotificationRead,
   useMarkAllNotificationsRead,
+  useMarkNotificationRead,
+  useNotifications,
 } from "@/lib/hooks/queries";
 import { useSSE } from "@/lib/hooks/useSSE";
 import { cn } from "@/lib/utils";
@@ -55,10 +53,11 @@ function AutoRead({ id, active, onRead, children }) {
     const obs = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting && !document.hidden) {
-          if (!timer) timer = setTimeout(() => {
-            firedRef.current = true;
-            onReadRef.current(id);
-          }, 1000);
+          if (!timer)
+            timer = setTimeout(() => {
+              firedRef.current = true;
+              onReadRef.current(id);
+            }, 1000);
         } else if (timer) {
           clearTimeout(timer);
           timer = null;
@@ -98,15 +97,11 @@ export default function NotificationsPage() {
   // SSE for real-time notifications (replaces polling)
   useSSE();
 
-  const {
-    data,
-    fetchNextPage,
-    hasNextPage,
-    isPending,
-    isFetchingNextPage,
-  } = useNotifications(filter, typeFilter);
+  const { data, fetchNextPage, hasNextPage, isPending, isFetchingNextPage } =
+    useNotifications(filter, typeFilter);
 
-  const notifications = data?.pages?.flatMap((p) => p.data?.notifications || []) || [];
+  const notifications =
+    data?.pages?.flatMap((p) => p.data?.notifications || []) || [];
 
   const markRead = useCallback(
     (id) => {
@@ -120,7 +115,7 @@ export default function NotificationsPage() {
             data: {
               ...page.data,
               notifications: (page.data?.notifications || []).map((n) =>
-                n._id === id ? { ...n, read: true } : n
+                n._id === id ? { ...n, read: true } : n,
               ),
             },
           })),
@@ -128,7 +123,7 @@ export default function NotificationsPage() {
       });
       markReadMutation.mutate(id);
     },
-    [filter, typeFilter, queryClient, markReadMutation]
+    [filter, typeFilter, queryClient, markReadMutation],
   );
 
   const markAll = async () => {
@@ -167,7 +162,7 @@ export default function NotificationsPage() {
             data: {
               ...page.data,
               notifications: (page.data?.notifications || []).filter(
-                (n) => n._id !== id
+                (n) => n._id !== id,
               ),
             },
           })),
@@ -190,7 +185,7 @@ export default function NotificationsPage() {
             data: {
               ...page.data,
               notifications: (page.data?.notifications || []).filter(
-                (n) => !n.read
+                (n) => !n.read,
               ),
             },
           })),
@@ -250,7 +245,10 @@ export default function NotificationsPage() {
       <div className="flex items-center gap-2 border-b border-[var(--cz-border)] px-4 py-2">
         {[
           { id: "all", label: "All" },
-          { id: "unread", label: `Unread${unreadInView ? ` (${unreadInView})` : ""}` },
+          {
+            id: "unread",
+            label: `Unread${unreadInView ? ` (${unreadInView})` : ""}`,
+          },
         ].map((t) => (
           <button
             key={t.id}
@@ -290,18 +288,26 @@ export default function NotificationsPage() {
             };
             const Glyph = glyph.Icon;
             return (
-              <AutoRead key={n._id} id={n._id} active={!n.read} onRead={markRead}>
+              <AutoRead
+                key={n._id}
+                id={n._id}
+                active={!n.read}
+                onRead={markRead}
+              >
                 <div
                   className={`cz-row relative flex gap-3 px-4 py-3 ${n.read ? "" : "bg-[var(--cz-accent-softer)]"}`}
                 >
-                  <Link href={`/u/${n.actor?.username || ""}`} className="shrink-0">
+                  <Link
+                    href={`/u/${n.actor?.username || ""}`}
+                    className="shrink-0"
+                  >
                     <span className="grid h-10 w-10 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[13px] font-bold text-[var(--cz-text-primary)]">
                       {n.actor?.avatarUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        <CzImage
                           src={n.actor.avatarUrl}
                           alt={n.actor.username}
-                          className="h-full w-full object-cover"
+                          className="h-full w-full rounded-full"
+                          imgClassName="h-full w-full"
                         />
                       ) : (
                         (n.actor?.username || "U").slice(0, 1).toUpperCase()

@@ -1,18 +1,13 @@
 "use client";
 
+import { Loader2, Search as SearchIcon, Users, X } from "lucide-react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import {
-  Search as SearchIcon,
-  Users,
-  Loader2,
-  X,
-} from "lucide-react";
 import { EmptyState } from "@/components/app/EmptyState";
 import { PageHeader } from "@/components/app/PageHeader";
-import { UserCard } from "@/components/app/UserCard";
 import { PostCard } from "@/components/app/PostCard";
-import Link from "next/link";
+import { UserCard } from "@/components/app/UserCard";
 import { useMe, useSearch } from "@/lib/hooks/queries";
 
 export default function SearchPage() {
@@ -72,8 +67,13 @@ function SearchInner() {
     ? debouncedQ.trim().replace(/^#+/, "").toLowerCase()
     : "";
   const isEmpty =
-    !isPending && debouncedQ && users.length === 0 && posts.length === 0 && colleges.length === 0;
-  const showColleges = (type === "all" || type === "colleges") && colleges.length > 0;
+    !isPending &&
+    debouncedQ &&
+    users.length === 0 &&
+    posts.length === 0 &&
+    colleges.length === 0;
+  const showColleges =
+    (type === "all" || type === "colleges") && colleges.length > 0;
   const showUsers = (type === "all" || type === "users") && users.length > 0;
   const showPosts = (type === "all" || type === "posts") && posts.length > 0;
 
@@ -172,18 +172,25 @@ function SearchInner() {
           title="Search CampusZen"
           description="Find students by name, username, college or course, and posts by text."
         />
-      ) : isPending && users.length === 0 && posts.length === 0 && colleges.length === 0 ? (
+      ) : isPending &&
+        users.length === 0 &&
+        posts.length === 0 &&
+        colleges.length === 0 ? (
         <div>
           <div className="border-b border-[var(--cz-border)] px-4 py-2 text-[15px] font-bold text-[var(--cz-text-primary)]">
             Students
           </div>
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="cz-row animate-pulse px-4 py-3">
+            <div
+              key={i}
+              style={{ "--skel-idx": i }}
+              className="t-skel-item cz-row px-4 py-3"
+            >
               <div className="flex gap-3">
-                <div className="h-10 w-10 shrink-0 rounded-full bg-[var(--cz-skeleton)]" />
+                <div className="t-shimmer h-10 w-10 shrink-0 rounded-full" />
                 <div className="flex-1 space-y-2">
-                  <div className="h-3 w-32 rounded bg-[var(--cz-skeleton)]" />
-                  <div className="h-3 w-20 rounded bg-[var(--cz-skeleton)]" />
+                  <div className="t-shimmer h-3 w-32 rounded" />
+                  <div className="t-shimmer h-3 w-20 rounded" />
                 </div>
               </div>
             </div>
