@@ -20,6 +20,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { AnimatedNumber } from "@/components/app/AnimatedNumber";
 import { CzImage } from "@/components/app/CzImage";
+import { ImageLightbox } from "@/components/app/ImageLightbox";
 import {
   MentionSuggest,
   useMentionAutocomplete,
@@ -166,6 +167,7 @@ export function PostCard({
   const [editLoading, setEditLoading] = useState(false);
   const [pinLoading, setPinLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [lightbox, setLightbox] = useState(false);
   const copyTimer = useRef(null);
   const menuWrapRef = useRef(null);
 
@@ -484,14 +486,20 @@ export function PostCard({
             )}
 
             {post.imageUrl ? (
-              <div className="mt-3 min-h-[200px] overflow-hidden rounded-[16px] border border-[var(--cz-border)]">
+              <button
+                type="button"
+                onClick={() => setLightbox(true)}
+                aria-label="Open image viewer"
+                className="mt-3 block min-h-[200px] w-full cursor-zoom-in overflow-hidden rounded-[16px] border border-[var(--cz-border)]"
+              >
                 <CzImage
                   src={post.imageUrl}
                   alt="Post attachment"
+                  fit="contain"
                   className="w-full"
-                  imgClassName="max-h-[510px] w-full"
+                  imgClassName="max-h-[510px]"
                 />
-              </div>
+              </button>
             ) : null}
 
             {post.poll?.options?.length ? (
@@ -618,6 +626,17 @@ export function PostCard({
           setIsHidden(true);
         }}
       />
+      {lightbox && post.imageUrl ? (
+        <ImageLightbox
+          src={post.imageUrl}
+          alt={
+            post.text
+              ? `Photo by @${author.username || "user"}: ${post.text.slice(0, 80)}`
+              : `Photo by @${author.username || "user"}`
+          }
+          onClose={() => setLightbox(false)}
+        />
+      ) : null}
     </>
   );
 }
