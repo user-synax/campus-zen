@@ -23,7 +23,7 @@ export function PostSkeleton({ rows = 4 }) {
 }
 
 /** End-of-feed / pagination footer shared by every timeline. */
-export function FeedFooter({ loading, hasMore, emptyLabel = "You're all caught up", error = null, onRetry = null }) {
+export function FeedFooter({ loading, hasMore, emptyLabel = "You're all caught up", error = null, onRetry = null, onLoadMore = null }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center gap-2 py-6 text-[15px] text-[var(--cz-text-secondary)]">
@@ -47,7 +47,22 @@ export function FeedFooter({ loading, hasMore, emptyLabel = "You're all caught u
       </div>
     );
   }
-  if (hasMore) return null;
+  if (hasMore) {
+    // Infinite scroll (sentinel) is the primary path — this button is the
+    // backup for when the observer misses (fast flings, throttled tabs).
+    if (!onLoadMore) return null;
+    return (
+      <div className="flex justify-center py-6">
+        <button
+          type="button"
+          onClick={onLoadMore}
+          className="inline-flex h-[40px] cursor-pointer items-center rounded-full border border-[var(--cz-border-strong)] px-5 text-[15px] font-bold text-[var(--cz-text-primary)] transition-colors hover:bg-[var(--cz-surface-strong)] active:scale-95"
+        >
+          Load more
+        </button>
+      </div>
+    );
+  }
   return (
     <p className="py-8 text-center text-[13px] text-[var(--cz-text-secondary)]">
       {emptyLabel}

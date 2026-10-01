@@ -281,8 +281,10 @@ export default function AppHome() {
           <FeedFooter
             loading={isFetchingNextPage}
             hasMore={hasNextPage}
+            emptyLabel="No more posts"
             error={isError ? "Couldn't load more posts." : null}
             onRetry={() => refetch()}
+            onLoadMore={() => fetchNextPage()}
           />
         </div>
       )}
