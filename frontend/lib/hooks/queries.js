@@ -59,8 +59,12 @@ export function useFeed(tab = "following") {
     queryKey: queryKeys.feed(tab),
     queryFn: ({ pageParam = 1 }) =>
       tab === "following" ? api.getFeed({ page: pageParam }) : api.getPublicFeed({ page: pageParam }),
+    // pages are raw API bodies { success, data: { posts, page, hasMore } } —
+    // read through .data (same as useReplies/useBookmarks). Reading
+    // lastPage.hasMore directly is always undefined, which silently capped
+    // the feed at page 1 with no Load more button.
     getNextPageParam: (lastPage) =>
-      lastPage.hasMore ? lastPage.page + 1 : undefined,
+      lastPage.data?.hasMore ? (lastPage.data?.page || 1) + 1 : undefined,
     initialPageParam: 1,
     staleTime: 15_000,
     // Tab switches stay instant: keep the last feed on screen while the
@@ -161,8 +165,9 @@ export function useNotifications(filter = "all", type = "all") {
     queryKey: queryKeys.notifications(filter, type),
     queryFn: ({ pageParam = 1 }) =>
       api.getNotifications({ page: pageParam, filter, type }),
+    // same .data unwrap as useFeed — raw bodies nest paging under data
     getNextPageParam: (lastPage) =>
-      lastPage.hasMore ? lastPage.page + 1 : undefined,
+      lastPage.data?.hasMore ? (lastPage.data?.page || 1) + 1 : undefined,
     initialPageParam: 1,
     staleTime: 10_000,
     placeholderData: (prev) => prev,
