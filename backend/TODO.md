@@ -20,7 +20,7 @@
 ## Known Issues / Future Improvements
 
 - [ ] Consider queue (BullMQ / email service) to keep `/signup`, `/forgot-password` fast (<120ms) under load.
-- [ ] Add admin dashboard for reports management.
+- [x] Admin dashboard for reports management — Done: env-gated `ADMIN_EMAIL + ADMIN_PASSKEY` (`/api/admin/*` + `/admin` page), reports list/resolve, delete post, suspend/unsuspend user.
 - [ ] Add rate limiting for SSE connections.
 - [ ] Add pagination to suggestions endpoint.
 

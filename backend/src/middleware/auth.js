@@ -17,6 +17,7 @@ export async function protect(req, res, next) {
 
     const user = await User.findById(decoded.id).select("+refreshTokenHash");
     if (!user) throw new AppError("User no longer exists.", 401, "USER_NOT_FOUND");
+    if (user.isSuspended) throw new AppError("Account suspended. Contact support.", 403, "ACCOUNT_SUSPENDED");
 
     req.user = user;
     req.userId = user._id;

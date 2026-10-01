@@ -78,6 +78,10 @@ const userSchema = new mongoose.Schema(
     refreshTokenHash: { type: String, default: null, select: false },
 
     role: { type: String, enum: ["user", "admin"], default: "user" },
+    // moderation — suspend/ban via admin dashboard
+    isSuspended: { type: Boolean, default: false, index: true },
+    suspendedAt: { type: Date, default: null },
+    suspendReason: { type: String, default: null, maxlength: 500 },
     // badge tiers — owner (red, exactly OWNER_EMAIL), pro (gold, future
     // subscription), verified (blue, email verified). isOwner syncs from
     // email on save so no email ever leaks to clients for badge checks.

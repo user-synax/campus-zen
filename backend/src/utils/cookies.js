@@ -24,3 +24,13 @@ export function clearAuthCookies(res) {
   res.clearCookie("accessToken", opts);
   res.clearCookie("refreshToken", opts);
 }
+
+export function setAdminCookie(res, adminToken) {
+  // short-lived (2h default) — separate from user auth cookies
+  res.cookie("adminToken", adminToken, baseCookieOpts(2 * 60 * 60 * 1000));
+}
+
+export function clearAdminCookie(res) {
+  const opts = { httpOnly: true, secure: isProd ? true : env.COOKIE_SECURE, sameSite: env.COOKIE_SAMESITE, path: "/" };
+  res.clearCookie("adminToken", opts);
+}

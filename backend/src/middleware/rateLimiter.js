@@ -69,3 +69,11 @@ export const reportLimiter = rateLimit({
   legacyHeaders: false,
   handler: jsonHandler("Too many reports. Try again later."),
 });
+
+export const adminLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15m
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: jsonHandler("Too many admin login attempts. Try again later."),
+});

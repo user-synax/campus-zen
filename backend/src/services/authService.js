@@ -137,6 +137,7 @@ export const authService = {
     const cleanUsername = username.toLowerCase().trim();
     const user = await User.findOne({ username: cleanUsername }).select("+passwordHash +refreshTokenHash");
     if (!user) throw new AppError("Invalid username or password", 401, "INVALID_CREDENTIALS");
+    if (user.isSuspended) throw new AppError("Account suspended. Contact support.", 403, "ACCOUNT_SUSPENDED");
 
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) throw new AppError("Invalid username or password", 401, "INVALID_CREDENTIALS");
@@ -169,6 +170,7 @@ export const authService = {
 
     const user = await User.findById(decoded.id).select("+refreshTokenHash");
     if (!user || !user.refreshTokenHash) throw new AppError("Session not found. Log in again.", 401, "SESSION_NOT_FOUND");
+    if (user.isSuspended) throw new AppError("Account suspended. Contact support.", 403, "ACCOUNT_SUSPENDED");
 
     const incomingHash = hashToken(raw);
     if (incomingHash !== user.refreshTokenHash) throw new AppError("Session revoked. Log in again.", 401, "SESSION_REVOKED");

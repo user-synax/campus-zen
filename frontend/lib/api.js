@@ -28,10 +28,15 @@ const NO_AUTO_RETRY = new Set([
   "/api/auth/forgot-password",
   "/api/auth/reset-password",
   "/api/auth/check-username",
+  "/api/admin/login",
+  "/api/admin/logout",
 ]);
 
 function shouldAutoRetry(path) {
-  return !NO_AUTO_RETRY.has(path.split("?")[0]);
+  const clean = path.split("?")[0];
+  // Admin uses its own adminToken cookie — user refresh must never run for it.
+  if (clean.startsWith("/api/admin")) return false;
+  return !NO_AUTO_RETRY.has(clean);
 }
 
 // Single-flight session refresh: concurrent 401s share one rotation.
@@ -424,4 +429,38 @@ export const api = {
       { method: "GET" },
     );
   },
+  // Admin dashboard (env-gated via ADMIN_EMAIL + ADMIN_PASSKEY on backend).
+  // Uses its own adminToken cookie — no user refresh involved.
+  adminLogin: (payload) =>
+    request("/api/admin/login", { method: "POST", body: payload }),
+  adminLogout: () => request("/api/admin/logout", { method: "POST" }),
+  adminMe: () => request("/api/admin/me", { method: "GET" }),
+  adminStats: () => request("/api/admin/stats", { method: "GET" }),
+  adminReports: (params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "")
+        qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(`/api/admin/reports${q ? `?${q}` : ""}`, { method: "GET" });
+  },
+  adminResolveReport: (id, status) =>
+    request(`/api/admin/reports/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: { status },
+    }),
+  adminDeletePost: (id) =>
+    request(`/api/admin/posts/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    }),
+  adminSuspendUser: (id, reason) =>
+    request(`/api/admin/users/${encodeURIComponent(id)}/suspend`, {
+      method: "PATCH",
+      body: reason ? { reason } : {},
+    }),
+  adminUnsuspendUser: (id) =>
+    request(`/api/admin/users/${encodeURIComponent(id)}/unsuspend`, {
+      method: "PATCH",
+    }),
 };

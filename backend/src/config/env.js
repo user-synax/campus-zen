@@ -36,6 +36,13 @@ export const env = {
   // often fails from datacenter IPs). When set, sendMail uses Resend
   // instead of SMTP. No new dependency: plain fetch, no SDK needed.
   RESEND_API_KEY: process.env.RESEND_API_KEY || "",
+  // Admin dashboard (env-gated, no DB user needed).
+  // Set both in backend .env to enable /admin:
+  //   ADMIN_EMAIL=you@example.com
+  //   ADMIN_PASSKEY=<long random string 32+ chars>
+  ADMIN_EMAIL: (process.env.ADMIN_EMAIL || "").toLowerCase().trim(),
+  ADMIN_PASSKEY: process.env.ADMIN_PASSKEY || "",
+  ADMIN_TOKEN_EXPIRES: process.env.ADMIN_TOKEN_EXPIRES || "2h",
 };
 
 export const isProd = env.NODE_ENV === "production";
