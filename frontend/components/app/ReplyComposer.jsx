@@ -6,6 +6,7 @@ import {
   MentionSuggest,
   useMentionAutocomplete,
 } from "@/components/app/MentionAutocomplete";
+import { useAutogrowTextarea } from "@/components/app/useAutogrowTextarea";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 
@@ -31,6 +32,7 @@ export function ReplyComposer({ postId, currentUser, onCreated, autoFocus = fals
   const [fileName, setFileName] = useState("");
 
   const mention = useMentionAutocomplete({ value: text, setValue: setText, inputRef });
+  useAutogrowTextarea(inputRef, text, 200);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -97,7 +99,7 @@ export function ReplyComposer({ postId, currentUser, onCreated, autoFocus = fals
             maxLength={MAX + 40}
             placeholder="Post your reply"
             aria-label="Post your reply"
-            className="min-h-[52px] w-full resize-none bg-transparent py-2 text-[15px] leading-[20px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)]"
+            className="max-h-[200px] min-h-[52px] w-full resize-none overflow-y-auto bg-transparent py-2 text-[15px] leading-[20px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)]"
           />
           {mention.open ? (
             <MentionSuggest

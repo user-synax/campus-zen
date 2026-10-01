@@ -1,11 +1,12 @@
 "use client";
 
 import { Image as ImageIcon, Loader2, Smile, X } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   MentionSuggest,
   useMentionAutocomplete,
 } from "@/components/app/MentionAutocomplete";
+import { useAutogrowTextarea } from "@/components/app/useAutogrowTextarea";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -20,11 +21,42 @@ export function PostComposer({ user, onCreated }) {
   const [error, setError] = useState("");
   const fileInputRef = useRef(null);
   const textRef = useRef(null);
+
+  // Draft persistence — text-only, per user, survives tab switch / close.
+  // Images can't go in localStorage, so only text is stored.
+  const draftKey = `cz:post-draft:${user?._id || user?.username || "guest"}`;
+  const hydratedKeyRef = useRef(null);
+
+  // Restore once per key. Never blank a non-empty box when switching keys
+  // (e.g. guest typing before /me loads) — only fill when a saved draft exists.
+  useEffect(() => {
+    if (hydratedKeyRef.current === draftKey) return;
+    hydratedKeyRef.current = draftKey;
+    try {
+      const saved = window.localStorage.getItem(draftKey);
+      if (saved) setText(saved);
+    } catch {}
+  }, [draftKey]);
+
+  // Save debounced so every keystroke doesn't hit storage.
+  useEffect(() => {
+    if (hydratedKeyRef.current !== draftKey) return;
+    const t = setTimeout(() => {
+      try {
+        if (text) window.localStorage.setItem(draftKey, text);
+        else window.localStorage.removeItem(draftKey);
+      } catch {}
+    }, 250);
+    return () => clearTimeout(t);
+  }, [text, draftKey]);
   const mention = useMentionAutocomplete({
     value: text,
     setValue: setText,
     inputRef: textRef,
   });
+  // Grow with paste/typing up to 200px, then inner scrollbar so long drafts
+  // stay reviewable without pushing the feed away.
+  useAutogrowTextarea(textRef, text, 200);
 
   const len = text.length;
   const remaining = MAX - len;
@@ -64,6 +96,9 @@ export function PostComposer({ user, onCreated }) {
       const res = await api.createPost(text.trim() || undefined, image || undefined);
       setText("");
       removeImage();
+      try {
+        window.localStorage.removeItem(draftKey);
+      } catch {}
       window.dispatchEvent(new Event("cz:hashtag-trending"));
       onCreated?.(res.data?.post);
     } catch (err) {
@@ -111,7 +146,7 @@ export function PostComposer({ user, onCreated }) {
               aria-label="Post text"
               rows={2}
               maxLength={520}
-              className="w-full resize-none bg-transparent pb-2 text-[20px] leading-[24px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)]"
+              className="max-h-[200px] min-h-[56px] w-full resize-none overflow-y-auto bg-transparent pb-2 text-[20px] leading-[24px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)]"
             />
             {mention.open ? (
               <MentionSuggest

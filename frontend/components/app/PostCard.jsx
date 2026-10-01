@@ -24,6 +24,7 @@ import {
   useMentionAutocomplete,
 } from "@/components/app/MentionAutocomplete";
 import { RichText } from "@/components/app/RichText";
+import { useAutogrowTextarea } from "@/components/app/useAutogrowTextarea";
 import { ReportDialog } from "@/components/app/ReportDialog";
 import { Button } from "@/components/ui/button";
 import { VerifiedBadge } from "@/components/ui/verified-badge";
@@ -170,6 +171,7 @@ export function PostCard({
     setValue: setEditText,
     inputRef: editRef,
   });
+  useAutogrowTextarea(editRef, editText, 200);
 
   const isOwn =
     currentUser &&
@@ -387,7 +389,7 @@ export function PostCard({
                     rows={3}
                     maxLength={500}
                     aria-label="Edit post"
-                    className="w-full resize-none rounded-[4px] bg-[var(--cz-surface-strong)] px-3 py-2 text-[15px] leading-[20px] text-[var(--cz-text-primary)] outline-none ring-1 ring-[var(--cz-accent)]"
+                    className="max-h-[200px] w-full resize-none overflow-y-auto rounded-[4px] bg-[var(--cz-surface-strong)] px-3 py-2 text-[15px] leading-[20px] text-[var(--cz-text-primary)] outline-none ring-1 ring-[var(--cz-accent)]"
                   />
                   {editMention.open ? (
                     <MentionSuggest

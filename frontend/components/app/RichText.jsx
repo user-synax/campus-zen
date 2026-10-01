@@ -3,8 +3,13 @@
 import Link from "next/link";
 import { Fragment } from "react";
 
-// combined splitter: hashtags + mentions in one pass, preserving order
-const RICH_SPLIT_REGEX = /(#[\p{L}\p{M}\p{N}_]+|(?<!\w)@[a-z0-9_]{3,20}\b)/giu;
+// combined splitter: urls + hashtags + mentions in one pass, preserving order.
+// URL-first so https://x.com/#tag stays a link, not a hashtag.
+// - https?://... , www.... , bare campuszen.tech / something.vercel.app
+// - bare domains need a dot + 2+ letter TLD, blocked after @/:. so emails
+//   like test@gmail.com never linkify.
+const RICH_SPLIT_REGEX =
+  /(https?:\/\/[^\s<>()\[\]{}"']+|www\.[^\s<>()\[\]{}"']+|(?<![\w@/:.])(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?(?:\/[^\s<>()\[\]{}"']*)?|#[\p{L}\p{M}\p{N}_]+|(?<!\w)@[a-z0-9_]{3,20}\b)/giu;
 
 export function extractTagsForRender(text) {
   if (!text) return [];
@@ -22,6 +27,28 @@ export function extractMentionsForRender(text) {
 // X Blue, no weight change, no hover underline flip.
 const linkClass = "text-[var(--cz-accent)] hover:underline underline-offset-2";
 
+const BARE_DOMAIN_RE =
+  /^(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?(?:\/[^\s<>()\[\]{}"']*)?$/i;
+
+function isUrlLike(part) {
+  if (!part) return false;
+  if (/^https?:\/\//i.test(part)) return true;
+  if (/^www\./i.test(part)) return true;
+  return BARE_DOMAIN_RE.test(part);
+}
+
+function splitTrailingPunct(url) {
+  const m = url.match(/[.,!?;:'")\]}>]+$/);
+  if (!m) return [url, ""];
+  return [url.slice(0, -m[0].length), m[0]];
+}
+
+function normalizeUrl(core) {
+  if (!core) return null;
+  if (/^https?:\/\//i.test(core)) return core;
+  return `https://${core}`;
+}
+
 export function RichText({ text, className = "" }) {
   if (!text) return null;
   const parts = text.split(RICH_SPLIT_REGEX);
@@ -31,6 +58,26 @@ export function RichText({ text, className = "" }) {
     <span className={className}>
       {parts.map((part, i) => {
         if (!part) return null;
+        // URLs first — keeps #fragments and @ in paths inside the link.
+        if (isUrlLike(part)) {
+          const [core, trail] = splitTrailingPunct(part);
+          const href = normalizeUrl(core);
+          if (!href || !isUrlLike(core)) return <Fragment key={i}>{part}</Fragment>;
+          return (
+            <Fragment key={i}>
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                onClick={(e) => e.stopPropagation()}
+                className={linkClass}
+              >
+                {core}
+              </a>
+              {trail}
+            </Fragment>
+          );
+        }
         if (part.startsWith("#") && part.length > 1) {
           const tag = part.slice(1).toLowerCase();
           return (
