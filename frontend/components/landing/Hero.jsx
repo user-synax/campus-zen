@@ -17,9 +17,9 @@ export function Hero() {
 
           <Reveal delay={0.06}>
             <p className="mt-5 max-w-[46ch] text-[15px] leading-[21px] text-[var(--cz-text-secondary)]">
-              Discover students by college and course, follow the people you
-              actually know, and post short updates. One accent colour, one
-              timeline, no noise.
+              Discover students by college and course, follow classmates and
+              seniors, and post text, images, and polls. Hashtags, college
+              feeds, and realtime notifications keep campus in one timeline.
             </p>
           </Reveal>
 
@@ -39,7 +39,8 @@ export function Hero() {
               </Link>
             </div>
             <p className="mt-4 text-[13px] leading-[18px] text-[var(--cz-text-secondary)]">
-              Free to join · Verified emails · 500-character posts
+              Free to join · OTP-verified emails · 500-char posts + images &amp;
+              polls
             </p>
           </Reveal>
         </div>

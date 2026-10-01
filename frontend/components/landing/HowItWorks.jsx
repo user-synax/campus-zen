@@ -4,22 +4,22 @@ const steps = [
   [
     "01",
     "Discover students",
-    "Find people by college, course, and year — not by algorithm roulette.",
+    "Find people by college, course, and year — plus suggestions, hashtag feeds, and college pages.",
   ],
   [
     "02",
     "Follow your people",
-    "Build a feed out of classmates, seniors, and hackathon teammates.",
+    "Build a feed out of classmates, seniors, and hackathon teammates. Following and Discovery tabs stay chronological.",
   ],
   [
     "03",
     "Post short updates",
-    "Thoughts, questions, wins — up to 500 characters. Edit or delete anytime.",
+    "Thoughts, questions, wins — up to 500 characters, with an image or a poll. Edit or delete anytime.",
   ],
   [
     "04",
     "Interact, get notified",
-    "Like, reply, and repost. Know when someone engages with your post.",
+    "Like, reply, repost, and bookmark. Notifications arrive in-app and push live over SSE.",
   ],
 ];
 

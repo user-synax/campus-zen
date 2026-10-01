@@ -3,15 +3,15 @@ import { Reveal } from "./Reveal";
 const points = [
   [
     "Built for student identity",
-    "Every profile shows college, branch, and year — so you know who you're talking to.",
+    "Every profile shows college, course, and year with follower, following, and post counts — so you know who you're talking to.",
   ],
   [
     "Safe by default",
-    "Verified emails, secure sessions, and rate-limited auth keep accounts protected.",
+    "OTP-verified emails, bcrypt hashing, HTTP-only cookies, Zod validation, and per-route rate limits keep accounts protected.",
   ],
   [
     "You're in control",
-    "Block, report, or delete anytime. No public follower counts to game.",
+    "Block (mutual hide + auto-unfollow), report, bookmark, or delete anytime. Reported posts hide instantly on your device.",
   ],
 ];
 

@@ -9,8 +9,8 @@ export function FinalCTA() {
           Ready to find your people?
         </h2>
         <p className="mx-auto mt-4 max-w-[44ch] text-[15px] leading-[21px] text-[var(--cz-text-secondary)]">
-          Two-minute signup. Verify your email, complete your profile, and
-          you&apos;re in.
+          Two-minute signup. Verify your email with an OTP, add your college and
+          course, and you&apos;re in.
         </p>
         <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
           <Link

@@ -739,21 +739,20 @@ The following should NOT be required for the first release:
 >
 > ---
 >
-> ### V1 — Rich Student Social Platform
+> ### V1 — Rich Student Social Platform (partially complete)
 >
 > **Goal:** Make CampusZen useful enough for regular daily student usage.
 >
-> - Image uploads
+> Already shipped in MVP: image uploads, hashtags, mentions extraction,
+> bookmarks, polls, trending hashtags, suggested students, colleges,
+> SSE realtime notifications, avatar/cover uploads, pinned posts.
+>
+> Remaining:
 > - Multiple images per post
-> - Hashtags
-> - Mentions
-> - Bookmarks
-> - Polls
-> - Trending posts
-> - Suggested students
+> - Mentions UI (autocomplete + notifications)
 > - Improved feed ranking
 > - Student/college verification
-> - College information pages
+> - College information pages (expanded)
 > - Better moderation dashboard
 > - Profile customization
 > - Better notifications

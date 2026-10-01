@@ -146,9 +146,7 @@ export function HeroVisual() {
                 x2={n.x}
                 y2={n.y}
                 stroke={
-                  active === k
-                    ? "var(--cz-accent)"
-                    : "var(--cz-border-strong)"
+                  active === k ? "var(--cz-accent)" : "var(--cz-border-strong)"
                 }
                 strokeWidth={active === k ? 0.5 : 0.3}
                 style={{ transition: "stroke 250ms ease" }}
@@ -193,7 +191,9 @@ export function HeroVisual() {
                 <span
                   aria-hidden={!isActive}
                   className={`pointer-events-none absolute z-10 max-w-[160px] rounded-[4px] border border-[var(--cz-border)] bg-[var(--cz-elevated)] px-2 py-1 text-left shadow-[var(--shadow-sm)] transition-all duration-200 ease-out ${tipPlacement(n)} ${
-                    isActive ? "translate-y-0 opacity-100" : "translate-y-1 opacity-0"
+                    isActive
+                      ? "translate-y-0 opacity-100"
+                      : "translate-y-1 opacity-0"
                   }`}
                 >
                   <span className="block truncate text-[13px] font-bold text-[var(--cz-text-primary)]">
@@ -220,7 +220,7 @@ export function HeroVisual() {
           <span className="text-[var(--cz-text-tertiary)]">4 nearby</span>
         </div>
         <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between px-4 pb-3.5 text-[13px] text-[var(--cz-text-tertiary)] sm:px-5 sm:pb-4">
-          <span>Discover → Follow → Post</span>
+          <span>Discover → Follow → Post → Interact</span>
           <span className="hidden sm:inline">Hover to explore</span>
         </div>
       </motion.div>

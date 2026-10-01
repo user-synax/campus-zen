@@ -33,7 +33,7 @@
 | **Target Users** | College students in India |
 | **Status** | MVP (September 2026) |
 | **Allowed Email Domains** | `gmail.com`, `proton.me` |
-| **Brand Aesthetic** | Dark theme, warm peach accent (`#ffcead`), monospace font (JetBrains Mono) |
+| **Brand Aesthetic** | X-style monochrome, single accent `#1d9bf0`, Inter (TwitterChirp substitute), light + dark via `cz-theme` cookie — see `DESIGN.md` and `frontend/app/globals.css` |
 
 ### Product Flow
 
@@ -97,9 +97,9 @@ D:\campus-zen\
 │
 ├── frontend/                       # Next.js frontend application
 │   ├── app/                        # Next.js App Router pages
-│   │   ├── layout.js               # Root layout (font, metadata)
-│   │   ├── page.js                 # Landing page (marketing)
-│   │   ├── globals.css             # Tailwind + design tokens + animations
+│   │   ├── layout.js               # Root layout (Inter font, metadata, cz-theme)
+│   │   ├── page.js                 # Landing page (Hero, HowItWorks, Features, TrustSafety, Scope, FinalCTA)
+│   │   ├── globals.css             # Tailwind v4 + X-style tokens (light :root / .dark, Inter, #1d9bf0)
 │   │   ├── (auth)/                 # Auth route group
 │   │   │   ├── layout.jsx
 │   │   │   ├── login/page.jsx
@@ -110,13 +110,15 @@ D:\campus-zen\
 │   │   ├── app/                    # Authenticated app shell
 │   │   │   ├── layout.jsx          # Auth guard + 3-column layout
 │   │   │   ├── page.jsx            # Home feed (Following/Discovery)
-│   │   │   ├── create/page.jsx     # Create post
-│   │   │   ├── notifications/      # Notifications page
+│   │   │   ├── create/page.jsx     # Create post (text + image + poll)
+│   │   │   ├── notifications/      # Notifications page (SSE live)
 │   │   │   ├── search/             # Search (users + posts)
+│   │   │   ├── bookmarks/          # Saved posts
+│   │   │   ├── tag/[tag]/         # Hashtag feed
 │   │   │   ├── menu/               # Menu/settings/logout
-│   │   │   ├── profile/            # Own profile
-│   │   │   │   └── [username]/
-│   │   │   └── p/                  # Single post view
+│   │   │   ├── profile/            # Own profile + [username]
+│   │   │   └── p/[id]/             # Single post view
+│   │   ├── c/                      # Colleges directory + [slug]
 │   │   ├── u/                      # Public profiles
 │   │   │   ├── page.jsx            # Students directory
 │   │   │   └── [username]/page.jsx
@@ -125,12 +127,12 @@ D:\campus-zen\
 │   │
 │   ├── components/
 │   │   ├── app/                    # Feature-specific components
-│   │   │   ├── PostCard.jsx
-│   │   │   ├── PostComposer.jsx
+│   │   │   ├── PostCard.jsx        # Post with like/reply/repost/bookmark/poll
+│   │   │   ├── PostComposer.jsx    # Text + image + poll composer
 │   │   │   ├── LeftNav.jsx
 │   │   │   ├── BottomNav.jsx
-│   │   │   ├── RightMinimal.jsx
-│   │   │   ├── ProfileHeader.jsx
+│   │   │   ├── RightMinimal.jsx    # Trends / suggestions rail
+│   │   │   ├── ProfileHeader.jsx   # Avatar, cover, counts, pinned post
 │   │   │   ├── EditProfileModal.jsx
 │   │   │   ├── FollowModal.jsx
 │   │   │   ├── ReportDialog.jsx
@@ -138,13 +140,11 @@ D:\campus-zen\
 │   │   │   ├── UserCard.jsx
 │   │   │   ├── EmptyState.jsx
 │   │   │   ├── VerifyBanner.jsx
+│   │   │   ├── ThemeToggle.jsx
 │   │   │   └── AnimatedNumber.jsx
-│   │   ├── auth/                   # Auth-specific components
-│   │   │   ├── AuthShell.jsx
-│   │   │   ├── OtpInput.jsx
-│   │   │   └── PasswordStrength.jsx
-│   │   ├── landing/
-│   │   │   └── LandingRedirect.jsx
+│   │   ├── auth/                   # AuthShell, OtpInput, PasswordStrength
+│   │   ├── landing/                # LandingNav, Hero, HeroVisual, HowItWorks,
+│   │   │                           #   Features, TrustSafety, Scope, FinalCTA, LandingFooter
 │   │   └── ui/                     # shadcn/ui primitives
 │   │       ├── button.jsx
 │   │       ├── input.jsx
@@ -154,10 +154,13 @@ D:\campus-zen\
 │   │       └── contribution-graph.jsx
 │   │
 │   ├── lib/
-│   │   ├── api.js                  # Central API client (all endpoints)
-│   │   ├── appwrite.js             # Deprecated (moved to backend)
-│   │   ├── hiddenPosts.js          # LocalStorage for hidden posts
+│   │   ├── api.js                  # Central API client (all endpoints, auto-refresh)
+│   │   ├── theme.js                # cz-theme cookie read/write
+│   │   ├── hiddenPosts.js          # LocalStorage for hidden/reported posts
 │   │   └── utils.js                # cn() re-export
+│   │
+│   ├── providers/
+│   │   └── query-provider.jsx      # TanStack Query provider
 │   │
 │   ├── .env                        # NEXT_PUBLIC_API_URL
 │   ├── biome.json                  # Linter/formatter config
@@ -191,18 +194,19 @@ D:\campus-zen\
 │   │   │   ├── rateLimiter.js      # Express rate limiters
 │   │   │   ├── errorHandler.js     # notFound + errorHandler
 │   │   │   └── upload.js           # Multer avatar upload
-│   │   ├── models/                 # Mongoose schemas (12 files)
-│   │   │   ├── User.js
-│   │   │   ├── Post.js
-│   │   │   ├── Comment.js
+│   │   ├── models/                 # Mongoose schemas (13 files)
+│   │   │   ├── User.js             # Profile, counts, avatar/cover, pinned, socials, badges
+│   │   │   ├── Post.js             # Text + imageUrl + hashtags/mentions + poll
+│   │   │   ├── Comment.js          # Replies
 │   │   │   ├── Like.js
 │   │   │   ├── Follow.js
 │   │   │   ├── Repost.js
+│   │   │   ├── Bookmark.js
+│   │   │   ├── PollVote.js         # Per-user poll votes
 │   │   │   ├── Notification.js
 │   │   │   ├── Block.js
 │   │   │   ├── Report.js
-│   │   │   ├── Otp.js
-│   │   │   ├── Bookmark.js
+│   │   │   ├── Otp.js              # TTL-indexed OTPs
 │   │   │   └── College.js
 │   │   ├── routes/                 # Express routers (9 files)
 │   │   │   ├── authRoutes.js
@@ -436,7 +440,8 @@ api.bookmarkPost(id)
 api.unbookmarkPost(id)
 
 // Posts
-api.createPost(text, image)
+api.createPost(text, image, poll) // text + optional image File + optional poll {options, expiresAt}
+api.votePoll(id, optionIndex)
 api.getPost(id)
 api.updatePost(id, text)
 api.deletePost(id)
@@ -497,13 +502,22 @@ api.getCollegePosts(slug, params)
 | Route | Component | Description |
 |-------|-----------|-------------|
 | `/app` | `app/page.jsx` | Home feed with Following/Discovery tabs |
-| `/app/create` | `create/page.jsx` | Create new post (500 char limit) |
-| `/app/notifications` | `notifications/page.jsx` | Notifications list with mark-read |
+| `/app/create` | `create/page.jsx` | Create new post (500 chars + image + poll) |
+| `/app/notifications` | `notifications/page.jsx` | Notifications list with mark-read (SSE live) |
 | `/app/search` | `search/page.jsx` | Search users + posts |
+| `/app/bookmarks` | `bookmarks/page.jsx` | Saved posts |
+| `/app/tag/[tag]` | `tag/[tag]/page.jsx` | Posts by hashtag |
 | `/app/menu` | `menu/page.jsx` | Settings, logout, blocked users |
 | `/app/profile` | `profile/page.jsx` | Own profile page |
 | `/app/profile/[username]` | `profile/[username]/page.jsx` | Own profile by username |
 | `/app/p/[postId]` | `p/[postId]/page.jsx` | Single post view with replies |
+
+#### `c/` Route Group — Colleges (Authenticated)
+
+| Route | Description |
+|-------|-------------|
+| `/c` | Colleges directory (searchable) |
+| `/c/[slug]` | College page (info, members, college posts) |
 
 #### `u/` Route Group — Public (Guest Access)
 
@@ -769,10 +783,9 @@ http://localhost:4000/api
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| `GET` | `/users/` | Yes | List users (directory) |
+| `GET` | `/users/` | Optional | List users (directory, guest blur) |
 | `GET` | `/users/:username` | Optional | Get user profile |
-| `PATCH` | `/users/me` | Yes | Update own profile (partial) |
-| `PUT` | `/users/me` | Yes | Replace own profile |
+| `PATCH` | `/users/me` | Yes | Update own profile (partial; also `PUT` alias) |
 | `POST` | `/users/:id/follow` | Yes | Follow user |
 | `DELETE` | `/users/:id/follow` | Yes | Unfollow user |
 | `GET` | `/users/:id/followers` | Optional | List followers |
@@ -780,31 +793,23 @@ http://localhost:4000/api
 | `POST` | `/users/:id/block` | Yes | Block user |
 | `DELETE` | `/users/:id/block` | Yes | Unblock user |
 | `GET` | `/users/me/blocks` | Yes | List blocked users |
-| `POST` | `/users/me/avatar` | Yes | Upload avatar (multipart) |
-| `GET` | `/users/:username/posts` | Optional | User's posts |
-| `GET` | `/users/:username/replies` | Optional | User's replies |
-| `GET` | `/users/:username/likes` | Optional | User's liked posts |
-| `GET` | `/users/:username/reposts` | Optional | User's reposts |
-| `GET` | `/users/:username/media` | Optional | User's media posts |
-| `POST` | `/users/me/avatar` | Yes | Upload avatar (multipart) |
+| `POST` | `/users/me/avatar` | Yes | Upload avatar (multipart, 5MB, jpg/png/webp) |
 | `POST` | `/users/me/cover` | Yes | Upload cover image (multipart) |
 | `POST` | `/users/me/pin` | Yes | Pin a post to profile |
 | `DELETE` | `/users/me/pin` | Yes | Unpin pinned post |
 | `GET` | `/users/me/suggestions` | Yes | Get suggested users to follow |
 | `GET` | `/users/me/bookmarks` | Yes | Get bookmarked posts |
-| `POST` | `/users/:id/follow` | Yes | Follow user |
-| `DELETE` | `/users/:id/follow` | Yes | Unfollow user |
-| `GET` | `/users/:id/followers` | Optional | List followers |
-| `GET` | `/users/:id/following` | Optional | List following |
-| `POST` | `/users/:id/block` | Yes | Block user |
-| `DELETE` | `/users/:id/block` | Yes | Unblock user |
-| `GET` | `/users/me/blocks` | Yes | List blocked users |
+| `GET` | `/users/:username/posts` | Optional | User's posts |
+| `GET` | `/users/:username/replies` | Optional | User's replies |
+| `GET` | `/users/:username/likes` | Optional | User's liked posts |
+| `GET` | `/users/:username/reposts` | Optional | User's reposts |
+| `GET` | `/users/:username/media` | Optional | User's media posts |
 
 ### Post Endpoints
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| `POST` | `/posts/` | Yes | Create post (text + optional image) |
+| `POST` | `/posts/` | Yes | Create post (text + optional image multipart, or JSON text + poll) |
 | `GET` | `/posts/feed` | Yes | Get feed (tab=following/discovery) |
 | `GET` | `/posts/public` | No | Public feed (guests) |
 | `GET` | `/posts/:id` | Optional | Get single post |
@@ -814,12 +819,11 @@ http://localhost:4000/api
 | `DELETE` | `/posts/:id/like` | Yes | Unlike post |
 | `POST` | `/posts/:id/repost` | Yes | Repost |
 | `DELETE` | `/posts/:id/repost` | Yes | Remove repost |
+| `POST` | `/posts/:id/bookmark` | Yes | Bookmark post |
+| `DELETE` | `/posts/:id/bookmark` | Yes | Remove bookmark |
+| `POST` | `/posts/:id/vote` | Yes | Vote in poll (`{ optionIndex }`) |
 | `POST` | `/posts/:id/replies` | Yes | Create reply |
 | `GET` | `/posts/:id/replies` | Optional | Get replies |
-| `POST` | `/posts/:id/bookmark` | Yes | Bookmark post |
-| `DELETE` | `/posts/:id/bookmark` | Yes | Remove bookmark |
-| `POST` | `/posts/:id/bookmark` | Yes | Bookmark post |
-| `DELETE` | `/posts/:id/bookmark` | Yes | Remove bookmark |
 
 ### Search Endpoints
 
@@ -855,10 +859,16 @@ http://localhost:4000/api
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| `GET` | `/colleges/` | Yes | List colleges |
+| `GET` | `/colleges/` | Optional | List/search colleges |
 | `GET` | `/colleges/:slug` | Optional | Get college info |
 | `GET` | `/colleges/:slug/members` | Optional | Get college members |
 | `GET` | `/colleges/:slug/posts` | Optional | Get college posts |
+
+### Realtime (SSE)
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/events` | Yes | SSE stream (`notification`, `unread-count`, `connected` + heartbeat) |
 
 ### Health Endpoints
 
@@ -928,16 +938,19 @@ http://localhost:4000/api
 
 | Model | Collection | Purpose |
 |-------|-----------|---------|
-| `User` | `users` | User accounts, profiles, stats |
-| `Post` | `posts` | Posts (text-only MVP) |
-| `Comment` | `comments` | Comments on posts |
+| `User` | `users` | Accounts, profiles (avatar/cover, pinned, college/course/year, socials, badges), stats |
+| `Post` | `posts` | Posts (text 500 + optional imageUrl + hashtags/mentions + poll) |
+| `Comment` | `comments` | Replies on posts |
 | `Like` | `likes` | Post likes |
 | `Follow` | `follows` | Follow relationships |
 | `Repost` | `reposts` | Reposts |
-| `Notification` | `notifications` | User notifications |
-| `Block` | `blocks` | Block relationships |
-| `Report` | `reports` | User/post reports |
+| `Bookmark` | `bookmarks` | Saved posts |
+| `PollVote` | `pollvotes` | Per-user poll votes (counts denormalized on Post) |
+| `Notification` | `notifications` | Follows, likes, replies, reposts |
+| `Block` | `blocks` | Block relationships (mutual hide) |
+| `Report` | `reports` | User/post reports (open queue) |
 | `Otp` | `otps` | One-time passwords (TTL index) |
+| `College` | `colleges` | Colleges (slug, members, posts) |
 
 ### Key Indexes
 
@@ -946,9 +959,13 @@ http://localhost:4000/api
 | User | `username` | Unique |
 | User | `email` | Unique |
 | User | `username, fullName, bio, college, course` | Text (weighted: 10/5/2/2/2) |
+| User | `collegeSlug` | Single (college members) |
 | Post | `createdAt` | Descending |
 | Post | `author + createdAt` | Compound |
+| Post | `createdAt + _id` | Compound (cursor pagination) |
+| Post | `hashtags + createdAt` | Compound (tag feeds) |
 | Post | `text` | Text |
+| Post | `hashtags`, `mentions` | Single (filter) |
 | Notification | `recipient + createdAt` | Compound |
 | Notification | `recipient + read` | Compound |
 | Otp | `expiresAt` | TTL (auto-delete) |
@@ -975,34 +992,46 @@ All models include `toSafeObject()` which strips sensitive fields:
 
 ## 11. Design System
 
-### Design Tokens
+### Source of truth
 
-All visual properties are defined as CSS custom properties in `globals.css`:
+`DESIGN.md` + `frontend/app/globals.css`. X-style monochrome with one
+chromatic accent, hairline borders (never shadows for cards), two radii
+(16px cards / 9999px interactive), Inter with `ss01`.
+
+### Design Tokens (light `:root` / dark `.dark`)
+
+All visual properties are CSS custom properties in `globals.css`.
+The root layout reads the `cz-theme` cookie and stamps `.dark` on
+`<html>` server-side, so first paint is already correct.
 
 #### Colors
 
-| Token | Value | Usage |
-|-------|-------|-------|
-| `--cz-bg` | `#000000` | Page background |
-| `--cz-surface` | `#0c122c` | Card/panel background |
-| `--cz-surface-strong` | `#060b1e` | Elevated surface |
-| `--cz-muted` | `#7d82d9` | Muted backgrounds |
-| `--cz-text-primary` | `#ffcead` | Primary text (warm peach) |
-| `--cz-text-secondary` | `#b6a6b2` | Secondary/muted text |
-| `--cz-text-inverse` | `#0c0e10` | Text on accent |
-| `--cz-border` | `rgba(255, 206, 173, 0.12)` | Borders/dividers |
-| `--cz-border-strong` | `rgba(255, 206, 173, 0.22)` | Strong borders |
-| `--cz-border-focus` | `rgba(125, 130, 217, 0.6)` | Focus rings |
-| `--cz-error` | `#ff5a6a` | Error states |
-| `--cz-success` | `#7df0b2` | Success states |
+| Token | Light | Dark | Usage |
+|-------|-------|------|-------|
+| `--cz-bg` | `#ffffff` | `#000000` | Page background |
+| `--cz-surface` / `--cz-elevated` | `#ffffff` | `#000000` / `#162327` | Cards, modals, menus |
+| `--cz-surface-strong` | `#eff3f4` | `#16181c` | Hover, secondary fills |
+| `--cz-text-primary` | `#0f1419` | `#e7e9ea` | Primary text |
+| `--cz-text-secondary` | `#536471` | `#71767b` | Secondary text |
+| `--cz-text-tertiary` | `#829aab` | `#536471` | Tertiary/disabled |
+| `--cz-border` | `#eff3f4` | `#2f3336` | Hairline dividers |
+| `--cz-border-strong` | `#cfd9de` | `#536471` | Control strokes |
+| `--cz-accent` | `#1d9bf0` | `#1d9bf0` | The one chromatic colour — interactive only |
+| `--cz-error` | `#f4212e` | `#f4212e` | Error states |
+| `--cz-like` | `#f91880` | `#f91880` | Like active |
+| `--cz-repost` / `--cz-success` | `#00ba7c` | `#00ba7c` | Repost / success |
+
+Engagement colours are semantic, not decoration. See `DESIGN.md`
+for the full token list (type scale, spacing, radii, shadows, motion).
 
 #### Typography
 
 | Property | Value |
 |----------|-------|
-| Font family | JetBrains Mono (monospace) |
-| Base size | 15px |
-| Tracking | Tight |
+| Font family | Inter (TwitterChirp substitute), `ss01` + `cv11` |
+| Monospace | System mono stack (`--font-jetbrains`) for ids/slugs/OTPs only |
+| Base size | 15px / 20px body, 20px/23px headings |
+| Weights | 400 / 500 / 700 / 800 |
 
 #### Component Classes
 
@@ -1212,4 +1241,4 @@ bun run start
 
 ---
 
-*Last updated: September 26, 2026*
+*Last updated: October 01, 2026*

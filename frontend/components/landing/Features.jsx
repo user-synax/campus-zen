@@ -1,7 +1,11 @@
 import {
+  BarChart3,
   Bell,
+  Bookmark,
+  Hash,
   Heart,
   PenLine,
+  School,
   Search,
   ShieldCheck,
   UserRound,
@@ -12,32 +16,52 @@ const features = [
   {
     icon: UserRound,
     title: "Student profiles",
-    desc: "College, course, and year on every profile, with follower counts.",
+    desc: "Avatar, cover, bio, college, course, and year — with follower, following, and post counts plus pinned posts.",
   },
   {
     icon: PenLine,
-    title: "Text-first posts",
-    desc: "500 characters, chronological. No reels, no endless feed.",
+    title: "Posts with images & polls",
+    desc: "500 characters, one image, or a 2–4 option poll. Edit or delete your own anytime.",
   },
   {
     icon: Heart,
     title: "Likes, replies, reposts",
-    desc: "The full core loop for conversations that go somewhere.",
+    desc: "The full core loop for campus conversations, with threaded replies and counts.",
+  },
+  {
+    icon: Bookmark,
+    title: "Bookmarks & pins",
+    desc: "Save posts for later and pin one post to the top of your profile.",
+  },
+  {
+    icon: Hash,
+    title: "Hashtags & trending",
+    desc: "Tags are extracted automatically. Follow trending topics and open any tag feed.",
+  },
+  {
+    icon: School,
+    title: "Colleges",
+    desc: "College pages with member lists and college-only post feeds, built from profile data.",
   },
   {
     icon: Search,
     title: "Student search",
-    desc: "Search across students and posts to find your crowd.",
+    desc: "Full-text search across students and posts to find your crowd.",
   },
   {
     icon: Bell,
-    title: "Notifications",
-    desc: "Follows, likes, replies, and reposts — in-app, no spam.",
+    title: "Realtime notifications",
+    desc: "Follows, likes, replies, and reposts — listed in-app and pushed live over SSE.",
+  },
+  {
+    icon: BarChart3,
+    title: "Suggestions & discovery",
+    desc: "Suggested students to follow plus Following and Discovery feed tabs.",
   },
   {
     icon: ShieldCheck,
     title: "Secure by default",
-    desc: "Verified emails, hashed passwords, HTTP-only sessions.",
+    desc: "OTP-verified emails, bcrypt hashing, HTTP-only sessions, Zod validation, and rate limits.",
   },
 ];
 

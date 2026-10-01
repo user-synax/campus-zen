@@ -49,23 +49,23 @@ Intentionally small MVP: text-first posts (500 chars), chronological feeds, in-a
 
 **Profiles & social graph**
 
-- Profile: avatar, display name, username, bio, college, course/branch, year, follower/following/post counts
-- Follow / unfollow (duplicate-proof via partial unique indexes), followers/following lists
-- Student directory (`/u`) with guest blur, public profiles (`/u/[username]`)
-- Block / unblock (mutual hide + auto-unfollow both ways), report posts/users
+- Profile: avatar, cover, display name, username, bio, college, course/branch, year, accent, social links, pinned post, follower/following/post counts
+- Follow / unfollow (duplicate-proof via partial unique indexes), followers/following lists, suggested students (`/me/suggestions`)
+- Student directory (`/u`) with guest blur, public profiles (`/u/[username]`), college pages (`/c`, `/c/[slug]` with members + posts)
+- Block / unblock (mutual hide + auto-unfollow both ways), report posts/users (instant local hide)
 
 **Posts & feed**
 
-- Create / edit / delete own posts, 500-character limit, Zod-validated
-- Like / unlike, reply threads, repost / unrepost
-- Home feed with **Following** + **Discovery** tabs, cursor-paginated, `createdAt DESC`
-- Single-post view (`/app/p/[id]`), bookmarks, hashtags (`/app/tag/[tag]`), trending sidebar
-- Search users + posts (`/search?q=&type=`)
+- Create / edit / delete own posts: 500 chars + optional image (multipart) or 2–4 option poll, Zod-validated, hashtags + mentions extracted automatically
+- Like / unlike, reply threads, repost / unrepost, bookmark / unbookmark, poll votes
+- Home feed with **Following** + **Discovery** tabs, cursor-paginated, `createdAt DESC`; public `/posts/public` for guests
+- Single-post view (`/app/p/[id]`), bookmarks (`/app/bookmarks`), hashtags (`/app/tag/[tag]`), trending sidebar + suggestions rail
+- Search users + posts (`/search?q=&type=`), college members/posts
 
 **Notifications**
 
 - In-app notifications for follows, likes, replies, reposts
-- Unread count, mark single / mark all read (no WebSocket push in MVP)
+- Unread count, mark single / mark all read, clear-read + delete, pushed live over SSE (`GET /api/events`)
 
 **Safety & hardening**
 
@@ -78,7 +78,7 @@ Intentionally small MVP: text-first posts (500 chars), chronological feeds, in-a
 | Layer    | Choice |
 | -------- | ------ |
 | Frontend | Next.js 16 (App Router), React 19, JavaScript (JSX), Tailwind CSS v4, shadcn/ui, Framer Motion + Motion, lucide-react, date-fns, Biome |
-| Backend  | Node.js (ESM), Express 4, Zod, Mongoose 8, JWT + bcryptjs, Multer, Nodemailer, Appwrite (server-side avatar storage) |
+| Backend  | Node.js (ESM), Express 4, Zod, Mongoose 8, JWT + bcryptjs, Multer (avatar/cover/post images), Nodemailer, Appwrite (server-side avatar/cover storage), SSE realtime |
 | Database | MongoDB (Mongoose, text + compound indexes, TTL for OTPs) |
 | Tooling  | Bun 1.4.2 (both workspaces, independent `package.json` files, no root workspace) |
 
@@ -100,27 +100,29 @@ campus-zen/
 │
 ├── frontend/            # Next.js app
 │   ├── app/
-│   │   ├── page.js              # landing / marketing
+│   │   ├── page.js              # landing (Hero, HowItWorks, Features, TrustSafety, Scope, FinalCTA)
 │   │   ├── (auth)/              # login, signup, forgot/reset-password, verify-email
-│   │   ├── app/                 # authenticated shell: feed, create, search,
-│   │   │                        #   notifications, menu, profile, p/[id], bookmarks, tag/[tag]
+│   │   ├── app/                 # authenticated shell: feed, create (text+image+poll), search,
+│   │   │                        #   notifications (SSE live), bookmarks, tag/[tag], menu, profile, p/[id]
+│   │   ├── c/                   # colleges directory + [slug] (members, posts)
 │   │   ├── u/                   # public: students directory + [username]
 │   │   └── privacy/ terms/
 │   ├── components/app/  # PostCard, PostComposer, LeftNav, BottomNav, ProfileHeader, ...
 │   ├── components/auth/ # AuthShell, OtpInput, PasswordStrength
+│   ├── components/landing/ # LandingNav, Hero, HeroVisual, Features, TrustSafety, Scope, FinalCTA
 │   ├── components/ui/   # primitives: button, input, label, checkbox, tooltip, badge
-│   └── lib/api.js       # central API client (single source of truth)
+│   └── lib/api.js       # central API client (single source of truth, auto-refresh)
 │
 └── backend/             # Express API
     └── src/
         ├── app.js / server.js
         ├── config/      # env, db, appwrite
-        ├── routes/      # auth, users, posts, hashtags, search, notifications, reports
+        ├── routes/      # auth, users, posts, hashtags, search, notifications, reports, colleges, events (SSE)
         ├── controllers/ # thin, asyncHandler-wrapped
         ├── services/    # business logic lives here
         ├── middleware/  # auth, validate (Zod), rateLimiter, upload (Multer), errorHandler
-        ├── models/      # User, Post, Comment, Like, Follow, Repost, Notification, Block, Report, Otp
-        └── utils/       # AppError, jwt, otp, email, cookies
+        ├── models/      # User, Post, Comment, Like, Follow, Repost, Bookmark, PollVote, Notification, Block, Report, Otp, College
+        └── utils/       # AppError, jwt, otp, email, cookies, hashtags, mentions, cache, college
 ```
 
 > Full file map, architecture diagrams, and conventions: [`docs.md`](docs.md).
@@ -189,18 +191,31 @@ Base URL: `http://localhost:4000/api`. Success shape: `{ success: true, data }`.
 | `POST` | `/auth/forgot-password` | – | Request reset OTP |
 | `POST` | `/auth/reset-password` | – | Reset with OTP, revoke sessions |
 | `GET` | `/users/:username` | Optional | Profile |
-| `PATCH` | `/users/me` | Yes | Edit profile |
+| `PATCH` | `/users/me` | Yes | Edit profile (also `PUT` alias) |
 | `POST / DELETE` | `/users/:id/follow` | Yes | Follow / unfollow |
 | `POST / DELETE` | `/users/:id/block` | Yes | Block / unblock |
 | `POST` | `/users/me/avatar` | Yes | Avatar upload (multipart, 5MB, jpg/png/webp) |
-| `POST` | `/posts/` | Yes | Create post (500 chars) |
-| `GET` | `/posts/?tab=` | Yes | Feed (`following` / `discovery`, cursor-paginated) |
+| `POST` | `/users/me/cover` | Yes | Cover upload (multipart) |
+| `POST / DELETE` | `/users/me/pin` | Yes | Pin / unpin post |
+| `GET` | `/users/me/suggestions` | Yes | Suggested students |
+| `GET` | `/users/me/bookmarks` | Yes | Bookmarked posts |
+| `GET` | `/users/:username/posts|replies|likes|reposts|media` | Optional | Profile tab feeds |
+| `POST` | `/posts/` | Yes | Create post (500 chars + image or poll) |
+| `GET` | `/posts/feed?tab=` | Yes | Feed (`following` / `discovery`, paginated) |
 | `GET` | `/posts/public` | – | Public feed for guests |
 | `GET / PATCH / DELETE` | `/posts/:id` | Varies | Read / edit own / delete own |
 | `POST / DELETE` | `/posts/:id/like` | Yes | Like / unlike |
 | `POST / DELETE` | `/posts/:id/repost` | Yes | Repost / remove |
+| `POST / DELETE` | `/posts/:id/bookmark` | Yes | Bookmark / remove |
+| `POST` | `/posts/:id/vote` | Yes | Vote in poll |
 | `POST / GET` | `/posts/:id/replies` | Varies | Reply / list replies |
 | `GET` | `/search/?q=&type=` | Yes | Search users or posts |
+| `GET` | `/hashtags/trending` | Yes | Trending hashtags |
+| `GET` | `/hashtags/:tag/posts` | Optional | Posts by hashtag |
+| `GET` | `/colleges/` | Optional | List/search colleges |
+| `GET` | `/colleges/:slug` | Optional | College info |
+| `GET` | `/colleges/:slug/members|posts` | Optional | Members / college posts |
+| `GET` | `/events` | Yes | SSE realtime notifications |
 | `GET` | `/notifications/` | Yes | List (paginated) |
 | `PATCH` | `/notifications/:id/read` | Yes | Mark one read |
 | `PATCH` | `/notifications/read-all` | Yes | Mark all read |
@@ -224,8 +239,8 @@ X-style monochrome interface with exactly one chromatic accent. Tokens live in
 
 ## 🗺️ Roadmap
 
-- [x] **MVP** — auth + OTP, profiles, follow, text posts, feed, like/reply/repost, search, notifications, block/report
-- [ ] **V1** — images, hashtags, mentions, bookmarks, polls, trending, suggested students, verification
+- [x] **MVP** — auth + OTP, profiles (avatar/cover/pinned), follow, text+image+poll posts, feed (Following/Discovery), like/reply/repost/bookmark, hashtags + trending, colleges, search, notifications (in-app + SSE realtime), block/report, suggestions
+- [ ] **V1** — mentions UI, multiple images per post, improved feed ranking, student/college verification, moderation dashboard, profile customization, better notifications
 - [ ] **V2** — communities (college groups, roles, feeds, discovery)
 - [ ] **V3** — realtime DMs, group chats, voice/video, clips, events
 
