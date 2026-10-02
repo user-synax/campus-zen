@@ -45,7 +45,10 @@ function refreshSession() {
   if (!refreshPromise) {
     refreshPromise = (async () => {
       try {
-        await request("/api/auth/refresh", { method: "POST", _skipRetry: true });
+        await request("/api/auth/refresh", {
+          method: "POST",
+          _skipRetry: true,
+        });
       } finally {
         refreshPromise = null;
       }
@@ -56,7 +59,15 @@ function refreshSession() {
 
 async function request(
   path,
-  { method = "GET", body, form, credentials = "include", headers = {}, _retried = false, _skipRetry = false } = {},
+  {
+    method = "GET",
+    body,
+    form,
+    credentials = "include",
+    headers = {},
+    _retried = false,
+    _skipRetry = false,
+  } = {},
 ) {
   const opts = {
     method,
@@ -86,7 +97,14 @@ async function request(
   if (res.status === 401 && !_retried && !_skipRetry && shouldAutoRetry(path)) {
     try {
       await refreshSession();
-      return request(path, { method, body, form, credentials, headers, _retried: true });
+      return request(path, {
+        method,
+        body,
+        form,
+        credentials,
+        headers,
+        _retried: true,
+      });
     } catch {
       // refresh failed — fall through and throw the original 401
     }
@@ -270,11 +288,24 @@ export const api = {
       { method: "GET" },
     );
   },
-  createPost: (text, image, poll) => {
-    if (image) {
+  createPost: (text, media, poll, extra = {}) => {
+    // media: File | File[] | undefined (images, GIFs, videos).
+    // extra: { posters?: Blob[], meta?: [{ width, height, duration }] } —
+    // meta aligned by file index; posters[0] is the single video's poster.
+    // Old (text, imageFile, poll) calls keep working: a lone File sends as
+    // one "media" part.
+    const files = Array.isArray(media) ? media : media ? [media] : [];
+    const posters = extra?.posters || [];
+    const meta = extra?.meta;
+    if (files.length) {
       const form = new FormData();
       if (text) form.append("text", text);
-      form.append("image", image);
+      files.forEach((f) => form.append("media", f));
+      posters.forEach((p) => {
+        if (p) form.append("posters", p, "poster.jpg");
+      });
+      if (meta) form.append("mediaMeta", JSON.stringify(meta));
+      if (poll) form.append("poll", JSON.stringify(poll));
       return request("/api/posts", { method: "POST", form });
     }
     return request("/api/posts", { method: "POST", body: { text, poll } });

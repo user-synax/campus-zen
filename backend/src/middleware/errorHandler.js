@@ -39,17 +39,35 @@ export function errorHandler(err, req, res, _next) {
   if (err.code === "LIMIT_FILE_SIZE") {
     statusCode = 400;
     code = "FILE_TOO_LARGE";
-    message = "Image must be under 5MB";
+    message = "File too large — images 5MB, GIFs 10MB, videos 25MB";
+  }
+  if (err.code === "LIMIT_FILE_COUNT") {
+    statusCode = 400;
+    code = "TOO_MANY_FILES";
+    message = "Up to 4 attachments per post";
   }
   if (err.message === "Only image files are allowed") {
     statusCode = 400;
     code = "INVALID_FILE_TYPE";
     message = err.message;
   }
-  if (err.code === "LIMIT_UNEXPECTED_FILE") {
+  if (err.message === "Only images, GIFs and videos are allowed") {
     statusCode = 400;
-    code = "INVALID_FILE";
-    message = "Unexpected field";
+    code = "INVALID_FILE_TYPE";
+    message = err.message;
+  }
+  if (err.code === "LIMIT_UNEXPECTED_FILE") {
+    // exceeding a field's maxCount (media/posters/image) surfaces here —
+    // report it as too-many-files instead of a cryptic field error.
+    if (["media", "posters", "image"].includes(err.field)) {
+      statusCode = 400;
+      code = "TOO_MANY_FILES";
+      message = "Up to 4 attachments per post";
+    } else {
+      statusCode = 400;
+      code = "INVALID_FILE";
+      message = "Unexpected field";
+    }
   }
 
   // Zod already mapped to AppError, but fallback

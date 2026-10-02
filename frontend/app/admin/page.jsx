@@ -473,9 +473,16 @@ export default function AdminPage() {
                       <p className="whitespace-pre-wrap">
                         {r.target.text || "(image/poll post)"}
                       </p>
-                      {r.target.imageUrl ? (
+                      {r.target.imageUrl || r.target.media?.length ? (
                         <p className="mt-1 text-[var(--cz-text-secondary)]">
-                          has image attachment
+                          has{" "}
+                          {r.target.media?.length > 1
+                            ? `${r.target.media.length} attachments`
+                            : r.target.media?.[0]?.kind === "video"
+                              ? "video attachment"
+                              : r.target.media?.[0]?.kind === "gif"
+                                ? "GIF attachment"
+                                : "image attachment"}
                         </p>
                       ) : null}
                     </>

@@ -17,22 +17,51 @@ import { PostCard } from "@/components/app/PostCard";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 
+import { normalizePostMedia, formatDuration } from "@/lib/media";
+
+function firstVisual(item) {
+  const list = normalizePostMedia(item);
+  return list[0] || null;
+}
+
 function MediaTile({ item, onOpen }) {
+  const first = firstVisual(item);
+  const count = normalizePostMedia(item).length;
+  const src = first?.posterUrl || first?.url || item.imageUrl;
+  const isVideo = first?.kind === "video";
   return (
     <button
       type="button"
       onClick={onOpen}
       aria-label={
-        item.text ? `Open photo: ${item.text.slice(0, 60)}` : "Open photo"
+        item.text
+          ? `Open ${isVideo ? "video" : "photo"}: ${item.text.slice(0, 60)}`
+          : `Open ${isVideo ? "video" : "photo"}`
       }
       className="group relative block w-full overflow-hidden bg-[var(--cz-surface-strong)] text-left"
     >
       <CzImage
-        src={item.imageUrl}
-        alt={item.text || "Post photo"}
+        src={src}
+        alt={item.text || (isVideo ? "Post video" : "Post photo")}
         className="aspect-square w-full"
         imgClassName="aspect-square w-full transition-opacity duration-200 group-hover:opacity-90"
       />
+      {isVideo ? (
+        <span className="absolute top-2 right-2 flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[11px] font-bold text-white">
+          <span aria-hidden>▶</span>
+          {first?.duration ? formatDuration(first.duration) : "Video"}
+        </span>
+      ) : null}
+      {first?.kind === "gif" ? (
+        <span className="absolute bottom-2 left-2 rounded-full bg-black/70 px-2 py-0.5 text-[11px] font-bold text-white">
+          GIF
+        </span>
+      ) : null}
+      {count > 1 ? (
+        <span className="absolute top-2 left-2 rounded-full bg-black/70 px-2 py-0.5 text-[11px] font-bold text-white">
+          {count}
+        </span>
+      ) : null}
       <span
         aria-hidden
         className="pointer-events-none absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/70 via-black/0 to-transparent p-2.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
@@ -251,7 +280,7 @@ export function ProfileMediaGrid({ username, currentUser }) {
       <EmptyState
         icon={ImageIcon}
         title="No media yet"
-        description={`@${username} hasn't posted any photos yet.`}
+        description={`@${username} hasn't posted any photos, GIFs or videos yet.`}
       />
     );
   }
@@ -284,7 +313,7 @@ export function ProfileMediaGrid({ username, currentUser }) {
         </div>
       ) : (
         <p className="py-6 text-center text-[13px] text-[var(--cz-text-secondary)]">
-          {items.length} {items.length === 1 ? "photo" : "photos"}
+          {items.length} {items.length === 1 ? "post" : "posts"}
         </p>
       )}
       {sel != null && items[sel] ? (

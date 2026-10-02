@@ -10,6 +10,28 @@ const postSchema = new mongoose.Schema(
       default: null,
     },
     imageUrl: { type: String, default: null },
+    // multi-attachment media (V1): images, GIFs (kind "gif") and short
+    // videos. imageUrl above is kept as a legacy mirror of the first
+    // image/gif so old clients keep rendering. New clients read media[].
+    media: {
+      type: [
+        {
+          url: { type: String, required: true },
+          kind: { type: String, enum: ["image", "gif", "video"], required: true },
+          mime: { type: String, default: null },
+          bytes: { type: Number, default: null },
+          width: { type: Number, default: null },
+          height: { type: Number, default: null },
+          // videos only
+          duration: { type: Number, default: null },
+          posterUrl: { type: String, default: null },
+          fileId: { type: String, default: null },
+          posterFileId: { type: String, default: null },
+          _id: false,
+        },
+      ],
+      default: [],
+    },
     likeCount: { type: Number, default: 0, min: 0 },
     replyCount: { type: Number, default: 0, min: 0 },
     repostCount: { type: Number, default: 0, min: 0 },

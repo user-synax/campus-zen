@@ -58,7 +58,9 @@ export function useFeed(tab = "following") {
   return useInfiniteQuery({
     queryKey: queryKeys.feed(tab),
     queryFn: ({ pageParam = 1 }) =>
-      tab === "following" ? api.getFeed({ page: pageParam }) : api.getPublicFeed({ page: pageParam }),
+      tab === "following"
+        ? api.getFeed({ page: pageParam })
+        : api.getPublicFeed({ page: pageParam }),
     // pages are raw API bodies { success, data: { posts, page, hasMore } } —
     // read through .data (same as useReplies/useBookmarks). Reading
     // lastPage.hasMore directly is always undefined, which silently capped
@@ -308,7 +310,8 @@ export function useCollegePosts(slug, page = 1) {
 export function useCreatePost() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ text, image }) => api.createPost(text, image),
+    mutationFn: ({ text, image, media, poll, extra }) =>
+      api.createPost(text, media ?? image, poll, extra),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["feed"] });
       qc.invalidateQueries({ queryKey: ["publicFeed"] });

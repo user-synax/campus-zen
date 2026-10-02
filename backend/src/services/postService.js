@@ -15,6 +15,85 @@ import { cache, CacheKeys, TTL } from "../utils/cache.js";
 
 const EDIT_WINDOW_MS = 5 * 60 * 1000;
 
+// post media limits (per user answers: 25MB / 60s video, GIF as image,
+// up to 4 attachments, no transcoding — fast via lazy + poster)
+export const MEDIA_LIMITS = {
+  MAX_FILES: 4,
+  IMAGE_MAX_BYTES: 5 * 1024 * 1024,
+  GIF_MAX_BYTES: 10 * 1024 * 1024,
+  VIDEO_MAX_BYTES: 25 * 1024 * 1024,
+  POSTER_MAX_BYTES: 2 * 1024 * 1024,
+  VIDEO_MAX_DURATION_S: 60,
+  VIDEO_DURATION_SLACK_S: 2,
+};
+
+const ALLOWED_MEDIA_MIMES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "video/mp4",
+  "video/webm",
+  "video/quicktime",
+]);
+
+function kindOf(mime) {
+  if (mime === "image/gif") return "gif";
+  if (String(mime || "").startsWith("video/")) return "video";
+  return "image";
+}
+
+// Normalize the many shapes the controller can hand over:
+// - legacy single multer file ({ buffer, ... })
+// - array of multer files
+// - { files, posters, meta } from the multi-field upload
+function normalizeMediaInput(input) {
+  if (!input) return { files: [], posters: [], meta: [] };
+  if (Array.isArray(input)) return { files: input, posters: [], meta: [] };
+  if (input.buffer) return { files: [input], posters: [], meta: [] };
+  if (input.files || input.posters || input.meta) {
+    return {
+      files: input.files || [],
+      posters: input.posters || [],
+      meta: input.meta || [],
+    };
+  }
+  return { files: [], posters: [], meta: [] };
+}
+
+function validateMediaFiles(files, meta) {
+  if (files.length > MEDIA_LIMITS.MAX_FILES) {
+    throw new AppError(`Up to ${MEDIA_LIMITS.MAX_FILES} attachments per post`, 400, "TOO_MANY_FILES");
+  }
+  const videos = files.filter((f) => String(f.mimetype || "").startsWith("video/"));
+  if (videos.length > 1) throw new AppError("Only one video per post", 400, "INVALID_MEDIA");
+  if (videos.length === 1 && files.length > 1) {
+    throw new AppError("Video can't be combined with other media", 400, "INVALID_MEDIA");
+  }
+  files.forEach((f, i) => {
+    if (!ALLOWED_MEDIA_MIMES.has(f.mimetype)) {
+      throw new AppError("Only images, GIFs and videos are allowed", 400, "INVALID_FILE_TYPE");
+    }
+    const kind = kindOf(f.mimetype);
+    const cap =
+      kind === "video"
+        ? MEDIA_LIMITS.VIDEO_MAX_BYTES
+        : kind === "gif"
+          ? MEDIA_LIMITS.GIF_MAX_BYTES
+          : MEDIA_LIMITS.IMAGE_MAX_BYTES;
+    if (f.size > cap) {
+      const label = kind === "video" ? "Video must be under 25MB" : kind === "gif" ? "GIF must be under 10MB" : "Image must be under 5MB";
+      throw new AppError(label, 400, "FILE_TOO_LARGE");
+    }
+    const d = Number(meta?.[i]?.duration);
+    if (kind === "video" && Number.isFinite(d) && d > 0) {
+      if (d > MEDIA_LIMITS.VIDEO_MAX_DURATION_S + MEDIA_LIMITS.VIDEO_DURATION_SLACK_S) {
+        throw new AppError("Video must be 60 seconds or less", 400, "VIDEO_TOO_LONG");
+      }
+    }
+  });
+}
+
 // poll durations allowed by the composer (days)
 const POLL_DURATIONS = new Set([1, 3, 7]);
 
@@ -102,22 +181,57 @@ async function notifyMentions(actorId, usernames, postId, skipId = null) {
 }
 
 export const postService = {
-  async create(authorId, text, imageFile, pollInput) {
+  async create(authorId, text, mediaInput, pollInput) {
     const t = text?.trim() || "";
     if (t.length > 500) throw new AppError("Post must be 1-500 characters", 400, "INVALID_TEXT");
     const poll = buildPoll(pollInput);
-    if (poll && imageFile) throw new AppError("Poll and image can't be combined", 400, "INVALID_POLL");
-    if (!t && !imageFile && !poll) throw new AppError("Post must have text, an image or a poll", 400, "EMPTY_POST");
+    const { files, posters, meta } = normalizeMediaInput(mediaInput);
+    if (poll && files.length) throw new AppError("Poll and media can't be combined", 400, "INVALID_POLL");
+    if (!t && !files.length && !poll) throw new AppError("Post must have text, media or a poll", 400, "EMPTY_POST");
+    validateMediaFiles(files, meta);
 
     let imageUrl = null;
-    if (imageFile) {
+    let media = [];
+    if (files.length) {
       const { isAppwriteConfigured, uploadToAppwrite } = await import("../config/appwrite.js");
-      if (!isAppwriteConfigured()) throw new AppError("Image upload not configured", 503, "APPWRITE_NOT_CONFIGURED");
-      const uploaded = await uploadToAppwrite(imageFile.buffer, imageFile.originalname, imageFile.mimetype);
-      imageUrl = uploaded.viewUrl;
+      if (!isAppwriteConfigured()) throw new AppError("Media upload not configured", 503, "APPWRITE_NOT_CONFIGURED");
+      const uploaded = [];
+      for (let i = 0; i < files.length; i++) {
+        const f = files[i];
+        const kind = kindOf(f.mimetype);
+        const up = await uploadToAppwrite(f.buffer, f.originalname, f.mimetype);
+        const m = meta?.[i] || {};
+        const entry = {
+          url: up.viewUrl,
+          kind,
+          mime: f.mimetype,
+          bytes: f.size,
+          width: Number(m.width) > 0 ? Math.round(Number(m.width)) : null,
+          height: Number(m.height) > 0 ? Math.round(Number(m.height)) : null,
+          duration: kind === "video" && Number(m.duration) > 0 ? Number(m.duration) : null,
+          posterUrl: null,
+          fileId: up.fileId,
+          posterFileId: null,
+        };
+        // Single-video posts may carry one client-generated poster JPEG
+        // (first frame, ~640px) so feeds render an image-weight placeholder
+        // and never fetch video bytes until play.
+        if (kind === "video" && posters?.length) {
+          const p = posters[0];
+          if (p && p.size <= MEDIA_LIMITS.POSTER_MAX_BYTES && String(p.mimetype || "").startsWith("image/")) {
+            const pup = await uploadToAppwrite(p.buffer, p.originalname || "poster.jpg", p.mimetype);
+            entry.posterUrl = pup.viewUrl;
+            entry.posterFileId = pup.fileId;
+          }
+        }
+        uploaded.push(entry);
+      }
+      media = uploaded;
+      const firstVisual = media.find((m) => m.kind === "image" || m.kind === "gif");
+      imageUrl = firstVisual ? firstVisual.url : null;
     }
 
-    const post = await Post.create({ author: authorId, text: t || undefined, imageUrl, poll: poll || undefined, hashtags: extractHashtags(t), mentions: extractMentions(t) });
+    const post = await Post.create({ author: authorId, text: t || undefined, imageUrl, media, poll: poll || undefined, hashtags: extractHashtags(t), mentions: extractMentions(t) });
     await User.findByIdAndUpdate(authorId, { $inc: { postCount: 1 } });
     await notifyMentions(authorId, extractMentions(t), post._id);
     // Invalidate caches that include this post
@@ -213,14 +327,29 @@ export const postService = {
     cache.delPattern("hashtag:*");
     cache.delPattern(`media:${userId}:*`);
     cache.delPattern("trending:*");
-    // cleanup image from Appwrite
-    if (post.imageUrl) {
-      try {
-        const { deleteFromAppwrite } = await import("../config/appwrite.js");
-        const fileId = post.imageUrl.match(/\/files\/([^/]+)\//)?.[1];
-        if (fileId) await deleteFromAppwrite(fileId);
-      } catch {}
-    }
+    // cleanup media from Appwrite (new media[] + legacy imageUrl)
+    try {
+      const { deleteFromAppwrite, extractFileId } = await import("../config/appwrite.js");
+      const targets = [];
+      for (const m of post.media || []) {
+        if (m.fileId) targets.push(m.fileId);
+        else if (m.url) {
+          const id = extractFileId(m.url);
+          if (id) targets.push(id);
+        }
+        if (m.posterFileId) targets.push(m.posterFileId);
+        else if (m.posterUrl) {
+          const id = extractFileId(m.posterUrl);
+          if (id) targets.push(id);
+        }
+      }
+      if (post.imageUrl) {
+        const id = extractFileId(post.imageUrl);
+        // legacy mirror may duplicate media[0] — dedupe by fileId set
+        if (id && !targets.includes(id)) targets.push(id);
+      }
+      for (const id of targets) await deleteFromAppwrite(id);
+    } catch {}
     return { message: "Post deleted" };
   },
 
@@ -693,20 +822,24 @@ export const postService = {
     return result;
   },
 
-  // image-only posts by author for the profile Media tab — light payload for the grid
+  // media posts by author for the profile Media tab — light payload for the grid.
+  // Matches legacy imageUrl posts and new media[] posts (images, GIFs, videos).
   async mediaByAuthor(authorId, { page = 1, limit = 20 }) {
     const lim = Math.max(1, Math.min(50, Number(limit)));
     const skip = (Math.max(1, Number(page)) - 1) * lim;
     const cacheKey = CacheKeys.mediaByAuthor(authorId, page, lim);
     const cached = cache.get(cacheKey);
     if (cached) return cached;
-    const filter = { author: authorId, imageUrl: { $ne: null } };
+    const filter = {
+      author: authorId,
+      $or: [{ imageUrl: { $ne: null } }, { "media.0": { $exists: true } }],
+    };
     const [posts, total] = await Promise.all([
       Post.find(filter)
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(lim)
-        .select("_id imageUrl text createdAt likeCount replyCount repostCount")
+        .select("_id imageUrl media text createdAt likeCount replyCount repostCount")
         .lean(),
       Post.countDocuments(filter),
     ]);

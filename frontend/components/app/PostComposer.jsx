@@ -1,6 +1,13 @@
 "use client";
 
-import { BarChart2, Image as ImageIcon, Loader2, Smile, X } from "lucide-react";
+import {
+  BarChart2,
+  Film,
+  Image as ImageIcon,
+  Loader2,
+  Smile,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { CzImage } from "@/components/app/CzImage";
 import {
@@ -10,21 +17,31 @@ import {
 import { useAutogrowTextarea } from "@/components/app/useAutogrowTextarea";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
+import {
+  ACCEPT_POST_MEDIA,
+  MEDIA_LIMITS,
+  formatDuration,
+  generateVideoPoster,
+  getVideoMetadata,
+  kindOfFile,
+  validatePostFile,
+} from "@/lib/media";
 import { cn } from "@/lib/utils";
 
 const MAX = 500;
 
+let itemSeq = 0;
+
 export function PostComposer({ user, onCreated }) {
   const [text, setText] = useState("");
-  const [image, setImage] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const fileInputRef = useRef(null);
   const textRef = useRef(null);
 
   // Draft persistence — text-only, per user, survives tab switch / close.
-  // Images can't go in localStorage, so only text is stored.
+  // Media can't go in localStorage, so only text is stored.
   const draftKey = `cz:post-draft:${user?._id || user?.username || "guest"}`;
   const hydratedKeyRef = useRef(null);
 
@@ -50,6 +67,20 @@ export function PostComposer({ user, onCreated }) {
     }, 250);
     return () => clearTimeout(t);
   }, [text, draftKey]);
+
+  // Revoke blob URLs on unmount so multi-preview sessions don't leak.
+  useEffect(
+    () => () => {
+      setItems((prev) => {
+        prev.forEach((it) => {
+          if (it.previewUrl) URL.revokeObjectURL(it.previewUrl);
+        });
+        return prev;
+      });
+    },
+    [],
+  );
+
   const mention = useMentionAutocomplete({
     value: text,
     setValue: setText,
@@ -71,7 +102,7 @@ export function PostComposer({ user, onCreated }) {
     pollOpen &&
     cleanOptions.length >= 2 &&
     cleanOptions.every((o) => o.length <= 80);
-  const hasContent = (len > 0 && len <= MAX) || image || pollValid;
+  const hasContent = (len > 0 && len <= MAX) || items.length > 0 || pollValid;
   const canPost = hasContent && !loading;
 
   const resetPoll = () => {
@@ -80,27 +111,139 @@ export function PostComposer({ user, onCreated }) {
     setPollDays(1);
   };
 
-  const handleImageSelect = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setError("Only image files are allowed");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setError("Image must be under 5MB");
-      return;
-    }
-    setImage(file);
-    setImagePreview(URL.createObjectURL(file));
-    setError("");
+  const removeItem = (id) => {
+    setItems((prev) => {
+      const it = prev.find((x) => x.id === id);
+      if (it?.previewUrl) URL.revokeObjectURL(it.previewUrl);
+      return prev.filter((x) => x.id !== id);
+    });
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const removeImage = () => {
-    setImage(null);
-    if (imagePreview) URL.revokeObjectURL(imagePreview);
-    setImagePreview(null);
+  const clearItems = () => {
+    setItems((prev) => {
+      prev.forEach((it) => {
+        if (it.previewUrl) URL.revokeObjectURL(it.previewUrl);
+      });
+      return [];
+    });
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleFilesSelect = async (e) => {
+    const picked = Array.from(e.target.files || []);
+    e.target.value = "";
+    if (!picked.length) return;
+    if (pollOpen) {
+      setError("Remove the poll to add photos, GIFs or video");
+      return;
+    }
+
+    const kinds = items.map((it) => it.kind);
+    const slotsLeft = MEDIA_LIMITS.MAX_FILES - items.length;
+    if (picked.length > slotsLeft) {
+      setError(`Up to ${MEDIA_LIMITS.MAX_FILES} attachments per post`);
+      return;
+    }
+
+    for (const file of picked) {
+      const err = validatePostFile(file, [
+        ...kinds,
+        ...picked.slice(0, picked.indexOf(file)).map(kindOfFile),
+      ]);
+      if (err) {
+        setError(err);
+        return;
+      }
+    }
+    // Video exclusivity is validated per-file above, but re-check the batch:
+    // one video must ride alone.
+    const batchKinds = picked.map(kindOfFile);
+    if (
+      batchKinds.includes("video") &&
+      (items.length > 0 || picked.length > 1)
+    ) {
+      setError("Video can't be combined with other media");
+      return;
+    }
+
+    setError("");
+    for (const file of picked) {
+      const kind = kindOfFile(file);
+      if (kind === "video") {
+        // Check duration before accepting — 60s cap keeps uploads + feed fast.
+        const id = `v-${Date.now()}-${itemSeq++}`;
+        setItems((prev) => [
+          ...prev,
+          {
+            id,
+            file,
+            previewUrl: URL.createObjectURL(file),
+            kind,
+            probing: true,
+          },
+        ]);
+        try {
+          const meta = await getVideoMetadata(file);
+          if (meta.duration > MEDIA_LIMITS.VIDEO_MAX_DURATION_S + 2) {
+            setItems((prev) => {
+              const it = prev.find((x) => x.id === id);
+              if (it?.previewUrl) URL.revokeObjectURL(it.previewUrl);
+              return prev.filter((x) => x.id !== id);
+            });
+            setError("Video must be 60 seconds or less");
+            return;
+          }
+          // Pre-generate the poster now so submit is instant and the feed
+          // gets an image-weight placeholder (no backend transcoding).
+          let posterBlob = null;
+          try {
+            const gen = await generateVideoPoster(file);
+            posterBlob = gen.blob || null;
+            setItems((prev) =>
+              prev.map((x) =>
+                x.id === id
+                  ? {
+                      ...x,
+                      probing: false,
+                      width: gen.width,
+                      height: gen.height,
+                      duration: gen.duration || meta.duration,
+                      posterBlob,
+                    }
+                  : x,
+              ),
+            );
+          } catch {
+            setItems((prev) =>
+              prev.map((x) =>
+                x.id === id
+                  ? {
+                      ...x,
+                      probing: false,
+                      width: meta.width,
+                      height: meta.height,
+                      duration: meta.duration,
+                    }
+                  : x,
+              ),
+            );
+          }
+          kinds.push("video");
+        } catch {
+          setItems((prev) => prev.filter((x) => x.id !== id));
+          setError("Couldn't read that video");
+          return;
+        }
+      } else {
+        const id = `i-${Date.now()}-${itemSeq++}`;
+        setItems((prev) => [
+          ...prev,
+          { id, file, previewUrl: URL.createObjectURL(file), kind },
+        ]);
+        kinds.push(kind);
+      }
+    }
   };
 
   const onSubmit = async (e) => {
@@ -110,19 +253,32 @@ export function PostComposer({ user, onCreated }) {
       setError("Add at least 2 poll options (max 80 chars each)");
       return;
     }
+    if (items.some((it) => it.probing)) {
+      setError("Still reading your video — try again in a second");
+      return;
+    }
     setError("");
     setLoading(true);
     try {
       const poll = pollValid
         ? { options: cleanOptions, durationDays: pollDays }
         : undefined;
+      const files = items.map((it) => it.file);
+      const posters = items.map((it) => it.posterBlob || null);
+      const meta = items.map((it) => ({
+        width: it.width || undefined,
+        height: it.height || undefined,
+        duration: it.duration || undefined,
+      }));
+      const hasMeta = meta.some((m) => m.width || m.height || m.duration);
       const res = await api.createPost(
         text.trim() || undefined,
-        image || undefined,
+        files.length ? files : undefined,
         poll,
+        files.length ? { posters, meta: hasMeta ? meta : undefined } : {},
       );
       setText("");
-      removeImage();
+      clearItems();
       resetPoll();
       try {
         window.localStorage.removeItem(draftKey);
@@ -185,22 +341,63 @@ export function PostComposer({ user, onCreated }) {
             />
           </div>
 
-          {imagePreview ? (
-            <div className="relative mt-2 inline-block overflow-hidden rounded-[16px] border border-[var(--cz-border)]">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={imagePreview}
-                alt="Post attachment preview"
-                className="max-h-[300px] object-cover"
-              />
-              <button
-                type="button"
-                onClick={removeImage}
-                className="absolute top-2 left-2 grid h-8 w-8 place-items-center rounded-full bg-black/65 text-white transition-colors hover:bg-black/85"
-                aria-label="Remove image"
-              >
-                <X className="h-4 w-4" aria-hidden />
-              </button>
+          {items.length ? (
+            <div
+              className={cn(
+                "mt-2 grid gap-1 overflow-hidden rounded-[16px] border border-[var(--cz-border)]",
+                items.length > 1 && "grid-cols-2",
+              )}
+            >
+              {items.map((it) => (
+                <div
+                  key={it.id}
+                  className="relative overflow-hidden bg-black/5"
+                >
+                  {it.kind === "video" ? (
+                    // eslint-disable-next-line jsx-a11y/media-has-caption
+                    <video
+                      src={it.previewUrl}
+                      preload="metadata"
+                      playsInline
+                      muted
+                      className="max-h-[300px] w-full object-cover"
+                    />
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={it.previewUrl}
+                      alt={`${it.kind} attachment preview`}
+                      className="max-h-[300px] w-full object-cover"
+                    />
+                  )}
+                  {it.kind === "gif" ? (
+                    <span className="absolute bottom-2 left-2 rounded-full bg-black/70 px-2 py-0.5 text-[11px] font-bold text-white">
+                      GIF
+                    </span>
+                  ) : null}
+                  {it.kind === "video" && it.duration ? (
+                    <span className="absolute right-2 bottom-2 rounded-full bg-black/70 px-2 py-0.5 text-[12px] font-bold text-white tabular-nums">
+                      {formatDuration(it.duration)}
+                    </span>
+                  ) : null}
+                  {it.probing ? (
+                    <span className="absolute inset-0 grid place-items-center bg-black/30">
+                      <Loader2
+                        className="h-5 w-5 animate-spin text-white"
+                        aria-hidden
+                      />
+                    </span>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => removeItem(it.id)}
+                    className="absolute top-2 left-2 grid h-8 w-8 place-items-center rounded-full bg-black/65 text-white transition-colors hover:bg-black/85"
+                    aria-label="Remove attachment"
+                  >
+                    <X className="h-4 w-4" aria-hidden />
+                  </button>
+                </div>
+              ))}
             </div>
           ) : null}
 
@@ -287,15 +484,24 @@ export function PostComposer({ user, onCreated }) {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={pollOpen}
-                aria-label="Add image"
+                disabled={pollOpen || items.length >= MEDIA_LIMITS.MAX_FILES}
+                aria-label="Add photos, GIF or video"
+                title="Photos, GIFs, video (25MB / 60s)"
                 className="grid h-[36px] w-[36px] place-items-center rounded-full text-[var(--cz-accent)] transition-colors hover:bg-[var(--cz-accent-soft)] disabled:opacity-40 disabled:hover:bg-transparent"
               >
-                <ImageIcon
-                  className="h-[20px] w-[20px]"
-                  strokeWidth={1.9}
-                  aria-hidden
-                />
+                {items.some((it) => it.kind === "video") ? (
+                  <Film
+                    className="h-[20px] w-[20px]"
+                    strokeWidth={1.9}
+                    aria-hidden
+                  />
+                ) : (
+                  <ImageIcon
+                    className="h-[20px] w-[20px]"
+                    strokeWidth={1.9}
+                    aria-hidden
+                  />
+                )}
               </button>
               <button
                 type="button"
@@ -303,7 +509,7 @@ export function PostComposer({ user, onCreated }) {
                   setPollOpen((v) => !v);
                   setError("");
                 }}
-                disabled={Boolean(image)}
+                disabled={items.length > 0}
                 aria-label={pollOpen ? "Remove poll" : "Add poll"}
                 aria-pressed={pollOpen}
                 className={cn(
@@ -311,7 +517,7 @@ export function PostComposer({ user, onCreated }) {
                   pollOpen
                     ? "bg-[var(--cz-accent-soft)] text-[var(--cz-accent)]"
                     : "text-[var(--cz-accent)] hover:bg-[var(--cz-accent-soft)]",
-                  image && "opacity-40 hover:bg-transparent",
+                  items.length > 0 && "opacity-40 hover:bg-transparent",
                 )}
               >
                 <BarChart2
@@ -323,8 +529,9 @@ export function PostComposer({ user, onCreated }) {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
-                onChange={handleImageSelect}
+                accept={ACCEPT_POST_MEDIA}
+                multiple
+                onChange={handleFilesSelect}
                 className="hidden"
               />
               <span
@@ -340,6 +547,11 @@ export function PostComposer({ user, onCreated }) {
               >
                 {len}/{MAX}
               </span>
+              {items.length ? (
+                <span className="hidden text-[13px] text-[var(--cz-text-secondary)] sm:inline">
+                  {items.length}/{MEDIA_LIMITS.MAX_FILES}
+                </span>
+              ) : null}
             </div>
 
             <Button

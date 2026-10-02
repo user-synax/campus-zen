@@ -22,8 +22,9 @@ export default function CreatePage() {
         }}
       />
       <p className="px-4 py-6 text-center text-[13px] leading-[18px] text-[var(--cz-text-secondary)]">
-        Up to 500 characters. Images up to 5MB. Use @ to mention a student and #
-        to add a tag.
+        Up to 500 characters. Up to 4 photos/GIFs, or 1 video (25MB, 60s).
+        Videos play from a lightweight poster so feeds stay fast. Use @ to
+        mention a student and # to add a tag.
       </p>
     </div>
   );

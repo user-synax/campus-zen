@@ -110,13 +110,27 @@ export const adminService = {
     ]);
     await User.updateOne({ _id: authorId, postCount: { $lt: 0 } }, { $set: { postCount: 0 } });
     invalidatePostCaches(postId, authorId);
-    if (post.imageUrl) {
-      try {
-        const { deleteFromAppwrite } = await import("../config/appwrite.js");
-        const fileId = post.imageUrl.match(/\/files\/([^/]+)\//)?.[1];
-        if (fileId) await deleteFromAppwrite(fileId);
-      } catch {}
-    }
+    try {
+      const { deleteFromAppwrite, extractFileId } = await import("../config/appwrite.js");
+      const targets = [];
+      for (const m of post.media || []) {
+        if (m.fileId) targets.push(m.fileId);
+        else if (m.url) {
+          const id = extractFileId(m.url);
+          if (id) targets.push(id);
+        }
+        if (m.posterFileId) targets.push(m.posterFileId);
+        else if (m.posterUrl) {
+          const id = extractFileId(m.posterUrl);
+          if (id) targets.push(id);
+        }
+      }
+      if (post.imageUrl) {
+        const id = extractFileId(post.imageUrl);
+        if (id && !targets.includes(id)) targets.push(id);
+      }
+      for (const id of targets) await deleteFromAppwrite(id);
+    } catch {}
     return { message: "Post deleted by admin" };
   },
 

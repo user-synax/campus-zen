@@ -17,7 +17,7 @@ export const postController = {
 
   create: asyncHandler(async (req, res) => {
     let poll = req.body.poll;
-    // multipart (image upload) delivers fields as strings — accept JSON-encoded poll
+    // multipart (media upload) delivers fields as strings — accept JSON-encoded poll/meta
     if (typeof poll === "string") {
       try {
         poll = JSON.parse(poll);
@@ -25,7 +25,28 @@ export const postController = {
         poll = undefined;
       }
     }
-    const post = await postService.create(req.user._id, req.body.text, req.file, poll);
+    let meta = req.body.mediaMeta;
+    if (typeof meta === "string") {
+      try {
+        meta = JSON.parse(meta);
+      } catch {
+        meta = undefined;
+      }
+    }
+    if (!Array.isArray(meta)) meta = undefined;
+    // new multi-field upload (media[] + posters[]) or legacy single image
+    const filesObj = req.files || null;
+    let mediaInput = null;
+    if (filesObj && (filesObj.media?.length || filesObj.image?.length)) {
+      mediaInput = {
+        files: [...(filesObj.media || []), ...(filesObj.image || [])].slice(0, 4),
+        posters: filesObj.posters || [],
+        meta,
+      };
+    } else if (req.file) {
+      mediaInput = req.file;
+    }
+    const post = await postService.create(req.user._id, req.body.text, mediaInput, poll);
     res.status(201).json({ success: true, data: { post } });
   }),
 
