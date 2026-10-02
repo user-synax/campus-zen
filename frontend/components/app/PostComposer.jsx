@@ -476,7 +476,7 @@ export function PostComposer({ user, onCreated }) {
           ) : null}
 
           {error ? (
-            <p className="mt-2 text-[13px] text-[var(--cz-error)]">{error}</p>
+            <p role="alert" className="mt-2 text-[13px] text-[var(--cz-error)]">{error}</p>
           ) : null}
 
           <div className="mt-2 flex items-center justify-between gap-2">

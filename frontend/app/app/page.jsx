@@ -34,6 +34,7 @@ export default function AppHome() {
     isPending,
     isFetchingNextPage,
     isError,
+    error,
     refetch,
   } = useFeed(tab);
 
@@ -248,6 +249,14 @@ export default function AppHome() {
 
       {isPending ? (
         <PostSkeleton rows={4} />
+      ) : isError && posts.length === 0 ? (
+        <EmptyState
+          icon={FileText}
+          title="Couldn't load posts"
+          description={error?.data?.message || error?.message || "Check your connection and try again."}
+          actionLabel="Try again"
+          onAction={() => refetch()}
+        />
       ) : posts.length === 0 ? (
         tab === "following" ? (
           <EmptyState

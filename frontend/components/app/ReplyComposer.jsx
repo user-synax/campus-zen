@@ -1,6 +1,6 @@
 "use client";
 
-import { ImageIcon, Loader2, Smile, X } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useRef, useState } from "react";
 import { CzImage } from "@/components/app/CzImage";
 import {
@@ -35,8 +35,6 @@ export function ReplyComposer({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const inputRef = useRef(null);
-  const fileRef = useRef(null);
-  const [fileName, setFileName] = useState("");
 
   const mention = useMentionAutocomplete({
     value: text,
@@ -54,7 +52,6 @@ export function ReplyComposer({
     try {
       const res = await api.createReply(postId, body);
       setText("");
-      setFileName("");
       toast.success("Reply posted");
       onCreated?.(res.data?.comment, res.data?.replyCount);
     } catch (err) {
@@ -64,12 +61,6 @@ export function ReplyComposer({
     } finally {
       setBusy(false);
     }
-  };
-
-  const onPickFile = (e) => {
-    const f = e.target.files?.[0];
-    if (f) setFileName(f.name);
-    e.target.value = "";
   };
 
   const over = text.length > MAX;
@@ -125,58 +116,8 @@ export function ReplyComposer({
           />
         </div>
 
-        {/* attachment chip — picked but not uploaded, so it reads as intent */}
-        {fileName ? (
-          <div className="mt-1 inline-flex max-w-full items-center gap-2 rounded-full border border-[var(--cz-border)] py-1 pr-1 pl-3 text-[13px] text-[var(--cz-text-secondary)]">
-            <span className="truncate">{fileName}</span>
-            <button
-              type="button"
-              onClick={() => setFileName("")}
-              aria-label="Remove attachment"
-              className="grid h-[22px] w-[22px] shrink-0 place-items-center rounded-full hover:bg-[var(--cz-surface-strong)]"
-            >
-              <X className="h-[13px] w-[13px]" aria-hidden />
-            </button>
-          </div>
-        ) : null}
-
-        <div className="mt-1 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-1">
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*,video/*"
-              onChange={onPickFile}
-              className="hidden"
-            />
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              aria-label="Add media"
-              className="grid h-[34px] w-[34px] place-items-center rounded-full text-[var(--cz-accent)] transition-colors hover:bg-[var(--cz-accent-soft)]"
-            >
-              <ImageIcon
-                className="h-[19px] w-[19px]"
-                strokeWidth={1.9}
-                aria-hidden
-              />
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                setText((t) => `${t}${t && !t.endsWith(" ") ? " " : ""}✨`)
-              }
-              aria-label="Add emoji"
-              className="grid h-[34px] w-[34px] place-items-center rounded-full text-[var(--cz-accent)] transition-colors hover:bg-[var(--cz-accent-soft)]"
-            >
-              <Smile
-                className="h-[19px] w-[19px]"
-                strokeWidth={1.9}
-                aria-hidden
-              />
-            </button>
-          </div>
-
+        {/* text-only replies: mentions supported, media lives on posts */}
+        <div className="mt-1 flex items-center justify-end gap-3">
           <div className="flex items-center gap-3">
             {text.length > MAX * 0.75 ? (
               <span

@@ -97,7 +97,7 @@ export default function NotificationsPage() {
   // SSE for real-time notifications (replaces polling)
   useSSE();
 
-  const { data, fetchNextPage, hasNextPage, isPending, isFetchingNextPage } =
+  const { data, fetchNextPage, hasNextPage, isPending, isFetchingNextPage, isError, error, refetch } =
     useNotifications(filter, typeFilter);
 
   const notifications =
@@ -267,6 +267,14 @@ export default function NotificationsPage() {
 
       {isPending ? (
         <PostSkeleton rows={5} />
+      ) : isError && notifications.length === 0 ? (
+        <EmptyState
+          icon={Bell}
+          title="Couldn't load notifications"
+          description={error?.data?.message || error?.message || "Check your connection and try again."}
+          actionLabel="Try again"
+          onAction={() => refetch()}
+        />
       ) : notifications.length === 0 ? (
         <EmptyState
           icon={Bell}

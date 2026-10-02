@@ -40,7 +40,7 @@ function SearchInner() {
 
   // Single-shot query (backend returns one page). placeholderData keeps the
   // previous results on screen while the new query loads — no skeleton flash.
-  const { data, isPending, isFetching } = useSearch(debouncedQ, type);
+  const { data, isPending, isFetching, isError, error, refetch } = useSearch(debouncedQ, type);
 
   const users = data?.data?.users || [];
   const posts = data?.data?.posts || [];
@@ -196,6 +196,14 @@ function SearchInner() {
             </div>
           ))}
         </div>
+      ) : isError && users.length === 0 && posts.length === 0 && colleges.length === 0 ? (
+        <EmptyState
+          icon={SearchIcon}
+          title="Search failed"
+          description={error?.data?.message || error?.message || "Check your connection and try again."}
+          actionLabel="Try again"
+          onAction={() => refetch()}
+        />
       ) : isEmpty ? (
         <EmptyState
           icon={SearchIcon}
