@@ -3,11 +3,19 @@
 import { Hash, Search } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { CzImage } from "@/components/app/CzImage";
 import { Button } from "@/components/ui/button";
 import { UserBadge } from "@/components/ui/verified-badge";
 import { api } from "@/lib/api";
+import {
+  RAIL_TTL,
+  isRailFresh,
+  railKey,
+  readRail,
+  readRailMem,
+  writeRail,
+} from "@/lib/railCache";
 
 function initialsFor(u) {
   return (u.fullName || u.username || "U").trim().slice(0, 1).toUpperCase();
@@ -124,37 +132,51 @@ export function RightMinimal({ currentUser }) {
   const [trending, setTrending] = useState([]);
   const [trendingLoading, setTrendingLoading] = useState(true);
 
+  // Cache identity — suggestions are per-account, so the key embeds the
+  // user id. Switching accounts never reads the previous account's cache.
+  const userKey = currentUser?._id || currentUser?.username || "guest";
+
+  const filterSuggested = useCallback(
+    (users) => {
+      const me = currentUser?.username?.toLowerCase();
+      return (users || [])
+        .filter((u) => u.username?.toLowerCase() !== me && !u.isFollowing)
+        .slice(0, 3);
+    },
+    [currentUser?.username],
+  );
+
+  // Suggestions: paint memory → IndexedDB instantly, then fetch only when
+  // the entry is missing or older than TTL. Tab switches inside TTL cost
+  // zero requests.
   useEffect(() => {
     let cancelled = false;
+    const key = railKey("suggestions", userKey);
     (async () => {
+      const fast = readRailMem(key) || (await readRail(key));
+      if (cancelled) return;
+      if (fast) {
+        setSuggested(filterSuggested(fast.value));
+        setLoading(false);
+        if (isRailFresh(fast, RAIL_TTL.SUGGESTIONS)) return;
+      }
       try {
         const res = await api.getSuggestions({ limit: 6 });
         if (cancelled) return;
         const users = res.data?.users || [];
-        const me = currentUser?.username?.toLowerCase();
-        setSuggested(
-          users
-            .filter((u) => u.username?.toLowerCase() !== me && !u.isFollowing)
-            .slice(0, 3),
-        );
+        writeRail(key, users);
+        setSuggested(filterSuggested(users));
       } catch {
-        if (!cancelled) {
-          // ranked endpoint unavailable — fall back to recent users
-          try {
-            const res = await api.listUsers({ limit: 6 });
-            if (cancelled) return;
-            const users = res.data?.users || [];
-            const me = currentUser?.username?.toLowerCase();
-            setSuggested(
-              users
-                .filter(
-                  (u) => u.username?.toLowerCase() !== me && !u.isFollowing,
-                )
-                .slice(0, 3),
-            );
-          } catch {
-            if (!cancelled) setSuggested([]);
-          }
+        if (cancelled) return;
+        // ranked endpoint unavailable — fall back to recent users
+        try {
+          const res = await api.listUsers({ limit: 6 });
+          if (cancelled) return;
+          const users = res.data?.users || [];
+          writeRail(key, users);
+          setSuggested(filterSuggested(users));
+        } catch {
+          if (!cancelled && !readRailMem(key)) setSuggested([]);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -163,24 +185,40 @@ export function RightMinimal({ currentUser }) {
     return () => {
       cancelled = true;
     };
-  }, [currentUser?.username]);
+  }, [userKey, filterSuggested]);
 
+  // Trending is global (same for everyone): paint cache instantly, refresh
+  // in the background only when stale. New posts force a refresh via the
+  // cz:hashtag-trending event.
   useEffect(() => {
     let cancelled = false;
-    const load = async () => {
+    const key = railKey("trending");
+    const load = async (force) => {
+      if (!force) {
+        const fast = readRailMem(key) || (await readRail(key));
+        if (cancelled) return;
+        if (fast) {
+          setTrending(fast.value || []);
+          setTrendingLoading(false);
+          if (isRailFresh(fast, RAIL_TTL.TRENDING)) return;
+        }
+      }
       try {
         const res = await api.getTrendingHashtags({ limit: 6 });
-        if (!cancelled) setTrending(res.data?.tags || []);
+        if (cancelled) return;
+        const tags = res.data?.tags || [];
+        writeRail(key, tags);
+        setTrending(tags);
       } catch {
-        if (!cancelled) setTrending([]);
+        if (!cancelled && !readRailMem(key)) setTrending([]);
       } finally {
         if (!cancelled) setTrendingLoading(false);
       }
     };
-    load();
+    load(false);
     const refresh = () => {
       setTrendingLoading(true);
-      load();
+      load(true);
     };
     window.addEventListener("cz:hashtag-trending", refresh);
     return () => {
@@ -190,8 +228,20 @@ export function RightMinimal({ currentUser }) {
   }, []);
 
   const handleFollowed = (id, isNowFollowing) => {
-    if (isNowFollowing)
-      setSuggested((prev) => prev.filter((u) => u._id !== id));
+    if (!isNowFollowing) return;
+    setSuggested((prev) => prev.filter((u) => u._id !== id));
+    // Patch the cached raw list too, or the followed user pops back in on
+    // the next tab switch while the entry is still fresh.
+    const key = railKey("suggestions", userKey);
+    const entry = readRailMem(key);
+    if (entry) {
+      writeRail(
+        key,
+        (entry.value || []).map((u) =>
+          String(u._id) === String(id) ? { ...u, isFollowing: true } : u,
+        ),
+      );
+    }
   };
 
   const submitSearch = (e) => {
