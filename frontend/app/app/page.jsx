@@ -16,11 +16,15 @@ import { useMe, useFeed } from "@/lib/hooks/queries";
 export default function AppHome() {
   const [tab, setTab] = useState("discovery");
   const [pending, setPending] = useState([]);
+  const [pullDy, setPullDy] = useState(0);
+  const [pulling, setPulling] = useState(false);
   const sentinelRef = useRef(null);
   const observerRef = useRef(null);
   const checkingRef = useRef(false);
   const postsRef = useRef([]);
   const pendingRef = useRef([]);
+  const pullStartRef = useRef(null);
+  const bannerRef = useRef(null);
   postsRef.current = [];
   pendingRef.current = pending;
 
@@ -93,8 +97,10 @@ export default function AppHome() {
 
   // Background freshness check — limit 5 is enough to spot new posts,
   // full pages would just burn free-tier Mongo on every focus.
+  // Skips when offline (navigator.onLine) — OfflineBanner owns that state.
   const checkForNew = useCallback(async () => {
     if (checkingRef.current || document.hidden) return;
+    if (typeof navigator !== "undefined" && !navigator.onLine) return;
     checkingRef.current = true;
     try {
       const fn = tab === "following" ? api.getFeed : api.getPublicFeed;
@@ -108,7 +114,9 @@ export default function AppHome() {
       if (unseen.length > 0) {
         setPending((prev) => {
           const prevIds = new Set(prev.map((p) => p._id));
-          return [...unseen.filter((p) => !prevIds.has(p._id)), ...prev];
+          const merged = [...unseen.filter((p) => !prevIds.has(p._id)), ...prev];
+          // Cap to 50 — label caps at 20+, array must not grow unbounded.
+          return merged.slice(0, 50);
         });
       }
     } catch {
@@ -162,6 +170,38 @@ export default function AppHome() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  // Custom pull-to-refresh (mobile): drag from top >80px triggers refetch.
+  const onTouchStart = (e) => {
+    if (window.scrollY !== 0 || pulling) return;
+    pullStartRef.current = e.touches[0].clientY;
+  };
+  const onTouchMove = (e) => {
+    if (pullStartRef.current == null || pulling) return;
+    if (window.scrollY !== 0) {
+      pullStartRef.current = null;
+      setPullDy(0);
+      return;
+    }
+    const dy = e.touches[0].clientY - pullStartRef.current;
+    if (dy > 0) setPullDy(Math.min(dy, 120));
+  };
+  const onTouchEnd = async () => {
+    if (pullStartRef.current == null) return;
+    const dy = pullDy;
+    pullStartRef.current = null;
+    setPullDy(0);
+    if (dy > 80 && !pulling) {
+      setPulling(true);
+      try {
+        await refetch();
+        await checkForNew();
+      } catch {
+      } finally {
+        setPulling(false);
+      }
+    }
+  };
+
   const handleDelete = (id) => {
     queryClient.setQueryData(["feed", tab], (old) => {
       if (!old) return old;
@@ -197,7 +237,24 @@ export default function AppHome() {
   };
 
   return (
-    <div>
+    <div onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+      {/* Pull indicator */}
+      {(pullDy > 0 || pulling) && (
+        <div
+          role="status"
+          aria-label={pulling ? "Refreshing feed" : "Pull to refresh"}
+          className="flex justify-center overflow-hidden transition-[height]"
+          style={{ height: pulling ? 48 : pullDy }}
+        >
+          <span className="inline-flex items-center gap-2 py-3 text-[13px] font-semibold text-[var(--cz-text-secondary)]">
+            <span
+              className={`h-4 w-4 rounded-full border-2 border-[var(--cz-accent)] border-t-transparent ${pulling ? "animate-spin" : ""}`}
+              aria-hidden
+            />
+            {pulling ? "Refreshing…" : pullDy > 80 ? "Release to refresh" : "Pull to refresh"}
+          </span>
+        </div>
+      )}
       {/* Feed tabs only — Search and Post live in the bottom tab bar. */}
       <div className="sticky top-[53px] z-10 border-b border-[var(--cz-border)] bg-[var(--cz-bg)]/90 backdrop-blur md:top-0">
         <div role="tablist" aria-label="Feed" className="flex min-w-0 flex-1">
@@ -231,10 +288,10 @@ export default function AppHome() {
       <PostComposer user={user} onCreated={handleCreated} />
 
       {pending.length > 0 && !isPending ? (
-        <div className="sticky top-[117px] z-10 flex justify-center pt-3 md:top-[105px]">
+        <div role="status" aria-live="polite" className="sticky top-[117px] z-10 flex justify-center pt-3 md:top-[105px]">
           <button
+            ref={bannerRef}
             onClick={showNewPosts}
-            aria-live="polite"
             className="inline-flex h-[32px] items-center gap-1.5 rounded-full bg-[var(--cz-accent)] px-4 text-[15px] font-bold text-[var(--cz-text-inverse)] transition-colors hover:bg-[var(--cz-accent-hover)]"
           >
             <ArrowUp className="h-4 w-4" aria-hidden />

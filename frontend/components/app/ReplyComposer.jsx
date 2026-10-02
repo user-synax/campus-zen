@@ -54,6 +54,7 @@ export function ReplyComposer({
       setText("");
       toast.success("Reply posted");
       onCreated?.(res.data?.comment, res.data?.replyCount);
+      requestAnimationFrame(() => inputRef.current?.focus());
     } catch (err) {
       const msg = err?.data?.message || "Couldn't post your reply. Try again.";
       setError(msg);
@@ -93,7 +94,12 @@ export function ReplyComposer({
             onSelect={mention.recheck}
             onKeyDown={(e) => {
               if (mention.handleKeyDown(e)) return;
-              // Enter submits, Shift+Enter newlines — the chat convention.
+              // Enter submits, Shift+Enter newlines, Cmd/Ctrl+Enter always submits.
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                submit(e);
+                return;
+              }
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 submit(e);

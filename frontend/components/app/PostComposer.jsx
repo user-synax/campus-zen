@@ -285,6 +285,8 @@ export function PostComposer({ user, onCreated }) {
       } catch {}
       window.dispatchEvent(new Event("cz:hashtag-trending"));
       onCreated?.(res.data?.post);
+      // Keep focus in the box so rapid post → post stays keyboard-first.
+      requestAnimationFrame(() => textRef.current?.focus());
     } catch (err) {
       const data = err.data || {};
       setError(data.message || err.message || "Failed to post");
@@ -324,6 +326,11 @@ export function PostComposer({ user, onCreated }) {
               onSelect={mention.recheck}
               onKeyDown={(e) => {
                 if (mention.handleKeyDown(e)) return;
+                // Cmd/Ctrl+Enter posts from anywhere in the box.
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault();
+                  onSubmit(e);
+                }
               }}
               onBlur={() => setTimeout(() => mention.close(), 150)}
               placeholder="What's happening?"
@@ -486,8 +493,8 @@ export function PostComposer({ user, onCreated }) {
                 onClick={() => fileInputRef.current?.click()}
                 disabled={pollOpen || items.length >= MEDIA_LIMITS.MAX_FILES}
                 aria-label="Add photos, GIF or video"
-                title="Photos, GIFs, video (25MB / 60s)"
-                className="grid h-[36px] w-[36px] place-items-center rounded-full text-[var(--cz-accent)] transition-colors hover:bg-[var(--cz-accent-soft)] disabled:opacity-40 disabled:hover:bg-transparent"
+                title="Photos, GIFs, video (25MB / 60s). Tip: Cmd+Enter to post"
+                className="grid h-[44px] w-[44px] place-items-center rounded-full text-[var(--cz-accent)] transition-colors hover:bg-[var(--cz-accent-soft)] disabled:opacity-40 disabled:hover:bg-transparent"
               >
                 {items.some((it) => it.kind === "video") ? (
                   <Film
@@ -513,7 +520,7 @@ export function PostComposer({ user, onCreated }) {
                 aria-label={pollOpen ? "Remove poll" : "Add poll"}
                 aria-pressed={pollOpen}
                 className={cn(
-                  "grid h-[36px] w-[36px] place-items-center rounded-full transition-colors",
+                  "grid h-[44px] w-[44px] place-items-center rounded-full transition-colors",
                   pollOpen
                     ? "bg-[var(--cz-accent-soft)] text-[var(--cz-accent)]"
                     : "text-[var(--cz-accent)] hover:bg-[var(--cz-accent-soft)]",
@@ -536,7 +543,7 @@ export function PostComposer({ user, onCreated }) {
               />
               <span
                 className={cn(
-                  "hidden text-[13px] tabular-nums sm:inline",
+                  "text-[13px] tabular-nums",
                   over
                     ? "text-[var(--cz-error)]"
                     : remaining <= 40
@@ -544,6 +551,7 @@ export function PostComposer({ user, onCreated }) {
                       : "text-[var(--cz-text-secondary)]",
                 )}
                 aria-live="polite"
+                aria-label={`${remaining} characters remaining`}
               >
                 {len}/{MAX}
               </span>

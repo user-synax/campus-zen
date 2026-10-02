@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { BottomNav } from "@/components/app/BottomNav";
 import { LeftNav } from "@/components/app/LeftNav";
+import { OfflineBanner } from "@/components/app/OfflineBanner";
 import { RightMinimal } from "@/components/app/RightMinimal";
 import { ThemeToggle } from "@/components/app/ThemeToggle";
 import { BrandMark } from "@/components/BrandLogo";
@@ -58,6 +59,7 @@ export function AppShell({ children, requireAuth = false }) {
 
   return (
     <div className="min-h-dvh bg-[var(--cz-bg)] text-[var(--cz-text-primary)]">
+      <OfflineBanner />
       {/* mobile top bar */}
       <header className="sticky top-0 z-30 flex h-[53px] items-center justify-between border-b border-[var(--cz-border)] bg-[var(--cz-bg)]/85 px-4 backdrop-blur md:hidden">
         <BrandMark size={26} priority />
