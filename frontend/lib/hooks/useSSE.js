@@ -5,17 +5,21 @@ import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 
 /**
- * SSE for real-time notifications: listens on /api/events and pushes
- * notification + unread-count events into the query cache.
+ * SSE for real-time updates: notifications + live post/follow counts.
+ * Listens on /api/events (primary) with ?token= fallback for cross-origin
+ * EventSource (cookies may not flow). Singleton shared by shell + pages.
  *
- * The connection is a module-level singleton shared by every caller. Several
- * components want live notifications at once (the shell, the notifications
- * page), and opening one EventSource per caller would multiply the sockets
- * and the reconnect timers. The last consumer to unmount closes it.
+ * Events:
+ * - notification -> prepend to notifications cache
+ * - unread-count -> patch badge
+ * - post:update { postId, likeCount?, repostCount?, replyCount? } -> patch all post caches
+ * - follow:update { userId, followersCount?, isFollowing? } -> patch user caches
  */
+
 let source = null;
 let consumers = 0;
 let reconnectTimer = null;
+let lastEventId = null;
 
 function getToken() {
   return document.cookie
@@ -26,8 +30,6 @@ function getToken() {
 
 export function useSSE() {
   const queryClient = useQueryClient();
-  // Read live so the handlers always close over the current client without
-  // tearing down the socket on every render.
   const clientRef = useRef(queryClient);
   clientRef.current = queryClient;
 
@@ -40,16 +42,16 @@ export function useSSE() {
       if (!token) return;
 
       const evtSource = new EventSource(
-        `${api.base}/api/events?token=${encodeURIComponent(token)}`
+        `${api.base}/api/events?token=${encodeURIComponent(token)}`,
+        // withCredentials lets same-origin deployments also send cookies
       );
       source = evtSource;
 
-      evtSource.addEventListener("connected", () => {
-        // server accepted the stream
-      });
+      evtSource.addEventListener("connected", () => {});
 
       evtSource.addEventListener("notification", (e) => {
         try {
+          lastEventId = e.lastEventId || lastEventId;
           const data = JSON.parse(e.data);
           const client = clientRef.current;
           client.setQueryData(["notifications", "all", "all"], (old) => {
@@ -78,10 +80,40 @@ export function useSSE() {
 
       evtSource.addEventListener("unread-count", (e) => {
         try {
+          lastEventId = e.lastEventId || lastEventId;
           const { count } = JSON.parse(e.data);
           clientRef.current.setQueryData(["unreadCount"], {
             data: { count },
           });
+        } catch {}
+      });
+
+      evtSource.addEventListener("post:update", async (e) => {
+        try {
+          lastEventId = e.lastEventId || lastEventId;
+          const data = JSON.parse(e.data);
+          if (!data?.postId) return;
+          const { patchPostEverywhere } = await import("../optimistic.js");
+          const patch = {};
+          if (data.likeCount != null) patch.likeCount = data.likeCount;
+          if (data.repostCount != null) patch.repostCount = data.repostCount;
+          if (data.replyCount != null) patch.replyCount = data.replyCount;
+          if (Object.keys(patch).length === 0) return;
+          patchPostEverywhere(clientRef.current, data.postId, patch);
+        } catch {}
+      });
+
+      evtSource.addEventListener("follow:update", async (e) => {
+        try {
+          lastEventId = e.lastEventId || lastEventId;
+          const data = JSON.parse(e.data);
+          if (!data?.userId) return;
+          const { patchUserEverywhere } = await import("../optimistic.js");
+          const patch = {};
+          if (data.followersCount != null) patch.followersCount = data.followersCount;
+          if (data.isFollowing != null) patch.isFollowing = data.isFollowing;
+          if (Object.keys(patch).length === 0) return;
+          patchUserEverywhere(clientRef.current, data.userId, patch);
         } catch {}
       });
 

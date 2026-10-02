@@ -2,11 +2,29 @@ import { Notification } from "../models/Notification.js";
 import { blockService } from "./blockService.js";
 import { pushNotification, pushUnreadCount } from "../routes/sseRoutes.js";
 
+// Burst coalesce window: same (recipient, actor, type, post) within 10s
+// collapses without DB. Pruned opportunistically to bound memory.
+const recentCreates = new Map();
+setInterval(() => {
+  const cutoff = Date.now() - 10_000;
+  for (const [k, t] of recentCreates) {
+    if (t < cutoff) recentCreates.delete(k);
+  }
+}, 30_000).unref?.();
+
 export const notificationService = {
   async create({ recipient, actor, type, post = null }) {
     if (String(recipient) === String(actor)) return null; // no self-notif
     // never notify across a block — either direction
     if (await blockService.isBlocked(recipient, actor)) return null;
+    // In-memory burst coalesce (10s): 100 concurrent likes from distinct
+    // actors have distinct keys so all pass; duplicate retries / double-taps
+    // from the same actor collapse without a DB hit.
+    const key = `${recipient}:${actor}:${type}:${post || ""}`;
+    const now = Date.now();
+    const last = recentCreates.get(key);
+    if (last && now - last < 10_000) return null;
+    recentCreates.set(key, now);
     // dedup: ignore if same unread exists within 1h
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
     const existing = await Notification.findOne({

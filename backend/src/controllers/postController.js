@@ -80,17 +80,28 @@ export const postController = {
   }),
 
   toggleLike: asyncHandler(async (req, res) => {
-    const result = await postService.toggleLike(req.user._id, req.params.id);
+    // POST = ensure liked (idempotent), DELETE = ensure unliked (idempotent).
+    // Same URL keeps backward compat, but burst retries no longer 409 or flip.
+    const result =
+      req.method === "DELETE"
+        ? await postService.unlikePost(req.user._id, req.params.id)
+        : await postService.likePost(req.user._id, req.params.id);
     res.json({ success: true, data: result });
   }),
 
   toggleRepost: asyncHandler(async (req, res) => {
-    const result = await postService.toggleRepost(req.user._id, req.params.id);
+    const result =
+      req.method === "DELETE"
+        ? await postService.unrepostPost(req.user._id, req.params.id)
+        : await postService.repostPost(req.user._id, req.params.id);
     res.json({ success: true, data: result });
   }),
 
   toggleBookmark: asyncHandler(async (req, res) => {
-    const result = await postService.toggleBookmark(req.user._id, req.params.id);
+    const result =
+      req.method === "DELETE"
+        ? await postService.unbookmarkPost(req.user._id, req.params.id)
+        : await postService.bookmarkPost(req.user._id, req.params.id);
     res.json({ success: true, data: result });
   }),
 

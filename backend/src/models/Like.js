@@ -10,5 +10,6 @@ const likeSchema = new mongoose.Schema(
 
 likeSchema.index({ user: 1, post: 1 }, { unique: true });
 likeSchema.index({ post: 1, createdAt: -1 });
+likeSchema.index({ user: 1, createdAt: -1 });
 
 export const Like = mongoose.model("Like", likeSchema);

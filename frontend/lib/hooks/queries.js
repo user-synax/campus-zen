@@ -323,38 +323,55 @@ export function useCreatePost() {
 export function useToggleLike() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (postId) => api.likePost(postId),
-    onMutate: async (postId) => {
-      // Cancel outgoing refetches
+    // Accepts postId string (toggles based on cache) or { postId, liked: true|false } explicit.
+    mutationFn: async (arg) => {
+      const postId = typeof arg === "string" ? arg : arg.postId;
+      const explicitLiked = typeof arg === "object" ? arg.liked : undefined;
+      let currentlyLiked = explicitLiked;
+      if (currentlyLiked === undefined) {
+        const cached = qc.getQueryData(["post", postId]);
+        const p = cached?.data?.post || cached;
+        currentlyLiked = Boolean(p?.isLiked);
+      }
+      const res = currentlyLiked
+        ? await api.unlikePost(postId)
+        : await api.likePost(postId);
+      return { postId, ...res.data };
+    },
+    onMutate: async (arg) => {
+      const postId = typeof arg === "string" ? arg : arg.postId;
       await qc.cancelQueries({ queryKey: ["feed"] });
       await qc.cancelQueries({ queryKey: ["publicFeed"] });
       await qc.cancelQueries({ queryKey: ["post", postId] });
-
-      // Snapshot previous values
+      // Snapshot for rollback: capture current liked/count from detail cache
       const previousPost = qc.getQueryData(["post", postId]);
-
-      // Optimistically update post detail
-      if (previousPost) {
-        qc.setQueryData(["post", postId], (old) => ({
-          ...old,
-          isLiked: !old.isLiked,
-          likeCount: old.likeCount + (old.isLiked ? -1 : 1),
-        }));
-      }
-
-      return { previousPost };
+      const p = previousPost?.data?.post || previousPost;
+      const wasLiked = Boolean(p?.isLiked);
+      const wasCount = Number(p?.likeCount ?? 0);
+      const { patchPostEverywhere } = await import("../optimistic.js");
+      patchPostEverywhere(qc, postId, {
+        isLiked: !wasLiked,
+        likeCount: wasLiked ? Math.max(0, wasCount - 1) : wasCount + 1,
+      });
+      return { previousPost, postId, wasLiked, wasCount };
     },
-    onError: (err, postId, context) => {
-      // Rollback on error
-      if (context?.previousPost) {
-        qc.setQueryData(["post", postId], context.previousPost);
-      }
+    onError: (_err, _arg, context) => {
+      if (!context) return;
+      import("../optimistic.js").then(({ patchPostEverywhere }) => {
+        patchPostEverywhere(qc, context.postId, {
+          isLiked: context.wasLiked,
+          likeCount: context.wasCount,
+        });
+      });
     },
-    onSettled: (data, error, postId) => {
-      // Refetch to ensure consistency
-      qc.invalidateQueries({ queryKey: ["post", postId] });
-      qc.invalidateQueries({ queryKey: ["feed"] });
-      qc.invalidateQueries({ queryKey: ["publicFeed"] });
+    onSuccess: (data) => {
+      // Reconcile with authoritative server count — no full feed refetch.
+      import("../optimistic.js").then(({ patchPostEverywhere }) => {
+        patchPostEverywhere(qc, data.postId, {
+          isLiked: data.liked,
+          likeCount: data.likeCount,
+        });
+      });
     },
   });
 }
@@ -362,10 +379,43 @@ export function useToggleLike() {
 export function useToggleRepost() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (postId) => api.repostPost(postId),
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: ["feed"] });
-      qc.invalidateQueries({ queryKey: ["publicFeed"] });
+    mutationFn: async (arg) => {
+      const postId = typeof arg === "string" ? arg : arg.postId;
+      const explicit = typeof arg === "object" ? arg.reposted : undefined;
+      let currently = explicit;
+      if (currently === undefined) {
+        const cached = qc.getQueryData(["post", postId]);
+        const p = cached?.data?.post || cached;
+        currently = Boolean(p?.isReposted);
+      }
+      const res = currently ? await api.unrepostPost(postId) : await api.repostPost(postId);
+      return { postId, ...res.data };
+    },
+    onMutate: async (arg) => {
+      const postId = typeof arg === "string" ? arg : arg.postId;
+      await qc.cancelQueries({ queryKey: ["feed"] });
+      await qc.cancelQueries({ queryKey: ["publicFeed"] });
+      const cached = qc.getQueryData(["post", postId]);
+      const p = cached?.data?.post || cached;
+      const was = Boolean(p?.isReposted);
+      const wasCount = Number(p?.repostCount ?? 0);
+      const { patchPostEverywhere } = await import("../optimistic.js");
+      patchPostEverywhere(qc, postId, {
+        isReposted: !was,
+        repostCount: was ? Math.max(0, wasCount - 1) : wasCount + 1,
+      });
+      return { postId, was, wasCount };
+    },
+    onError: (_e, _a, ctx) => {
+      if (!ctx) return;
+      import("../optimistic.js").then(({ patchPostEverywhere }) => {
+        patchPostEverywhere(qc, ctx.postId, { isReposted: ctx.was, repostCount: ctx.wasCount });
+      });
+    },
+    onSuccess: (data) => {
+      import("../optimistic.js").then(({ patchPostEverywhere }) => {
+        patchPostEverywhere(qc, data.postId, { isReposted: data.reposted, repostCount: data.repostCount });
+      });
     },
   });
 }
@@ -373,10 +423,38 @@ export function useToggleRepost() {
 export function useToggleBookmark() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (postId) => api.bookmarkPost(postId),
-    onSettled: () => {
+    mutationFn: async (arg) => {
+      const postId = typeof arg === "string" ? arg : arg.postId;
+      const explicit = typeof arg === "object" ? arg.bookmarked : undefined;
+      let currently = explicit;
+      if (currently === undefined) {
+        const cached = qc.getQueryData(["post", postId]);
+        const p = cached?.data?.post || cached;
+        currently = Boolean(p?.isBookmarked);
+      }
+      const res = currently ? await api.unbookmarkPost(postId) : await api.bookmarkPost(postId);
+      return { postId, ...res.data };
+    },
+    onMutate: async (arg) => {
+      const postId = typeof arg === "string" ? arg : arg.postId;
+      const cached = qc.getQueryData(["post", postId]);
+      const p = cached?.data?.post || cached;
+      const was = Boolean(p?.isBookmarked);
+      const { patchPostEverywhere } = await import("../optimistic.js");
+      patchPostEverywhere(qc, postId, { isBookmarked: !was });
+      return { postId, was };
+    },
+    onError: (_e, _a, ctx) => {
+      if (!ctx) return;
+      import("../optimistic.js").then(({ patchPostEverywhere }) => {
+        patchPostEverywhere(qc, ctx.postId, { isBookmarked: ctx.was });
+      });
+    },
+    onSuccess: (data) => {
+      import("../optimistic.js").then(({ patchPostEverywhere }) => {
+        patchPostEverywhere(qc, data.postId, { isBookmarked: data.bookmarked });
+      });
       qc.invalidateQueries({ queryKey: ["bookmarks"] });
-      qc.invalidateQueries({ queryKey: ["feed"] });
     },
   });
 }
@@ -385,8 +463,26 @@ export function useFollow() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (userId) => api.followUser(userId),
-    onSuccess: () => {
+    onMutate: async (userId) => {
+      await qc.cancelQueries({ queryKey: ["user"] });
+      const { patchUserEverywhere } = await import("../optimistic.js");
+      patchUserEverywhere(qc, userId, { isFollowing: true });
+      return { userId };
+    },
+    onSuccess: (res, userId) => {
+      import("../optimistic.js").then(({ patchUserEverywhere }) => {
+        const counts = res?.data?.followingCounts;
+        patchUserEverywhere(qc, userId, {
+          isFollowing: true,
+          ...(counts?.followersCount != null ? { followersCount: counts.followersCount } : {}),
+        });
+      });
       qc.invalidateQueries({ queryKey: ["suggestions"] });
+    },
+    onError: (_e, userId) => {
+      import("../optimistic.js").then(({ patchUserEverywhere }) => {
+        patchUserEverywhere(qc, userId, { isFollowing: false });
+      });
     },
   });
 }
@@ -395,8 +491,26 @@ export function useUnfollow() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (userId) => api.unfollowUser(userId),
-    onSuccess: () => {
+    onMutate: async (userId) => {
+      await qc.cancelQueries({ queryKey: ["user"] });
+      const { patchUserEverywhere } = await import("../optimistic.js");
+      patchUserEverywhere(qc, userId, { isFollowing: false });
+      return { userId };
+    },
+    onSuccess: (res, userId) => {
+      import("../optimistic.js").then(({ patchUserEverywhere }) => {
+        const counts = res?.data?.followingCounts;
+        patchUserEverywhere(qc, userId, {
+          isFollowing: false,
+          ...(counts?.followersCount != null ? { followersCount: counts.followersCount } : {}),
+        });
+      });
       qc.invalidateQueries({ queryKey: ["suggestions"] });
+    },
+    onError: (_e, userId) => {
+      import("../optimistic.js").then(({ patchUserEverywhere }) => {
+        patchUserEverywhere(qc, userId, { isFollowing: true });
+      });
     },
   });
 }
@@ -405,9 +519,26 @@ export function useCreateReply() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ postId, text }) => api.createReply(postId, text),
-    onSuccess: (_, { postId }) => {
-      qc.invalidateQueries({ queryKey: ["replies", postId] });
-      qc.invalidateQueries({ queryKey: ["post", postId] });
+    onSuccess: (res, { postId }) => {
+      // Prepend to replies cache + bump post replyCount without full refetch.
+      const comment = res?.data?.comment;
+      const replyCount = res?.data?.replyCount;
+      if (comment) {
+        qc.setQueryData(["replies", postId, 1], (old) => {
+          if (!old?.pages) return old;
+          const pages = [...old.pages];
+          const first = pages[0];
+          if (first?.data?.comments) {
+            pages[0] = { ...first, data: { ...first.data, comments: [comment, ...first.data.comments] } };
+          }
+          return { ...old, pages };
+        });
+      }
+      if (replyCount != null) {
+        import("../optimistic.js").then(({ patchPostEverywhere }) => {
+          patchPostEverywhere(qc, postId, { replyCount });
+        });
+      }
     },
   });
 }

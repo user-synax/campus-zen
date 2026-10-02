@@ -2,6 +2,7 @@ import { Inter } from "next/font/google";
 import { cookies } from "next/headers";
 import "./globals.css";
 import { QueryProvider } from "@/components/providers/query-provider";
+import { CzToaster } from "@/components/ui/sonner";
 import { readThemeCookie } from "@/lib/theme";
 
 // TwitterChirp is proprietary — Inter is the documented substitute.
@@ -103,6 +104,7 @@ export default async function RootLayout({ children }) {
           {JSON.stringify(orgJsonLd)}
         </script>
         <QueryProvider>{children}</QueryProvider>
+        <CzToaster />
       </body>
     </html>
   );

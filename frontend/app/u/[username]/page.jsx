@@ -21,6 +21,7 @@ import { ReportDialog } from "@/components/app/ReportDialog";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { useMe, useUser } from "@/lib/hooks/queries";
+import { toast } from "sonner";
 
 export default function PublicProfilePage() {
   const { username } = useParams();
@@ -58,22 +59,42 @@ export default function PublicProfilePage() {
 
   const handleFollow = async () => {
     if (!user || isOwn || isGuest) return;
+    const was = isFollowing;
+    const prevCount = user.followersCount ?? 0;
+    // Instant: optimistic patch first
+    patchUser({
+      isFollowing: !was,
+      followersCount: was ? Math.max(0, prevCount - 1) : prevCount + 1,
+    });
+    try {
+      const { patchUserEverywhere } = await import("@/lib/optimistic");
+      patchUserEverywhere(queryClient, user._id, {
+        isFollowing: !was,
+        followersCount: was ? Math.max(0, prevCount - 1) : prevCount + 1,
+      });
+    } catch {}
     setFollowLoading(true);
     try {
-      if (isFollowing) {
-        await api.unfollowUser(user._id);
-        patchUser({
-          isFollowing: false,
-          followersCount: Math.max(0, (user.followersCount ?? 1) - 1),
-        });
+      if (was) {
+        const res = await api.unfollowUser(user._id);
+        const serverCount = res?.data?.followingCounts?.followersCount ?? Math.max(0, prevCount - 1);
+        patchUser({ isFollowing: false, followersCount: serverCount });
+        toast.success(`Unfollowed @${user.username}`);
       } else {
-        await api.followUser(user._id);
-        patchUser({
-          isFollowing: true,
-          followersCount: (user.followersCount ?? 0) + 1,
+        const promise = api.followUser(user._id);
+        toast.promise(promise, {
+          loading: `Following @${user.username}...`,
+          success: `Following @${user.username} — you'll see their posts live`,
+          error: "Couldn't follow. Try again.",
         });
+        const res = await promise;
+        const serverCount = res?.data?.followingCounts?.followersCount ?? prevCount + 1;
+        patchUser({ isFollowing: true, followersCount: serverCount });
       }
-    } catch {}
+    } catch {
+      patchUser({ isFollowing: was, followersCount: prevCount });
+      toast.error("Couldn't update follow. Try again.");
+    }
     setFollowLoading(false);
   };
 

@@ -18,6 +18,8 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { AnimatedNumber } from "@/components/app/AnimatedNumber";
 import { CzImage } from "@/components/app/CzImage";
 import { PostMedia } from "@/components/app/PostMedia";
@@ -152,6 +154,7 @@ export function PostCard({
   onPinChange,
 }) {
   const router = useRouter();
+  const qc = useQueryClient();
   const [post, setPost] = useState(initialPost);
   const [liked, setLiked] = useState(Boolean(initialPost.isLiked));
   const [reposted, setReposted] = useState(Boolean(initialPost.isReposted));
@@ -199,10 +202,22 @@ export function PostCard({
 
   // Counts are local so likes/reposts feel instant, but they must not drift
   // from the server — the detail page bumps replyCount when a reply lands,
-  // and refetches on delete/undelete.
+  // SSE `post:update` patches the query cache (parent re-renders with new
+  // initialPost), and we reconcile here. Local optimistic taps win: only
+  // sync when the incoming prop actually differs to avoid clobbering a
+  // just-tapped state before the server round-trip returns.
   useEffect(() => {
     if (initialPost.replyCount != null) setReplyCount(initialPost.replyCount);
-  }, [initialPost.replyCount]);
+    setPost((prev) => (prev._id === initialPost._id ? { ...prev, ...initialPost } : initialPost));
+  }, [initialPost]);
+  useEffect(() => {
+    setLiked(Boolean(initialPost.isLiked));
+    setLikeCount(initialPost.likeCount || 0);
+    setReposted(Boolean(initialPost.isReposted));
+    setRepostCount(initialPost.repostCount || 0);
+    setSaved(Boolean(initialPost.isBookmarked));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialPost._id, initialPost.isLiked, initialPost.likeCount, initialPost.isReposted, initialPost.repostCount, initialPost.isBookmarked]);
 
   const editRef = useRef(null);
   const editMention = useMentionAutocomplete({
@@ -218,39 +233,74 @@ export function PostCard({
 
   const handleLike = async () => {
     const wasLiked = liked;
+    const prevCount = likeCount;
     setLiked(!wasLiked);
     setLikeCount((c) => (wasLiked ? Math.max(0, c - 1) : c + 1));
+    try {
+      const { patchPostEverywhere } = await import("@/lib/optimistic");
+      patchPostEverywhere(qc, post._id, {
+        isLiked: !wasLiked,
+        likeCount: wasLiked ? Math.max(0, prevCount - 1) : prevCount + 1,
+      });
+    } catch {}
     try {
       const res = wasLiked
         ? await api.unlikePost(post._id)
         : await api.likePost(post._id);
-      setLikeCount(
-        res.data?.likeCount ??
-          (wasLiked ? Math.max(0, likeCount - 1) : likeCount + 1),
-      );
-      setLiked(res.data?.liked ?? !wasLiked);
+      const serverCount =
+        res.data?.likeCount ?? (wasLiked ? Math.max(0, prevCount - 1) : prevCount + 1);
+      const serverLiked = res.data?.liked ?? !wasLiked;
+      setLikeCount(serverCount);
+      setLiked(serverLiked);
+      try {
+        const { patchPostEverywhere } = await import("@/lib/optimistic");
+        patchPostEverywhere(qc, post._id, { isLiked: serverLiked, likeCount: serverCount });
+      } catch {}
     } catch {
       setLiked(wasLiked);
-      setLikeCount((c) => (wasLiked ? c + 1 : Math.max(0, c - 1)));
+      setLikeCount(prevCount);
+      try {
+        const { patchPostEverywhere } = await import("@/lib/optimistic");
+        patchPostEverywhere(qc, post._id, { isLiked: wasLiked, likeCount: prevCount });
+      } catch {}
+      toast.error("Couldn't update like. Try again.");
     }
   };
 
   const handleRepost = async () => {
     const was = reposted;
+    const prevCount = repostCount;
     setReposted(!was);
     setRepostCount((c) => (was ? Math.max(0, c - 1) : c + 1));
+    try {
+      const { patchPostEverywhere } = await import("@/lib/optimistic");
+      patchPostEverywhere(qc, post._id, {
+        isReposted: !was,
+        repostCount: was ? Math.max(0, prevCount - 1) : prevCount + 1,
+      });
+    } catch {}
     try {
       const res = was
         ? await api.unrepostPost(post._id)
         : await api.repostPost(post._id);
-      setRepostCount(
-        res.data?.repostCount ??
-          (was ? Math.max(0, repostCount - 1) : repostCount + 1),
-      );
-      setReposted(res.data?.reposted ?? !was);
+      const serverCount =
+        res.data?.repostCount ?? (was ? Math.max(0, prevCount - 1) : prevCount + 1);
+      const serverState = res.data?.reposted ?? !was;
+      setRepostCount(serverCount);
+      setReposted(serverState);
+      try {
+        const { patchPostEverywhere } = await import("@/lib/optimistic");
+        patchPostEverywhere(qc, post._id, { isReposted: serverState, repostCount: serverCount });
+      } catch {}
+      toast.success(serverState ? "Reposted to your profile" : "Repost removed");
     } catch {
       setReposted(was);
-      setRepostCount((c) => (was ? c + 1 : Math.max(0, c - 1)));
+      setRepostCount(prevCount);
+      try {
+        const { patchPostEverywhere } = await import("@/lib/optimistic");
+        patchPostEverywhere(qc, post._id, { isReposted: was, repostCount: prevCount });
+      } catch {}
+      toast.error("Couldn't update repost. Try again.");
     }
   };
 
@@ -258,12 +308,28 @@ export function PostCard({
     const was = saved;
     setSaved(!was);
     try {
+      const { patchPostEverywhere } = await import("@/lib/optimistic");
+      patchPostEverywhere(qc, post._id, { isBookmarked: !was });
+    } catch {}
+    try {
       const res = was
         ? await api.unbookmarkPost(post._id)
         : await api.bookmarkPost(post._id);
-      setSaved(res.data?.bookmarked ?? !was);
+      const serverState = res.data?.bookmarked ?? !was;
+      setSaved(serverState);
+      try {
+        const { patchPostEverywhere } = await import("@/lib/optimistic");
+        patchPostEverywhere(qc, post._id, { isBookmarked: serverState });
+      } catch {}
+      if (!was) qc.invalidateQueries({ queryKey: ["bookmarks"] });
+      toast.success(serverState ? "Saved to bookmarks" : "Removed from bookmarks");
     } catch {
       setSaved(was);
+      try {
+        const { patchPostEverywhere } = await import("@/lib/optimistic");
+        patchPostEverywhere(qc, post._id, { isBookmarked: was });
+      } catch {}
+      toast.error("Couldn't update bookmark. Try again.");
     }
   };
 
@@ -276,18 +342,33 @@ export function PostCard({
       setPost(res.data?.post);
       setEditText(res.data?.post.text);
       setEditing(false);
+      toast.success("Post updated");
       onUpdate?.(res.data?.post);
-    } catch {}
+    } catch {
+      toast.error("Couldn't update post. Try again.");
+    }
     setEditLoading(false);
   };
 
   const handleDelete = async () => {
     setMenuOpen(false);
-    if (!confirm("Delete this post?")) return;
-    try {
-      await api.deletePost(post._id);
-      onDelete?.(post._id);
-    } catch {}
+    toast(`Delete this post?`, {
+      description: "This can't be undone.",
+      action: {
+        label: "Delete",
+        onClick: async () => {
+          try {
+            await api.deletePost(post._id);
+            toast.success("Post deleted");
+            onDelete?.(post._id);
+          } catch {
+            toast.error("Couldn't delete post. Try again.");
+          }
+        },
+      },
+      cancel: { label: "Keep", onClick: () => {} },
+      duration: 6000,
+    });
   };
 
   const flashCopied = () => {
@@ -307,6 +388,7 @@ export function PostCard({
             "Check out this post on CampusZen",
           url,
         });
+        toast.success("Shared");
       } catch {
         // user dismissed the sheet or share failed — stay silent
       }
@@ -326,7 +408,10 @@ export function PostCard({
         document.body.removeChild(ta);
       }
       flashCopied();
-    } catch {}
+      toast.success("Link copied to clipboard");
+    } catch {
+      toast.error("Couldn't copy link.");
+    }
   };
 
   const handlePinToggle = async () => {
@@ -336,12 +421,16 @@ export function PostCard({
     try {
       if (isPinned) {
         await api.unpinPost();
+        toast.success("Unpinned from profile");
         onPinChange?.(null);
       } else {
         await api.pinPost(post._id);
+        toast.success("Pinned to profile");
         onPinChange?.(post);
       }
-    } catch {}
+    } catch {
+      toast.error("Couldn't update pin. Try again.");
+    }
     setPinLoading(false);
   };
 

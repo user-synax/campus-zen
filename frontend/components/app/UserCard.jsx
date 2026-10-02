@@ -3,6 +3,8 @@
 import { GraduationCap, MapPin } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { AnimatedNumber } from "@/components/app/AnimatedNumber";
 import { CzImage } from "@/components/app/CzImage";
 import { Button } from "@/components/ui/button";
@@ -16,6 +18,7 @@ import { collegeHrefFor } from "@/lib/college";
  * density. The surface stays flat: white on white, defined by a hairline.
  */
 export function UserCard({ user: initialUser, isOwn, isGuest }) {
+  const qc = useQueryClient();
   const [user, setUser] = useState(initialUser);
   const [following, setFollowing] = useState(Boolean(initialUser.isFollowing));
   const [loading, setLoading] = useState(false);
@@ -124,24 +127,60 @@ export function UserCard({ user: initialUser, isOwn, isGuest }) {
             variant={following ? "secondary" : "primary"}
             disabled={loading}
             onClick={async () => {
+              if (loading) return;
+              const was = following;
+              const prevCount = user.followersCount ?? 0;
               setLoading(true);
+              // Instant: flip + patch everywhere so profile/suggestions stay in sync
+              setFollowing(!was);
+              setUser((u) => ({
+                ...u,
+                followersCount: was ? Math.max(0, (u.followersCount ?? 1) - 1) : (u.followersCount ?? 0) + 1,
+              }));
               try {
-                if (following) {
-                  await api.unfollowUser(user._id);
-                  setFollowing(false);
-                  setUser((u) => ({
-                    ...u,
-                    followersCount: Math.max(0, (u.followersCount ?? 1) - 1),
-                  }));
-                } else {
-                  await api.followUser(user._id);
-                  setFollowing(true);
-                  setUser((u) => ({
-                    ...u,
-                    followersCount: (u.followersCount ?? 0) + 1,
-                  }));
-                }
+                const { patchUserEverywhere } = await import("@/lib/optimistic");
+                patchUserEverywhere(qc, user._id, {
+                  isFollowing: !was,
+                  followersCount: was ? Math.max(0, prevCount - 1) : prevCount + 1,
+                });
               } catch {}
+              try {
+                if (was) {
+                  const res = await api.unfollowUser(user._id);
+                  const serverCount = res?.data?.followingCounts?.followersCount ?? Math.max(0, prevCount - 1);
+                  setFollowing(false);
+                  setUser((u) => ({ ...u, followersCount: serverCount }));
+                  try {
+                    const { patchUserEverywhere } = await import("@/lib/optimistic");
+                    patchUserEverywhere(qc, user._id, { isFollowing: false, followersCount: serverCount });
+                  } catch {}
+                  toast.success(`Unfollowed @${user.username}`);
+                } else {
+                  const promise = api.followUser(user._id);
+                  toast.promise(promise, {
+                    loading: `Following @${user.username}...`,
+                    success: `Following @${user.username} — you'll see their posts live`,
+                    error: "Couldn't follow. Try again.",
+                  });
+                  const res = await promise;
+                  const serverCount = res?.data?.followingCounts?.followersCount ?? prevCount + 1;
+                  setFollowing(true);
+                  setUser((u) => ({ ...u, followersCount: serverCount }));
+                  try {
+                    const { patchUserEverywhere } = await import("@/lib/optimistic");
+                    patchUserEverywhere(qc, user._id, { isFollowing: true, followersCount: serverCount });
+                  } catch {}
+                }
+              } catch {
+                setFollowing(was);
+                setUser((u) => ({ ...u, followersCount: prevCount }));
+                try {
+                  const { patchUserEverywhere } = await import("@/lib/optimistic");
+                  patchUserEverywhere(qc, user._id, { isFollowing: was, followersCount: prevCount });
+                } catch {}
+                if (!was) toast.error("Couldn't follow. Try again.");
+                else toast.error("Couldn't unfollow. Try again.");
+              }
               setLoading(false);
             }}
             className="group w-full"

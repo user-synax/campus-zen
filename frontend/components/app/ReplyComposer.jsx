@@ -10,6 +10,7 @@ import {
 import { useAutogrowTextarea } from "@/components/app/useAutogrowTextarea";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
+import { toast } from "sonner";
 
 const MAX = 500;
 
@@ -54,9 +55,12 @@ export function ReplyComposer({
       const res = await api.createReply(postId, body);
       setText("");
       setFileName("");
+      toast.success("Reply posted");
       onCreated?.(res.data?.comment, res.data?.replyCount);
     } catch (err) {
-      setError(err?.data?.message || "Couldn't post your reply. Try again.");
+      const msg = err?.data?.message || "Couldn't post your reply. Try again.";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setBusy(false);
     }

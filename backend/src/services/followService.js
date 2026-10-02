@@ -3,6 +3,15 @@ import { User } from "../models/User.js";
 import { notificationService } from "./notificationService.js";
 import { blockService } from "./blockService.js";
 import { AppError } from "../utils/AppError.js";
+import { pushFollowUpdate } from "../routes/sseRoutes.js";
+
+function afterResponse(fn) {
+  setImmediate(() => {
+    Promise.resolve()
+      .then(fn)
+      .catch(() => {});
+  });
+}
 
 export const followService = {
   async follow(followerId, followingId) {
@@ -13,50 +22,71 @@ export const followService = {
 
     // No transaction on purpose: must run on standalone local Mongo as well
     // as replica sets. The unique index makes the insert retry-safe.
+    // Idempotent: duplicate POST returns current counts instead of 409 so
+    // burst retries / double-taps don't error.
+    let inserted = true;
     try {
       await Follow.create({ follower: followerId, following: followingId });
     } catch (err) {
-      if (err.code === 11000) throw new AppError("Already following", 409, "ALREADY_FOLLOWING");
-      throw err;
+      if (err.code === 11000) inserted = false;
+      else throw err;
     }
-    // denormalized counts — best effort, Follow docs are the source of truth
-    await Promise.all([
-      User.findByIdAndUpdate(followerId, { $inc: { followingCount: 1 } }),
-      User.findByIdAndUpdate(followingId, { $inc: { followersCount: 1 } }),
-    ]);
-    // notification — best effort with dedup
-    try {
-      await notificationService.create({ recipient: followingId, actor: followerId, type: "follow" });
-    } catch {}
+    if (inserted) {
+      // denormalized counts — best effort, Follow docs are the source of truth
+      await Promise.all([
+        User.findByIdAndUpdate(followerId, { $inc: { followingCount: 1 } }),
+        User.findByIdAndUpdate(followingId, { $inc: { followersCount: 1 } }),
+      ]);
+      // notification + live push — never block the response
+      afterResponse(() =>
+        notificationService.create({ recipient: followingId, actor: followerId, type: "follow" }),
+      );
+    }
 
     // live counts — fetch fresh
     const [follower, following] = await Promise.all([
       User.findById(followerId).select("followingCount followersCount"),
       User.findById(followingId).select("followingCount followersCount"),
     ]);
-    return { followerCounts: follower, followingCounts: following };
+    afterResponse(() =>
+      pushFollowUpdate(followingId, {
+        userId: String(followingId),
+        followersCount: following.followersCount,
+        isFollowing: true,
+      }),
+    );
+    return { followerCounts: follower, followingCounts: following, alreadyFollowing: !inserted };
   },
 
   async unfollow(followerId, followingId) {
     if (String(followerId) === String(followingId)) throw new AppError("You cannot unfollow yourself", 400, "SELF_FOLLOW");
     // atomic delete — doubles as the existence check, no transaction needed
+    // Idempotent: already-unfollowed returns current counts instead of 404.
     const existing = await Follow.findOneAndDelete({ follower: followerId, following: followingId });
-    if (!existing) throw new AppError("Not following", 404, "NOT_FOLLOWING");
 
-    await Promise.all([
-      User.findByIdAndUpdate(followerId, { $inc: { followingCount: -1 } }),
-      User.findByIdAndUpdate(followingId, { $inc: { followersCount: -1 } }),
-    ]);
+    if (existing) {
+      await Promise.all([
+        User.findByIdAndUpdate(followerId, { $inc: { followingCount: -1 } }),
+        User.findByIdAndUpdate(followingId, { $inc: { followersCount: -1 } }),
+      ]);
 
-    // clamp counts to 0 and return live
-    await User.updateMany({ _id: { $in: [followerId, followingId] }, followingCount: { $lt: 0 } }, { $set: { followingCount: 0 } });
-    await User.updateMany({ _id: { $in: [followerId, followingId] }, followersCount: { $lt: 0 } }, { $set: { followersCount: 0 } });
+      // clamp counts to 0 and return live
+      await User.updateMany({ _id: { $in: [followerId, followingId] }, followingCount: { $lt: 0 } }, { $set: { followingCount: 0 } });
+      await User.updateMany({ _id: { $in: [followerId, followingId] }, followersCount: { $lt: 0 } }, { $set: { followersCount: 0 } });
+    }
 
     const [follower, following] = await Promise.all([
       User.findById(followerId).select("followingCount followersCount"),
       User.findById(followingId).select("followingCount followersCount"),
     ]);
-    return { followerCounts: follower, followingCounts: following };
+    afterResponse(() =>
+      pushFollowUpdate(followingId, {
+        userId: String(followingId),
+        followersCount: following?.followersCount ?? 0,
+        isFollowing: false,
+      }),
+    );
+    return { followerCounts: follower, followingCounts: following, wasFollowing: Boolean(existing) };
   },
 
   async isFollowing(followerId, followingId) {

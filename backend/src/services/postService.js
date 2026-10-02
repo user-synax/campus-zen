@@ -12,8 +12,27 @@ import { extractHashtags, normalizeHashtag } from "../utils/hashtags.js";
 import { extractMentions } from "../utils/mentions.js";
 import { AppError } from "../utils/AppError.js";
 import { cache, CacheKeys, TTL } from "../utils/cache.js";
+import { pushPostUpdate } from "../routes/sseRoutes.js";
 
 const EDIT_WINDOW_MS = 5 * 60 * 1000;
+
+// Fire-and-forget: notifications + live pushes must never block the
+// interaction response. Errors are swallowed (best-effort realtime).
+function afterResponse(fn) {
+  setImmediate(() => {
+    Promise.resolve()
+      .then(fn)
+      .catch(() => {});
+  });
+}
+
+// Targeted invalidation for count-only changes. Feed caches carry a 30s TTL
+// and clients patch counts live via SSE `post:update`, so we must NOT
+// delPattern("feed:*") here — that is what causes a stampede when 100 users
+// like at once (every like wipes every feed page).
+function invalidatePostCounts(postId) {
+  cache.del(CacheKeys.post(postId));
+}
 
 // post media limits (per user answers: 25MB / 60s video, GIF as image,
 // up to 4 attachments, no transcoding — fast via lazy + poster)
@@ -165,19 +184,24 @@ async function attachBookmarked(posts, viewerId) {
 
 // notify mentioned users — skips self, missing users, and optional skipId
 // (e.g. post author on replies already gets a reply notification)
+// Batched: single $in query instead of N sequential findOne calls.
 async function notifyMentions(actorId, usernames, postId, skipId = null) {
   if (!usernames?.length) return;
   const unique = [...new Set(usernames.map((u) => String(u).toLowerCase()))].slice(0, 10);
-  for (const username of unique) {
-    try {
-      if (skipId && username === String(skipId).toLowerCase()) continue;
-      const user = await User.findOne({ username }).select("_id username").lean();
-      if (!user) continue;
-      if (String(user._id) === String(actorId)) continue;
-      if (skipId && String(user._id) === String(skipId)) continue;
-      await notificationService.create({ recipient: user._id, actor: actorId, type: "mention", post: postId });
-    } catch {}
-  }
+  try {
+    const users = await User.find({ username: { $in: unique } })
+      .select("_id username")
+      .lean();
+    for (const user of users) {
+      try {
+        if (String(user._id) === String(actorId)) continue;
+        if (skipId && String(user._id) === String(skipId)) continue;
+        afterResponse(() =>
+          notificationService.create({ recipient: user._id, actor: actorId, type: "mention", post: postId }),
+        );
+      } catch {}
+    }
+  } catch {}
 }
 
 export const postService = {
@@ -452,112 +476,179 @@ export const postService = {
     return result;
   },
 
-  async toggleLike(userId, postId) {
-    const post = await Post.findById(postId);
+  // Explicit idempotent like: POST always ensures liked. Safe under burst:
+  // unique index makes the insert the arbiter; only the winner $incs.
+  async likePost(userId, postId) {
+    const post = await Post.findById(postId).select("author");
     if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
     await blockService.assertNoBlock(userId, post.author, "You can't interact with this account's posts.");
-    const existing = await Like.findOne({ user: userId, post: postId });
-    if (existing) {
-      await Like.deleteOne({ _id: existing._id });
-      await Post.findByIdAndUpdate(postId, { $inc: { likeCount: -1 } });
-      await Post.updateOne({ _id: postId, likeCount: { $lt: 0 } }, { $set: { likeCount: 0 } });
-      const updated = await Post.findById(postId).select("likeCount");
-      // Invalidate caches that include this post's like count
-      cache.del(CacheKeys.post(postId));
-      cache.delPattern("feed:*");
-      cache.delPattern("publicFeed:*");
-      cache.delPattern(`userPosts:${post.author}:*`);
-      cache.delPattern("hashtag:*");
-      return { liked: false, likeCount: updated.likeCount };
-    } else {
-      try {
-        await Like.create({ user: userId, post: postId });
-      } catch (e) {
-        if (e.code === 11000) throw new AppError("Already liked", 409, "ALREADY_LIKED");
-        throw e;
-      }
-      await Post.findByIdAndUpdate(postId, { $inc: { likeCount: 1 } });
-      if (String(post.author) !== String(userId)) {
-        try {
-          await notificationService.create({ recipient: post.author, actor: userId, type: "like", post: postId });
-        } catch {}
-      }
-      const updated = await Post.findById(postId).select("likeCount");
-      // Invalidate caches that include this post's like count
-      cache.del(CacheKeys.post(postId));
-      cache.delPattern("feed:*");
-      cache.delPattern("publicFeed:*");
-      cache.delPattern(`userPosts:${post.author}:*`);
-      cache.delPattern("hashtag:*");
-      return { liked: true, likeCount: updated.likeCount };
+    let inserted = false;
+    try {
+      await Like.create({ user: userId, post: postId });
+      inserted = true;
+    } catch (e) {
+      if (e.code !== 11000) throw e;
     }
+    let updated;
+    if (inserted) {
+      updated = await Post.findByIdAndUpdate(postId, { $inc: { likeCount: 1 } }, { new: true }).select("likeCount author");
+      if (String(post.author) !== String(userId)) {
+        afterResponse(() =>
+          notificationService.create({ recipient: post.author, actor: userId, type: "like", post: postId }),
+        );
+      }
+      afterResponse(() =>
+        pushPostUpdate(post.author, { postId: String(postId), likeCount: updated.likeCount }),
+      );
+    } else {
+      updated = await Post.findById(postId).select("likeCount");
+    }
+    invalidatePostCounts(postId);
+    return { liked: true, likeCount: updated.likeCount };
+  },
+
+  async unlikePost(userId, postId) {
+    const post = await Post.findById(postId).select("author");
+    if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
+    const res = await Like.deleteOne({ user: userId, post: postId });
+    let updated;
+    if (res.deletedCount > 0) {
+      updated = await Post.findOneAndUpdate(
+        { _id: postId, likeCount: { $gt: 0 } },
+        { $inc: { likeCount: -1 } },
+        { new: true },
+      ).select("likeCount");
+      if (!updated) updated = await Post.findById(postId).select("likeCount");
+      afterResponse(() =>
+        pushPostUpdate(post.author, { postId: String(postId), likeCount: updated.likeCount }),
+      );
+    } else {
+      updated = await Post.findById(postId).select("likeCount");
+    }
+    invalidatePostCounts(postId);
+    return { liked: false, likeCount: updated.likeCount };
+  },
+
+  // Kept for backward compat (both POST and DELETE /:id/like route here).
+  // Race-safe: duplicate-key races return current state instead of 409.
+  async toggleLike(userId, postId) {
+    const post = await Post.findById(postId).select("author");
+    if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
+    await blockService.assertNoBlock(userId, post.author, "You can't interact with this account's posts.");
+    const existing = await Like.findOne({ user: userId, post: postId }).select("_id");
+    if (existing) return this.unlikePost(userId, postId);
+    try {
+      return await this.likePost(userId, postId);
+    } catch (e) {
+      if (e.code === 11000) return this.likePost(userId, postId);
+      throw e;
+    }
+  },
+
+  async repostPost(userId, postId) {
+    const post = await Post.findById(postId).select("author");
+    if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
+    await blockService.assertNoBlock(userId, post.author, "You can't interact with this account's posts.");
+    let inserted = false;
+    try {
+      await Repost.create({ user: userId, post: postId });
+      inserted = true;
+    } catch (e) {
+      if (e.code !== 11000) throw e;
+    }
+    let updated;
+    if (inserted) {
+      updated = await Post.findByIdAndUpdate(postId, { $inc: { repostCount: 1 } }, { new: true }).select("repostCount author");
+      if (String(post.author) !== String(userId)) {
+        afterResponse(() =>
+          notificationService.create({ recipient: post.author, actor: userId, type: "repost", post: postId }),
+        );
+      }
+      afterResponse(() =>
+        pushPostUpdate(post.author, { postId: String(postId), repostCount: updated.repostCount }),
+      );
+    } else {
+      updated = await Post.findById(postId).select("repostCount");
+    }
+    invalidatePostCounts(postId);
+    return { reposted: true, repostCount: updated.repostCount };
+  },
+
+  async unrepostPost(userId, postId) {
+    const post = await Post.findById(postId).select("author");
+    if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
+    const res = await Repost.deleteOne({ user: userId, post: postId });
+    let updated;
+    if (res.deletedCount > 0) {
+      updated = await Post.findOneAndUpdate(
+        { _id: postId, repostCount: { $gt: 0 } },
+        { $inc: { repostCount: -1 } },
+        { new: true },
+      ).select("repostCount");
+      if (!updated) updated = await Post.findById(postId).select("repostCount");
+      afterResponse(() =>
+        pushPostUpdate(post.author, { postId: String(postId), repostCount: updated.repostCount }),
+      );
+    } else {
+      updated = await Post.findById(postId).select("repostCount");
+    }
+    invalidatePostCounts(postId);
+    return { reposted: false, repostCount: updated.repostCount };
   },
 
   async toggleRepost(userId, postId) {
-    const post = await Post.findById(postId);
+    const post = await Post.findById(postId).select("author");
     if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
     await blockService.assertNoBlock(userId, post.author, "You can't interact with this account's posts.");
-    const existing = await Repost.findOne({ user: userId, post: postId });
-    if (existing) {
-      await Repost.deleteOne({ _id: existing._id });
-      await Post.findByIdAndUpdate(postId, { $inc: { repostCount: -1 } });
-      await Post.updateOne({ _id: postId, repostCount: { $lt: 0 } }, { $set: { repostCount: 0 } });
-      const updated = await Post.findById(postId).select("repostCount");
-      cache.del(CacheKeys.post(postId));
-      cache.delPattern("feed:*");
-      cache.delPattern("publicFeed:*");
-      cache.delPattern(`userPosts:${post.author}:*`);
-      cache.delPattern("hashtag:*");
-      return { reposted: false, repostCount: updated.repostCount };
-    } else {
-      try {
-        await Repost.create({ user: userId, post: postId });
-      } catch (e) {
-        if (e.code === 11000) throw new AppError("Already reposted", 409, "ALREADY_REPOSTED");
-        throw e;
-      }
-      await Post.findByIdAndUpdate(postId, { $inc: { repostCount: 1 } });
-      if (String(post.author) !== String(userId)) {
-        try {
-          await notificationService.create({ recipient: post.author, actor: userId, type: "repost", post: postId });
-        } catch {}
-      }
-      const updated = await Post.findById(postId).select("repostCount");
-      cache.del(CacheKeys.post(postId));
-      cache.delPattern("feed:*");
-      cache.delPattern("publicFeed:*");
-      cache.delPattern(`userPosts:${post.author}:*`);
-      cache.delPattern("hashtag:*");
-      return { reposted: true, repostCount: updated.repostCount };
+    const existing = await Repost.findOne({ user: userId, post: postId }).select("_id");
+    if (existing) return this.unrepostPost(userId, postId);
+    try {
+      return await this.repostPost(userId, postId);
+    } catch (e) {
+      if (e.code === 11000) return this.repostPost(userId, postId);
+      throw e;
     }
   },
 
-  async toggleBookmark(userId, postId) {
-    const post = await Post.findById(postId);
+  async bookmarkPost(userId, postId) {
+    const post = await Post.findById(postId).select("author");
     if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
     await blockService.assertNoBlock(userId, post.author, "You can't interact with this account's posts.");
-    const existing = await Bookmark.findOne({ user: userId, post: postId });
+    try {
+      await Bookmark.create({ user: userId, post: postId });
+    } catch (e) {
+      if (e.code !== 11000) throw e;
+    }
+    cache.del(CacheKeys.post(postId));
+    cache.delPattern(`bookmarks:${userId}:*`);
+    return { bookmarked: true };
+  },
+
+  async unbookmarkPost(userId, postId) {
+    await Bookmark.deleteOne({ user: userId, post: postId });
+    cache.del(CacheKeys.post(postId));
+    cache.delPattern(`bookmarks:${userId}:*`);
+    return { bookmarked: false };
+  },
+
+  async toggleBookmark(userId, postId) {
+    const post = await Post.findById(postId).select("author");
+    if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
+    await blockService.assertNoBlock(userId, post.author, "You can't interact with this account's posts.");
+    const existing = await Bookmark.findOne({ user: userId, post: postId }).select("_id");
     if (existing) {
       await Bookmark.deleteOne({ _id: existing._id });
       cache.del(CacheKeys.post(postId));
-      cache.delPattern("feed:*");
-      cache.delPattern("publicFeed:*");
-      cache.delPattern(`userPosts:${post.author}:*`);
-      cache.delPattern("hashtag:*");
       cache.delPattern(`bookmarks:${userId}:*`);
       return { bookmarked: false };
     }
     try {
       await Bookmark.create({ user: userId, post: postId });
     } catch (e) {
-      if (e.code === 11000) throw new AppError("Already bookmarked", 409, "ALREADY_BOOKMARKED");
+      if (e.code === 11000) return { bookmarked: true };
       throw e;
     }
     cache.del(CacheKeys.post(postId));
-    cache.delPattern("feed:*");
-    cache.delPattern("publicFeed:*");
-    cache.delPattern(`userPosts:${post.author}:*`);
-    cache.delPattern("hashtag:*");
     cache.delPattern(`bookmarks:${userId}:*`);
     return { bookmarked: true };
   },
@@ -654,31 +745,29 @@ export const postService = {
   },
 
   async createComment(userId, postId, text) {
-    const post = await Post.findById(postId);
+    const post = await Post.findById(postId).select("author");
     if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
     await blockService.assertNoBlock(userId, post.author, "You can't interact with this account's posts.");
     const t = text.trim();
     if (!t || t.length > 500) throw new AppError("Reply must be 1-500 characters", 400, "INVALID_TEXT");
     const mentions = extractMentions(t);
     const comment = await Comment.create({ post: postId, author: userId, text: t, mentions });
-    await Post.findByIdAndUpdate(postId, { $inc: { replyCount: 1 } });
+    const updatedPost = await Post.findByIdAndUpdate(postId, { $inc: { replyCount: 1 } }, { new: true }).select("replyCount author");
     if (String(post.author) !== String(userId)) {
-      try {
-        await notificationService.create({ recipient: post.author, actor: userId, type: "reply", post: postId });
-      } catch {}
+      afterResponse(() =>
+        notificationService.create({ recipient: post.author, actor: userId, type: "reply", post: postId }),
+      );
     }
     // mention notifications for everyone tagged except the post author
-    // (they already get a reply notification above)
-    await notifyMentions(userId, mentions, postId, post.author);
-    // Invalidate caches
+    // (they already get a reply notification above) — fire-and-forget
+    afterResponse(() => notifyMentions(userId, mentions, postId, post.author));
+    afterResponse(() =>
+      pushPostUpdate(post.author, { postId: String(postId), replyCount: updatedPost.replyCount }),
+    );
+    // Invalidate only post + comments; feeds patch replyCount live via SSE
     cache.del(CacheKeys.post(postId));
-    cache.delPattern("feed:*");
-    cache.delPattern("publicFeed:*");
-    cache.delPattern(`userPosts:${post.author}:*`);
-    cache.delPattern("hashtag:*");
     cache.delPattern(`comments:${postId}:*`);
     const populated = await Comment.findById(comment._id).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner");
-    const updatedPost = await Post.findById(postId).select("replyCount");
     return { comment: populated, replyCount: updatedPost.replyCount };
   },
 
@@ -858,17 +947,20 @@ export const postService = {
       Comment.find({ author: authorId }).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("post", "text author createdAt").populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner").lean(),
       Comment.countDocuments({ author: authorId }),
     ]);
-    // also populate post author for context
-    const populated = await Promise.all(
-      comments.map(async (c) => {
-        if (c.post && c.post.author) {
-          const pa = await User.findById(c.post.author).select("fullName username avatarUrl").lean();
-          c.post.author = pa;
+    // also populate post author for context — single $in query, no N+1
+    const postAuthorIds = [...new Set(comments.map((c) => String(c.post?.author)).filter(Boolean))];
+    if (postAuthorIds.length) {
+      const authors = await User.find({ _id: { $in: postAuthorIds } })
+        .select("fullName username avatarUrl")
+        .lean();
+      const authorMap = new Map(authors.map((a) => [String(a._id), a]));
+      for (const c of comments) {
+        if (c.post?.author && authorMap.has(String(c.post.author))) {
+          c.post.author = authorMap.get(String(c.post.author));
         }
-        return c;
-      })
-    );
-    const result = { comments: populated, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
+      }
+    }
+    const result = { comments, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
     cache.set(cacheKey, result, TTL.REPLIES);
     return result;
   },
