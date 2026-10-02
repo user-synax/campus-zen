@@ -14,6 +14,7 @@ import { AnimatedNumber } from "@/components/app/AnimatedNumber";
 import { CzImage } from "@/components/app/CzImage";
 import { Button } from "@/components/ui/button";
 import { UserBadge } from "@/components/ui/verified-badge";
+import { withAvatarRing } from "@/lib/avatar";
 import { collegeHrefFor } from "@/lib/college";
 import { cn } from "@/lib/utils";
 
@@ -201,7 +202,7 @@ export function ProfileHeader({
       <div className="px-4 pb-3">
         {/* 133px avatar overlapping the banner by ~33px */}
         <div className="relative z-10 flex items-start justify-between">
-          <span className="-mt-[33px] block h-[100px] w-[100px] overflow-hidden rounded-full border-4 border-[var(--cz-bg)] bg-[var(--cz-border-strong)] text-[26px] font-bold text-[var(--cz-text-primary)] transition-transform duration-200 ease-out hover:scale-[1.02] sm:h-[133px] sm:w-[133px]">
+          <span className={withAvatarRing(user, "-mt-[33px] block h-[100px] w-[100px] overflow-hidden rounded-full border-4 border-[var(--cz-bg)] bg-[var(--cz-border-strong)] text-[26px] font-bold text-[var(--cz-text-primary)] transition-transform duration-200 ease-out hover:scale-[1.02] sm:h-[133px] sm:w-[133px]")}>
             {user.avatarUrl ? (
               <CzImage
                 src={user.avatarUrl}

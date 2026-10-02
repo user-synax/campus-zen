@@ -19,6 +19,7 @@ import { CzImage } from "@/components/app/CzImage";
 import { ThemeToggle } from "@/components/app/ThemeToggle";
 import { BrandMark } from "@/components/BrandLogo";
 import { useUnreadCount } from "@/lib/hooks/queries";
+import { withAvatarRing } from "@/lib/avatar";
 import { cn } from "@/lib/utils";
 
 /**
@@ -133,7 +134,7 @@ function Avatar({ user, size = 40 }) {
     .toUpperCase();
   return (
     <span
-      className="grid shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] font-bold text-[var(--cz-text-primary)]"
+      className={withAvatarRing(user, "grid shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] font-bold text-[var(--cz-text-primary)]")}
       style={{ height: size, width: size, fontSize: size * 0.36 }}
     >
       {user.avatarUrl ? (

@@ -18,6 +18,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { CzImage } from "@/components/app/CzImage";
 import { EmptyState, PostSkeleton } from "@/components/app/EmptyState";
 import { PageHeader } from "@/components/app/PageHeader";
+import { withAvatarRing } from "@/lib/avatar";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import {
@@ -309,7 +310,7 @@ export default function NotificationsPage() {
                     href={`/u/${n.actor?.username || ""}`}
                     className="shrink-0"
                   >
-                    <span className="grid h-10 w-10 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[13px] font-bold text-[var(--cz-text-primary)]">
+                    <span className={withAvatarRing(n.actor, "grid h-10 w-10 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[13px] font-bold text-[var(--cz-text-primary)]")}>
                       {n.actor?.avatarUrl ? (
                         <CzImage
                           src={n.actor.avatarUrl}

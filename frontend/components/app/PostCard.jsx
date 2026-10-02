@@ -35,6 +35,7 @@ import { useAutogrowTextarea } from "@/components/app/useAutogrowTextarea";
 import { Button } from "@/components/ui/button";
 import { UserBadge } from "@/components/ui/verified-badge";
 import { api } from "@/lib/api";
+import { withAvatarRing } from "@/lib/avatar";
 import { hidePostId, isHiddenPost } from "@/lib/hiddenPosts";
 import { cn } from "@/lib/utils";
 
@@ -57,7 +58,7 @@ function Avatar({ author }) {
     .slice(0, 1)
     .toUpperCase();
   return (
-    <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[13px] font-bold text-[var(--cz-text-primary)]">
+    <span className={withAvatarRing(author, "grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[13px] font-bold text-[var(--cz-text-primary)]")}>
       {author.avatarUrl ? (
         <CzImage
           src={author.avatarUrl}

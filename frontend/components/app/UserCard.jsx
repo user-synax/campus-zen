@@ -10,6 +10,7 @@ import { CzImage } from "@/components/app/CzImage";
 import { Button } from "@/components/ui/button";
 import { UserBadge } from "@/components/ui/verified-badge";
 import { api } from "@/lib/api";
+import { withAvatarRing } from "@/lib/avatar";
 import { collegeHrefFor } from "@/lib/college";
 
 /**
@@ -33,7 +34,7 @@ export function UserCard({ user: initialUser, isOwn, isGuest }) {
         href={`/u/${user.username}`}
         className="flex min-w-0 items-center gap-3"
       >
-        <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[13px] font-bold text-[var(--cz-text-primary)]">
+        <span className={withAvatarRing(user, "grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[13px] font-bold text-[var(--cz-text-primary)]")}>
           {user.avatarUrl ? (
             <CzImage
               src={user.avatarUrl}

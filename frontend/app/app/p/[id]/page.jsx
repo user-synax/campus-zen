@@ -11,6 +11,7 @@ import { PostCard } from "@/components/app/PostCard";
 import { ReplyComposer } from "@/components/app/ReplyComposer";
 import { RichText } from "@/components/app/RichText";
 import { Button } from "@/components/ui/button";
+import { withAvatarRing } from "@/lib/avatar";
 import { isHiddenPost } from "@/lib/hiddenPosts";
 import { useMe, usePost, useReplies } from "@/lib/hooks/queries";
 
@@ -211,7 +212,7 @@ export default function PostDetailPage() {
           {replies.map((c) => (
             <div key={c._id} className="cz-row flex gap-3 px-4 py-3">
               <Link href={`/u/${c.author?.username}`} className="shrink-0">
-                <span className="grid h-10 w-10 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[13px] font-bold text-[var(--cz-text-primary)]">
+                <span className={withAvatarRing(c.author, "grid h-10 w-10 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[13px] font-bold text-[var(--cz-text-primary)]")}>
                   {c.author?.avatarUrl ? (
                     <CzImage
                       src={c.author.avatarUrl}

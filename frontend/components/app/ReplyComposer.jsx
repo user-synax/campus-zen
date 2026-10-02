@@ -10,6 +10,7 @@ import {
 import { useAutogrowTextarea } from "@/components/app/useAutogrowTextarea";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
+import { withAvatarRing } from "@/lib/avatar";
 import { toast } from "sonner";
 
 const MAX = 500;
@@ -72,7 +73,7 @@ export function ReplyComposer({
       onSubmit={submit}
       className="cz-row flex gap-3 border-b border-[var(--cz-border)] px-4 py-3"
     >
-      <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[13px] font-bold text-[var(--cz-text-primary)]">
+      <span className={withAvatarRing(currentUser, "grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[13px] font-bold text-[var(--cz-text-primary)]")}>
         {currentUser?.avatarUrl ? (
           <CzImage
             src={currentUser.avatarUrl}

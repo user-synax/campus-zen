@@ -8,6 +8,7 @@ import { CzImage } from "@/components/app/CzImage";
 import { Button } from "@/components/ui/button";
 import { UserBadge } from "@/components/ui/verified-badge";
 import { api } from "@/lib/api";
+import { withAvatarRing } from "@/lib/avatar";
 import {
   RAIL_TTL,
   isRailFresh,
@@ -24,7 +25,7 @@ function initialsFor(u) {
 function Avatar({ user, size = 40 }) {
   return (
     <span
-      className="grid shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] font-bold text-[var(--cz-text-primary)]"
+      className={withAvatarRing(user, "grid shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] font-bold text-[var(--cz-text-primary)]")}
       style={{ height: size, width: size, fontSize: size * 0.36 }}
     >
       {user.avatarUrl ? (
