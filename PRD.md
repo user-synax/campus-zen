@@ -84,8 +84,9 @@ The backend and database architecture should make future features possible witho
 - JavaScript
 - Tailwind CSS
 - shadcn/ui
-- Framer Motion
-- GSAP where animation requires it
+- Framer Motion + Motion
+- TanStack Query
+- Web Push (VAPID client via `lib/push.js`)
 
 ## Backend
 
@@ -93,6 +94,8 @@ The backend and database architecture should make future features possible witho
 - Express.js
 - JavaScript
 - Zod for request validation
+- Web Push via `web-push` (VAPID)
+- Appwrite (server-side storage) + Nodemailer (Gmail SMTP)
 
 ## Database
 
@@ -272,7 +275,7 @@ Recommended initial text limit:
 500 characters
 ```
 
-Media uploads can be introduced after the text-only posting system is stable.
+Shipped: multi-attachment media (`Post.media[]`: images, GIFs, short video with posters) and 2–4 option polls. `imageUrl` is kept as a legacy mirror of the first image/gif. Poll and media are mutually exclusive.
 
 ---
 
@@ -374,7 +377,7 @@ Priya followed you.
 Arjun replied to your post.
 ```
 
-Realtime push notifications are not required for the MVP.
+Realtime in-app push is shipped via SSE (`GET /api/events`: `notification`, `unread-count`, `post:update`, `follow:update`, heartbeat + replay) plus Web Push (VAPID `/api/push/*`) for OS-level delivery when the app is closed.
 
 ---
 
@@ -393,15 +396,15 @@ Users can:
 
 ## Admin Actions
 
-Admins should eventually be able to:
+Shipped (env-gated `ADMIN_EMAIL` + `ADMIN_PASSKEY`, `/admin` + `/api/admin/*`):
 
-- View reports
+- View reports queue
 - Delete reported posts
-- Suspend users
-- Review reported accounts
-- Manage basic platform content
+- Suspend/unsuspend users
+- Review appeals (upheld/rejected)
+- Platform stats
 
-The first implementation can be simple and does not require a large moderation system.
+The first implementation is intentionally simple and does not include a large moderation system.
 
 ---
 
@@ -478,7 +481,8 @@ Current API structure (MVP complete):
     GET    /:username/media         User's media posts
 
 /api/posts
-    POST   /                        Create post (text + optional image)
+    POST   /                        Create post (text + media[] image/gif/video or poll)
+    GET    /?author=&likedBy=&repostedBy=  List posts by filter
     GET    /feed                    Get feed (tab=following/discovery)
     GET    /public                  Public feed (guests)
     GET    /:id                     Get single post
@@ -492,9 +496,10 @@ Current API structure (MVP complete):
     GET    /:id/replies             Get replies
     POST   /:id/bookmark            Bookmark post
     DELETE /:id/bookmark            Remove bookmark
+    POST   /:id/vote                Vote in poll ({ optionIndex })
 
 /api/search
-    GET    /?q=&type=              Search users (type=users) or posts (type=posts)
+    GET    /?q=&type=              Search (type=all|users|posts|colleges)
 
 /api/notifications
     GET    /                        List notifications (paginated)
@@ -504,8 +509,34 @@ Current API structure (MVP complete):
     DELETE /:id                     Delete notification
     GET    /unread-count            Get unread count
 
+/api/push (Web Push VAPID)
+    GET    /public-key              VAPID public key
+    POST   /subscribe               Subscribe device
+    DELETE /unsubscribe             Unsubscribe device
+    GET    /subscriptions           List subscriptions
+
 /api/reports
     POST   /                        Report a user or post
+    GET    /me                      My reports
+    POST   /:id/appeal              Appeal a report
+    POST   /appeals                 File appeal
+    GET    /appeals/me              My appeals
+
+/api/users (delta vs §17 header — privacy + lifecycle shipped)
+    PATCH  /me/privacy              Privacy settings (private account)
+    GET    /me/follow-requests/incoming|outgoing
+    POST   /me/follow-requests/:id/accept|decline
+    GET    /me/export               Data export
+    POST   /me/deactivate|reactivate
+    DELETE /me                      Delete account
+
+/api/admin (env-gated ADMIN_EMAIL + ADMIN_PASSKEY, /admin page)
+    POST   /login|/logout
+    GET    /me|/stats
+    GET    /reports  PATCH /reports/:id
+    GET    /appeals  PATCH /appeals/:id
+    DELETE /posts/:id
+    PATCH  /users/:id/suspend|unsuspend
 
 /api/hashtags
     GET    /trending                Get trending hashtags
@@ -518,24 +549,30 @@ Current API structure (MVP complete):
     GET    /:slug/posts             Get college posts
 
 /api/events
-    GET    /                        SSE stream for real-time notifications
+    GET    / (+ /events alias)      SSE (notification, unread-count, post:update, follow:update, heartbeat, replay)
 ```
 
 ---
 
 # 18. Database Models
 
-Initial MongoDB/Mongoose models:
+Initial MongoDB/Mongoose models (16 implemented — see `docs.md` §10):
 
 ```text
 User
-Post
+Post (text 500 + media[] image/gif/video + poll + hashtags/mentions)
 Comment
 Like
-Follow
+Follow + FollowRequest (private accounts)
 Repost
+Bookmark
+PollVote
 Notification
-Report
+Block
+Report + Appeal
+PushSubscription (Web Push VAPID)
+Otp (TTL)
+College
 ```
 
 The implementation may embed or reference some relationships depending on performance and query requirements.
@@ -696,10 +733,9 @@ The following should NOT be required for the first release:
 - Complex recommendation algorithms
 - AI features
 - Advanced college verification
-- Polls
 - Advanced media editing
 - Advanced analytics
-- Realtime WebSocket notifications
+- Realtime WebSocket notifications (SSE + Web Push are shipped instead)
 
 ---
 
@@ -715,22 +751,24 @@ The following should NOT be required for the first release:
 > - [x] Email verification via OTP (Gmail SMTP)
 > - [x] Student profile (avatar, cover, display name, username, bio, college, course, year)
 > - [x] Follow / unfollow with follower/following lists
-> - [x] Text posts (500 char limit)
+> - [x] Text posts (500 char limit) + multi-media (image/gif/video) + polls (2–4 options)
 > - [x] Home feed with Following + Discovery tabs, cursor pagination
 > - [x] Likes / unlike
 > - [x] Replies / reply threads
 > - [x] Reposts / unrepost
-> - [x] User/post search with full-text search
-> - [x] In-app notifications (follows, likes, replies, reposts)
+> - [x] User/post/college search with full-text search
+> - [x] In-app notifications (follows, likes, replies, reposts) + SSE realtime + Web Push (VAPID)
 > - [x] Block / unblock with mutual hide
-> - [x] Report users/posts
+> - [x] Report users/posts + appeals
 > - [x] Bookmarks
 > - [x] Pin posts to profile
-> - [x] Hashtags with trending and posts-by-hashtag
+> - [x] Hashtags with trending and posts-by-hashtag + mentions extraction + autocomplete UI
 > - [x] Colleges with members and posts
-> - [x] File uploads (avatar, cover) via Appwrite
+> - [x] File uploads (avatar, cover, post media) via Appwrite
 > - [x] Suggestions for users to follow
-> - [x] SSE real-time notifications
+> - [x] Private accounts + follow requests + privacy settings
+> - [x] Account export / deactivate / delete
+> - [x] Admin dashboard (`/admin` + `/api/admin/*`: reports/appeals, delete post, suspend user)
 > - [x] Responsive desktop/mobile UI (3-column + bottom nav)
 > - [x] Secure Express API (helmet, cors, rate limiting, sanitization)
 > - [x] MongoDB persistence with proper indexes
@@ -743,17 +781,15 @@ The following should NOT be required for the first release:
 >
 > **Goal:** Make CampusZen useful enough for regular daily student usage.
 >
-> Already shipped in MVP: image uploads, hashtags, mentions extraction,
+> Already shipped past MVP: multi-media posts, mentions autocomplete + extraction,
 > bookmarks, polls, trending hashtags, suggested students, colleges,
-> SSE realtime notifications, avatar/cover uploads, pinned posts.
+> SSE realtime + Web Push, avatar/cover uploads, pinned posts,
+> private accounts + follow requests, admin dashboard, appeals.
 >
 > Remaining:
-> - Multiple images per post
-> - Mentions UI (autocomplete + notifications)
 > - Improved feed ranking
 > - Student/college verification
 > - College information pages (expanded)
-> - Better moderation dashboard
 > - Profile customization
 > - Better notifications
 >

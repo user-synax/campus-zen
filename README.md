@@ -51,21 +51,28 @@ Intentionally small MVP: text-first posts (500 chars), chronological feeds, in-a
 
 - Profile: avatar, cover, display name, username, bio, college, course/branch, year, accent, social links, pinned post, follower/following/post counts
 - Follow / unfollow (duplicate-proof via partial unique indexes), followers/following lists, suggested students (`/me/suggestions`)
+- Private accounts + follow requests (`/me/follow-requests/incoming|outgoing`, accept/decline), privacy settings (`PATCH /me/privacy`)
+- Account lifecycle: data export (`GET /me/export`), deactivate/reactivate, delete
 - Student directory (`/u`) with guest blur, public profiles (`/u/[username]`), college pages (`/c`, `/c/[slug]` with members + posts)
-- Block / unblock (mutual hide + auto-unfollow both ways), report posts/users (instant local hide)
+- Block / unblock (mutual hide + auto-unfollow both ways), report posts/users (instant local hide) + appeals (`POST /reports/appeals`)
 
 **Posts & feed**
 
-- Create / edit / delete own posts: 500 chars + optional image (multipart) or 2–4 option poll, Zod-validated, hashtags + mentions extracted automatically
-- Like / unlike, reply threads, repost / unrepost, bookmark / unbookmark, poll votes
+- Create / edit / delete own posts: 500 chars + multi-attachment media (images, GIFs, short video with posters, see `backend/src/models/Post.js:16-34`) or 2–4 option poll, Zod-validated, hashtags + mentions extracted automatically
+- Like / unlike, reply threads, repost / unrepost, bookmark / unbookmark, poll votes (changeable, expiry-computed)
 - Home feed with **Following** + **Discovery** tabs, cursor-paginated, `createdAt DESC`; public `/posts/public` for guests
 - Single-post view (`/app/p/[id]`), bookmarks (`/app/bookmarks`), hashtags (`/app/tag/[tag]`), trending sidebar + suggestions rail
 - Search users + posts (`/search?q=&type=`), college members/posts
 
 **Notifications**
 
-- In-app notifications for follows, likes, replies, reposts
+- In-app notifications for follows, likes, replies, reposts (+ follow-request events)
 - Unread count, mark single / mark all read, clear-read + delete, pushed live over SSE (`GET /api/events`)
+- Web Push (VAPID via `web-push`): public key, subscribe/unsubscribe (`/api/push/*`), OS-level delivery when app closed
+
+**Admin (env-gated `ADMIN_EMAIL` + `ADMIN_PASSKEY`)**
+
+- `/admin` page + `/api/admin/*`: stats, reports list/resolve, appeals review, delete post, suspend/unsuspend user
 
 **Safety & hardening**
 
@@ -94,7 +101,7 @@ Browser → Next.js (:3000) → Express API (:4000) → MongoDB
 ```
 campus-zen/
 ├── README.md            # this file
-├── PRD.md               # product requirements (846 lines)
+├── PRD.md               # product requirements (see file for scope and non-goals)
 ├── DESIGN.md            # design tokens & guidelines
 ├── docs.md              # full developer guide
 │
@@ -198,9 +205,16 @@ Base URL: `http://localhost:4000/api`. Success shape: `{ success: true, data }`.
 | `POST` | `/users/me/cover` | Yes | Cover upload (multipart) |
 | `POST / DELETE` | `/users/me/pin` | Yes | Pin / unpin post |
 | `GET` | `/users/me/suggestions` | Yes | Suggested students |
+| `GET` | `/users/me/follow-requests/incoming\|outgoing` | Yes | Private-account follow requests |
+| `POST` | `/users/me/follow-requests/:id/accept\|decline` | Yes | Accept / decline request |
+| `PATCH` | `/users/me/privacy` | Yes | Privacy settings (private account) |
+| `GET` | `/users/me/export` | Yes | GDPR data export |
+| `POST` | `/users/me/deactivate\|reactivate` | Yes | Deactivate / reactivate |
+| `DELETE` | `/users/me` | Yes | Delete account |
 | `GET` | `/users/me/bookmarks` | Yes | Bookmarked posts |
 | `GET` | `/users/:username/posts|replies|likes|reposts|media` | Optional | Profile tab feeds |
-| `POST` | `/posts/` | Yes | Create post (500 chars + image or poll) |
+| `POST` | `/posts/` | Yes | Create post (text + media[] image/gif/video or poll) |
+| `GET` | `/posts/?author=&likedBy=&repostedBy=` | Optional | List posts by filter |
 | `GET` | `/posts/feed?tab=` | Yes | Feed (`following` / `discovery`, paginated) |
 | `GET` | `/posts/public` | – | Public feed for guests |
 | `GET / PATCH / DELETE` | `/posts/:id` | Varies | Read / edit own / delete own |
@@ -209,18 +223,25 @@ Base URL: `http://localhost:4000/api`. Success shape: `{ success: true, data }`.
 | `POST / DELETE` | `/posts/:id/bookmark` | Yes | Bookmark / remove |
 | `POST` | `/posts/:id/vote` | Yes | Vote in poll |
 | `POST / GET` | `/posts/:id/replies` | Varies | Reply / list replies |
-| `GET` | `/search/?q=&type=` | Yes | Search users or posts |
+| `GET` | `/search/?q=&type=` | Yes | Search users, posts, colleges (`all|users|posts|colleges`) |
 | `GET` | `/hashtags/trending` | Yes | Trending hashtags |
 | `GET` | `/hashtags/:tag/posts` | Optional | Posts by hashtag |
 | `GET` | `/colleges/` | Optional | List/search colleges |
 | `GET` | `/colleges/:slug` | Optional | College info |
-| `GET` | `/colleges/:slug/members|posts` | Optional | Members / college posts |
-| `GET` | `/events` | Yes | SSE realtime notifications |
+| `GET` | `/colleges/:slug/members\|posts` | Optional | Members / college posts |
+| `GET` | `/events` | Yes | SSE realtime (`notification`, `unread-count`, `post:update`, `follow:update`) |
+| `GET` | `/push/public-key` | – | VAPID public key |
+| `POST / DELETE` | `/push/subscribe\|unsubscribe` | Yes | Web Push subscribe / remove |
+| `GET` | `/push/subscriptions` | Yes | List push subscriptions |
 | `GET` | `/notifications/` | Yes | List (paginated) |
 | `PATCH` | `/notifications/:id/read` | Yes | Mark one read |
 | `PATCH` | `/notifications/read-all` | Yes | Mark all read |
+| `DELETE` | `/notifications/clear-read` | Yes | Clear read |
+| `DELETE` | `/notifications/:id` | Yes | Delete one |
 | `GET` | `/notifications/unread-count` | Yes | Unread badge count |
 | `POST` | `/reports/` | Yes | Report user or post |
+| `GET` | `/reports/me`, `/reports/appeals/me` | Yes | My reports / appeals |
+| `POST` | `/reports/appeals`, `/reports/:id/appeal` | Yes | File appeal |
 
 Rate limits (see `backend/src/middleware/rateLimiter.js`): signup 5/hr, login 10/min, forgot/reset 5/hr, feed 60/min, general 100/min.
 
@@ -232,7 +253,7 @@ X-style monochrome interface with exactly one chromatic accent. Tokens live in
 - **Palette** — canvas `#ffffff` · ink `#0f1419` · secondary `#536471` · tertiary `#829aab` · hairline `#cfd9de` / `#eff3f4` · hover `#eff3f4` · **accent `#1d9bf0`**
 - **Single accent** — `#1d9bf0` appears only on things you can tap: follow/post buttons, links, verified badges, active nav, unread dots. Engagement states (like `#f91880`, repost `#00ba7c`, error `#f4212e`) are semantic, not decoration.
 - **Type** — Inter (the documented TwitterChirp substitute) with `font-feature-settings: "ss01"`, 15px/20px body, 20px/23px headings, weights 400/500/700/800
-- **Radii** — only two: `16px` (cards, inputs, modals) and `9999px` (every button, tag, avatar)
+- **Radii** — `16px` (cards, modals) and `9999px` (every button, tag, avatar); inputs `4px` per `DESIGN.md`
 - **Layout** — 990px shell, three columns on desktop: `68px` collapsed icon rail (every item carries a tooltip) · feed · `290px` right rail; bottom tab bar on mobile
 - **Surfaces** — white on white. Cards are never elevated; they are separated by 1px hairlines. Shadows are for dropdown overlays only.
 - **Light + dark** — same token system inverted. The `cz-theme` cookie is read in the root layout and stamped on `<html>`, so the first paint is already correct — no flash, no client script. Toggle in the icon rail or under **Menu → Appearance**.
@@ -240,7 +261,8 @@ X-style monochrome interface with exactly one chromatic accent. Tokens live in
 ## 🗺️ Roadmap
 
 - [x] **MVP** — auth + OTP, profiles (avatar/cover/pinned), follow, text+image+poll posts, feed (Following/Discovery), like/reply/repost/bookmark, hashtags + trending, colleges, search, notifications (in-app + SSE realtime), block/report, suggestions
-- [ ] **V1** — mentions UI, multiple images per post, improved feed ranking, student/college verification, moderation dashboard, profile customization, better notifications
+- [x] **Shipped past MVP** — multi-media posts (image/gif/video, `Post.media`), mentions autocomplete + extraction, Web Push (`/api/push/*`), private accounts + follow requests, account export/deactivate/delete, admin dashboard (`/admin` + `/api/admin/*`), report appeals
+- [ ] **V1** — improved feed ranking, student/college verification, expanded college pages, profile customization, better notifications
 - [ ] **V2** — communities (college groups, roles, feeds, discovery)
 - [ ] **V3** — realtime DMs, group chats, voice/video, clips, events
 

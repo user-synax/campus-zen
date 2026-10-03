@@ -43,7 +43,7 @@ Sign Up → Verify Email (OTP) → Login → Discover Students → Follow → Po
 
 ### Related Documents
 
-- **[PRD.md](./PRD.md)** — Full Product Requirements Document (846 lines)
+- **[PRD.md](./PRD.md)** — Full Product Requirements Document
 - **[DESIGN.md](./DESIGN.md)** — Design system tokens & visual guidelines
 
 ---
@@ -65,6 +65,7 @@ Sign Up → Verify Email (OTP) → Login → Discover Students → Follow → Po
 | Query | @tanstack/react-query | ^5.104.0 |
 | Class utilities | clsx, tailwind-merge, cn, class-variance-authority | various |
 | Base UI | @base-ui/react | ^1.8.0 |
+| Primitives | @radix-ui/react-slot, @radix-ui/react-tooltip, sonner (CzToaster), tw-animate-css | various |
 | Linter/Formatter | Biome | 2.4.2 |
 | Package Manager | Bun | 1.4.2 |
 
@@ -80,7 +81,8 @@ Sign Up → Verify Email (OTP) → Login → Discover Students → Follow → Po
 | Auth | JWT (jsonwebtoken) + bcryptjs | ^9.0.2 / ^2.4.3 |
 | File uploads | Multer | ^2.4.0 |
 | Email | Nodemailer (Gmail SMTP) | ^10.0.10 |
-| File storage | Appwrite (server-side SDK) | ^28.0.0 / node-appwrite ^29.0.0 |
+| File storage | Appwrite (server-side SDK) | `appwrite ^28.0.0` + `node-appwrite ^29.0.0` (both installed; server-side only) |
+| Push | Web Push via `web-push` | `^3.6.7` (VAPID, `/api/push/*`) |
 | Security | helmet, cors, hpp, express-mongo-sanitize, express-rate-limit | various |
 | Compression | compression | ^1.8.0 |
 | Package Manager | Bun | 1.4.2 |
@@ -110,15 +112,16 @@ D:\campus-zen\
 │   │   ├── app/                    # Authenticated app shell
 │   │   │   ├── layout.jsx          # Auth guard + 3-column layout
 │   │   │   ├── page.jsx            # Home feed (Following/Discovery)
-│   │   │   ├── create/page.jsx     # Create post (text + image + poll)
+│   │   │   ├── create/page.jsx     # Create post (text + media[] + poll)
 │   │   │   ├── notifications/      # Notifications page (SSE live)
-│   │   │   ├── search/             # Search (users + posts)
+│   │   │   ├── search/             # Search (users + posts + colleges)
 │   │   │   ├── bookmarks/          # Saved posts
-│   │   │   ├── tag/[tag]/         # Hashtag feed
-│   │   │   ├── menu/               # Menu/settings/logout
+│   │   │   ├── tag/[tag]/         # Hashtag feed (under app/, route /app/tag/[tag])
+│   │   │   ├── menu/               # Menu/settings/logout + FollowRequests + PrivacySettings
 │   │   │   ├── profile/            # Own profile + [username]
 │   │   │   └── p/[id]/             # Single post view
 │   │   ├── c/                      # Colleges directory + [slug]
+│   │   ├── admin/                  # Admin dashboard (robots noindex, env-gated)
 │   │   ├── u/                      # Public profiles
 │   │   │   ├── page.jsx            # Students directory
 │   │   │   └── [username]/page.jsx
@@ -126,43 +129,47 @@ D:\campus-zen\
 │   │   └── terms/page.jsx
 │   │
 │   ├── components/
-│   │   ├── app/                    # Feature-specific components
+│   │   ├── app/                    # Feature components (~40 files)
 │   │   │   ├── PostCard.jsx        # Post with like/reply/repost/bookmark/poll
-│   │   │   ├── PostComposer.jsx    # Text + image + poll composer
-│   │   │   ├── LeftNav.jsx
-│   │   │   ├── BottomNav.jsx
+│   │   │   ├── PostComposer.jsx    # Text + media[] + poll composer + MentionAutocomplete
+│   │   │   ├── PostMedia.jsx + VideoPlayer.jsx + CzImage.jsx + ImageLightbox.jsx
+│   │   │   ├── PollBlock.jsx + ReplyComposer.jsx + RichText.jsx
+│   │   │   ├── LeftNav.jsx + BottomNav.jsx + AppShell.jsx + PageHeader.jsx
 │   │   │   ├── RightMinimal.jsx    # Trends / suggestions rail
-│   │   │   ├── ProfileHeader.jsx   # Avatar, cover, counts, pinned post
-│   │   │   ├── EditProfileModal.jsx
-│   │   │   ├── FollowModal.jsx
-│   │   │   ├── ReportDialog.jsx
-│   │   │   ├── BlockedProfile.jsx
-│   │   │   ├── UserCard.jsx
-│   │   │   ├── EmptyState.jsx
-│   │   │   ├── VerifyBanner.jsx
-│   │   │   ├── ThemeToggle.jsx
-│   │   │   └── AnimatedNumber.jsx
-│   │   ├── auth/                   # AuthShell, OtpInput, PasswordStrength
-│   │   ├── landing/                # LandingNav, Hero, HeroVisual, HowItWorks,
-│   │   │                           #   Features, TrustSafety, Scope, FinalCTA, LandingFooter
+│   │   │   ├── ProfileHeader.jsx + ProfileMedia.jsx + ProfileTabsContent.jsx + PinnedSection.jsx
+│   │   │   ├── PrivateProfile.jsx + BlockedProfile.jsx + PrivacySettings.jsx + AccountData.jsx
+│   │   │   ├── FollowModal.jsx + FollowRequests.jsx + UserCard.jsx
+│   │   │   ├── EditProfileModal.jsx + ReportDialog.jsx + SafetyReports.jsx
+│   │   │   ├── PushRegistrar.jsx + PushSettings.jsx + PushEnableBanner.jsx + OfflineBanner.jsx
+│   │   │   ├── MentionAutocomplete.jsx, EmptyState.jsx, VerifyBanner.jsx
+│   │   │   ├── ThemeToggle.jsx, AnimatedNumber.jsx
+│   │   ├── auth/                   # AuthShell, GuestGuard, OtpInput, PasswordStrength
+│   │   ├── landing/                # LandingNav, Hero, HeroVisual, LandingCloudscape, HowItWorks,
+│   │   │                           #   Features, TrustSafety, Scope, FinalCTA, LandingFooter, Reveal, LandingRedirect
+│   │   ├── forgeui/cloudscape.jsx  # WebGL background
+│   │   ├── BrandLogo.jsx
+│   │   ├── providers/query-provider.jsx  # TanStack Query provider (no top-level providers/)
 │   │   └── ui/                     # shadcn/ui primitives
 │   │       ├── button.jsx
 │   │       ├── input.jsx
 │   │       ├── checkbox.jsx
 │   │       ├── label.jsx
+│   │       ├── sonner.jsx          # CzToaster
 │   │       ├── verified-badge.jsx
 │   │       └── contribution-graph.jsx
 │   │
 │   ├── lib/
 │   │   ├── api.js                  # Central API client (all endpoints, auto-refresh)
+│   │   ├── queryClient.js
+│   │   ├── hooks/queries.js + useRequireSession.js + useSSE.js + usePush.js
 │   │   ├── theme.js                # cz-theme cookie read/write
+│   │   ├── push.js                 # Web Push helpers
+│   │   ├── media.js                # media validation (image/gif/video + posters)
+│   │   ├── optimistic.js + railCache.js + avatar.js + college.js
 │   │   ├── hiddenPosts.js          # LocalStorage for hidden/reported posts
 │   │   └── utils.js                # cn() re-export
 │   │
-│   ├── providers/
-│   │   └── query-provider.jsx      # TanStack Query provider
-│   │
-│   ├── .env                        # NEXT_PUBLIC_API_URL
+│   ├── .env                        # NEXT_PUBLIC_API_URL (+ NEXT_PUBLIC_VAPID_PUBLIC_KEY for Push)
 │   ├── biome.json                  # Linter/formatter config
 │   ├── components.json             # shadcn/ui config
 │   ├── jsconfig.json               # Path alias @/*
@@ -177,57 +184,64 @@ D:\campus-zen\
 │   │   │   ├── env.js              # Environment variable validation
 │   │   │   ├── db.js               # MongoDB connection
 │   │   │   └── appwrite.js         # Appwrite storage (avatar uploads)
-│   │   ├── controllers/            # Request handlers (10 files)
+│   │   ├── controllers/            # Request handlers (12 files)
 │   │   │   ├── authController.js
 │   │   │   ├── userController.js
 │   │   │   ├── postController.js
 │   │   │   ├── followController.js
 │   │   │   ├── blockController.js
 │   │   │   ├── notificationController.js
+│   │   │   ├── pushController.js
 │   │   │   ├── reportController.js
 │   │   │   ├── searchController.js
 │   │   │   ├── hashtagController.js
-│   │   │   └── collegeController.js
+│   │   │   ├── collegeController.js
+│   │   │   └── adminController.js
 │   │   ├── middleware/
-│   │   │   ├── auth.js             # protect, optionalAuth, authorize
+│   │   │   ├── auth.js             # protect, optionalAuth (+ protectSSE for /api/events)
+│   │   │   ├── adminAuth.js        # requireAdmin (ADMIN_EMAIL + PASSKEY)
 │   │   │   ├── validate.js         # Zod validation middleware
 │   │   │   ├── rateLimiter.js      # Express rate limiters
 │   │   │   ├── errorHandler.js     # notFound + errorHandler
-│   │   │   └── upload.js           # Multer avatar upload
-│   │   ├── models/                 # Mongoose schemas (13 files)
-│   │   │   ├── User.js             # Profile, counts, avatar/cover, pinned, socials, badges
-│   │   │   ├── Post.js             # Text + imageUrl + hashtags/mentions + poll
+│   │   │   └── upload.js           # Multer (avatarUpload, postMediaFields) → Appwrite
+│   │   ├── models/                 # Mongoose schemas (16 files)
+│   │   │   ├── User.js             # Profile, counts, avatar/cover, pinned, socials, badges, privacy, suspend
+│   │   │   ├── Post.js             # Text 500 + imageUrl legacy + media[] (image/gif/video) + hashtags/mentions + poll
 │   │   │   ├── Comment.js          # Replies
 │   │   │   ├── Like.js
-│   │   │   ├── Follow.js
+│   │   │   ├── Follow.js + FollowRequest.js  # Direct + private-account requests
 │   │   │   ├── Repost.js
 │   │   │   ├── Bookmark.js
 │   │   │   ├── PollVote.js         # Per-user poll votes
 │   │   │   ├── Notification.js
 │   │   │   ├── Block.js
-│   │   │   ├── Report.js
+│   │   │   ├── Report.js + Appeal.js
+│   │   │   ├── PushSubscription.js # Web Push (VAPID)
 │   │   │   ├── Otp.js              # TTL-indexed OTPs
 │   │   │   └── College.js
-│   │   ├── routes/                 # Express routers (9 files)
+│   │   ├── routes/                 # Express routers (11 files)
 │   │   │   ├── authRoutes.js
 │   │   │   ├── userRoutes.js
 │   │   │   ├── postRoutes.js
 │   │   │   ├── hashtagRoutes.js
 │   │   │   ├── searchRoutes.js
 │   │   │   ├── notificationRoutes.js
+│   │   │   ├── pushRoutes.js       # VAPID public-key + subscribe/unsubscribe
 │   │   │   ├── reportRoutes.js
-│   │   │   ├── sseRoutes.js
-│   │   │   └── collegeRoutes.js
-│   │   ├── services/               # Business logic (9 files)
+│   │   │   ├── sseRoutes.js        # GET / + /events alias, replay buffer
+│   │   │   ├── collegeRoutes.js
+│   │   │   └── adminRoutes.js      # Env-gated admin
+│   │   ├── services/               # Business logic (12 files)
 │   │   │   ├── authService.js
-│   │   │   ├── userService.js
+│   │   │   ├── userService.js + privacyService.js
 │   │   │   ├── postService.js
 │   │   │   ├── followService.js
 │   │   │   ├── blockService.js
-│   │   │   ├── notificationService.js
+│   │   │   ├── notificationService.js + pushService.js
 │   │   │   ├── reportService.js
 │   │   │   ├── searchService.js
-│   │   │   └── collegeService.js
+│   │   │   ├── collegeService.js
+│   │   │   └── adminService.js
 │   │   └── utils/                  # Shared utilities (12 files)
 │   │       ├── AppError.js
 │   │       ├── asyncHandler.js
@@ -418,6 +432,10 @@ api.resetPassword({ email, otp, newPassword })
 api.getUser(username)
 api.listUsers(params)
 api.updateMe(patchData)
+api.updatePrivacy({ isPrivate, ... })
+api.getIncomingRequests(params) / getOutgoingRequests(params)
+api.acceptFollowRequest(id) / declineFollowRequest(id)
+api.exportData() / deactivateAccount() / reactivateAccount() / deleteAccount({confirm})
 api.getUserPosts(username, params)
 api.getUserReplies(username, params)
 api.getUserLikes(username, params)
@@ -440,7 +458,7 @@ api.bookmarkPost(id)
 api.unbookmarkPost(id)
 
 // Posts
-api.createPost(text, image, poll) // text + optional image File + optional poll {options, expiresAt}
+api.createPost(text, media, poll, extra) // media: File|File[] (image/gif/video) + extra {posters, meta}; poll {options, expiresAt}
 api.votePoll(id, optionIndex)
 api.getPost(id)
 api.updatePost(id, text)
@@ -455,7 +473,7 @@ api.createReply(id, text)
 api.getReplies(id, params)
 
 // Search
-api.search(params) // q, type: "users" | "posts"
+api.search(params) // q, type: "all" | "users" | "posts" | "colleges"
 
 // Hashtags
 api.getTrendingHashtags(params)
@@ -469,19 +487,37 @@ api.deleteNotification(id)
 api.clearReadNotifications()
 api.getUnreadCount()
 
-// Reports
+// Web Push (VAPID)
+api.getPushPublicKey()
+api.subscribePush(payload)
+api.unsubscribePush(endpoint)
+api.getPushSubscriptions()
+
+// Reports + Appeals
 api.fileReport(payload)
+api.getMyReports(params)
+api.appealReport(reportId, payload)
+api.fileAppeal(payload)
+api.getMyAppeals(params)
 
 // Colleges
 api.getCollege(slug)
 api.listColleges(params)
 api.getCollegeMembers(slug, params)
 api.getCollegePosts(slug, params)
+
+// Admin (adminToken cookie, no user-refresh)
+api.adminLogin(payload) / adminLogout() / adminMe() / adminStats()
+api.adminReports(params) / adminResolveReport(id, status)
+api.adminDeletePost(id)
+api.adminSuspendUser(id, reason) / adminUnsuspendUser(id)
+api.adminAppeals(params) / adminReviewAppeal(id, payload)
 ```
 
 **Key behaviors**:
 - All requests include `credentials: "include"` for cookie-based auth
-- Automatic token refresh on 401 — calls `api.refresh()` then retries original request
+- Automatic token refresh on 401 — calls `api.refresh()` then retries original request (single-flight; `/api/auth/*` allowlist + `/api/admin/*` never auto-retry user refresh)
+- Network failures throw with `.status=0`, `.offline=true`
 - Errors thrown with `.status`, `.data`, `.details` properties
 - Response format: `{ success, data?, message?, code?, details? }`
 
@@ -502,15 +538,21 @@ api.getCollegePosts(slug, params)
 | Route | Component | Description |
 |-------|-----------|-------------|
 | `/app` | `app/page.jsx` | Home feed with Following/Discovery tabs |
-| `/app/create` | `create/page.jsx` | Create new post (500 chars + image + poll) |
+| `/app/create` | `create/page.jsx` | Create new post (500 chars + media[] + poll) |
 | `/app/notifications` | `notifications/page.jsx` | Notifications list with mark-read (SSE live) |
-| `/app/search` | `search/page.jsx` | Search users + posts |
+| `/app/search` | `search/page.jsx` | Search users + posts + colleges |
 | `/app/bookmarks` | `bookmarks/page.jsx` | Saved posts |
-| `/app/tag/[tag]` | `tag/[tag]/page.jsx` | Posts by hashtag |
-| `/app/menu` | `menu/page.jsx` | Settings, logout, blocked users |
+| `/app/tag/[tag]` | `app/tag/[tag]/page.jsx` | Posts by hashtag (route `/app/tag/[tag]`) |
+| `/app/menu` | `menu/page.jsx` | Settings, logout, blocked users, follow requests, privacy, push, data export |
 | `/app/profile` | `profile/page.jsx` | Own profile page |
 | `/app/profile/[username]` | `profile/[username]/page.jsx` | Own profile by username |
-| `/app/p/[postId]` | `p/[postId]/page.jsx` | Single post view with replies |
+| `/app/p/[id]` | `app/p/[id]/page.jsx` | Single post view with replies |
+
+#### `admin/` — Admin (env-gated)
+
+| Route | Description |
+|-------|-------------|
+| `/admin` | Reports/appeals queue, stats, delete post, suspend/unsuspend (robots noindex) |
 
 #### `c/` Route Group — Colleges (Authenticated)
 
@@ -549,15 +591,23 @@ api.getCollegePosts(slug, params)
 | Component | Purpose |
 |-----------|---------|
 | `PostCard.jsx` | Renders a single post with all interactions |
-| `PostComposer.jsx` | Text input area for creating posts |
+| `PostComposer.jsx` | Text + media[] + poll composer (with MentionAutocomplete) |
+| `PostMedia.jsx` / `VideoPlayer.jsx` / `CzImage.jsx` / `ImageLightbox.jsx` | Media rendering + lightbox |
+| `PollBlock.jsx` | Poll voting UI |
+| `ReplyComposer.jsx` | Reply input (with MentionAutocomplete) |
+| `RichText.jsx` + `MentionAutocomplete.jsx` | Hashtag/mention rendering + autocomplete |
 | `ProfileHeader.jsx` | Profile banner with avatar, stats, edit button |
+| `ProfileMedia.jsx` / `ProfileTabsContent.jsx` / `PinnedSection.jsx` | Profile tabs + pinned |
+| `PrivateProfile.jsx` | Private-account placeholder + request button |
 | `EditProfileModal.jsx` | Modal for editing profile fields |
-| `FollowModal.jsx` | Modal for follow/unfollow confirmation |
-| `ReportDialog.jsx` | Dialog for reporting users/posts |
+| `FollowModal.jsx` / `FollowRequests.jsx` | Follow confirm + incoming/outgoing requests |
+| `PrivacySettings.jsx` / `AccountData.jsx` | Privacy toggles + export/deactivate/delete |
+| `ReportDialog.jsx` / `SafetyReports.jsx` | Report + my reports/appeals |
+| `PushRegistrar.jsx` / `PushSettings.jsx` / `PushEnableBanner.jsx` | Web Push registration + settings |
 | `BlockedProfile.jsx` | Blocked user placeholder |
 | `UserCard.jsx` | Compact user card for lists |
 | `EmptyState.jsx` | Reusable empty state with icon + action |
-| `VerifyBanner.jsx` | Email verification reminder banner |
+| `VerifyBanner.jsx` / `OfflineBanner.jsx` | Email verification / offline banners |
 | `AnimatedNumber.jsx` | Number with pop-in animation |
 
 #### Auth Components
@@ -565,6 +615,7 @@ api.getCollegePosts(slug, params)
 | Component | Purpose |
 |-----------|---------|
 | `AuthShell.jsx` | Shared auth page wrapper |
+| `GuestGuard.jsx` | Guest vs auth gating |
 | `OtpInput.jsx` | 6-digit OTP input with auto-advance |
 | `PasswordStrength.jsx` | Password strength indicator |
 
@@ -629,7 +680,9 @@ The app is configured with these middleware layers (in order):
 |--------|-------------|
 | `protect` | Requires valid JWT access token — returns 401 if missing/invalid |
 | `optionalAuth` | Attaches user if token valid, continues regardless |
-| `authorize(...roles)` | Role-based access control |
+| `protectSSE` | SSE auth via cookie / `?token=` / Bearer (with `Last-Event-ID` replay) |
+
+Admin: `middleware/adminAuth.js` `requireAdmin` (env `ADMIN_EMAIL` + `ADMIN_PASSKEY`, `adminToken` cookie).
 
 #### Validation Middleware (`middleware/validate.js`)
 
@@ -658,10 +711,9 @@ Different limits per route group:
 
 #### Upload Middleware (`middleware/upload.js`)
 
-Multer configuration for avatar uploads:
-- File size limit: 5MB
-- Allowed types: JPEG, PNG, WebP
-- Storage: Memory (streams to Appwrite)
+Multer (memory → Appwrite):
+- Avatar/cover: 5MB, JPEG/PNG/WebP (`avatarUpload`)
+- Post media: `postMediaFields` — images, GIFs, short video + `posters[]` + `mediaMeta[]` (width/height/duration)
 
 ### Services Layer
 
@@ -685,26 +737,27 @@ Services contain all business logic. Controllers are thin wrappers.
 
 | Method | Description |
 |--------|-------------|
-| `createPost(userId, content)` | Create post with 500 char limit |
+| `createPost(userId, content)` | Create post: 500 chars + `media[]` (image/gif/video, poll mutually exclusive with media) or `poll {options 2-4, expiresAt}` |
 | `getFeed(userId, tab, cursor, limit)` | Following or Discovery feed with cursor pagination |
 | `getPublicFeed(cursor, limit)` | Public feed for guests |
 | `getPost(postId, userId)` | Single post with like/reply status |
-| `updatePost(userId, postId, content)` | Edit own post |
+| `updatePost(userId, postId, content)` | Edit own post (text only) |
 | `deletePost(userId, postId)` | Delete own post |
 | `toggleLike(userId, postId)` | Like/unlike with partial unique index |
 | `toggleRepost(userId, postId)` | Repost/unrepost |
 | `createReply(userId, postId, content)` | Reply to a post |
 | `getReplies(postId, cursor, limit)` | Paginated replies for a post |
+| `votePoll` / `buildPoll` | Single-choice, changeable vote; counts denormalized on `Post.poll` |
 
 #### Other Services
 
 | Service | Responsibility |
 |---------|---------------|
-| `userService.js` | Profile CRUD, avatar/cover upload, user stats, bookmarks, pinning, suggestions |
-| `followService.js` | Follow/unfollow, follower/following lists, count updates |
+| `userService.js` + `privacyService.js` | Profile CRUD, avatar/cover upload, stats, bookmarks, pinning, suggestions, privacy, export/deactivate/delete |
+| `followService.js` | Follow/unfollow + private-account follow requests, follower/following lists, count updates |
 | `blockService.js` | Block/unblock, mutual hide, auto-unfollow |
-| `notificationService.js` | Create/fetch notifications, mark read, clear read |
-| `reportService.js` | Report users/posts |
+| `notificationService.js` + `pushService.js` | In-app notifications + Web Push (VAPID subscribe/unsubscribe/send) |
+| `reportService.js` | Report users/posts + appeals queue |
 | `searchService.js` | Full-text search across users and posts |
 | `collegeService.js` | College CRUD, members, college posts |
 | `hashtagService.js` | Hashtag extraction, trending, posts by hashtag |
@@ -786,7 +839,13 @@ http://localhost:4000/api
 | `GET` | `/users/` | Optional | List users (directory, guest blur) |
 | `GET` | `/users/:username` | Optional | Get user profile |
 | `PATCH` | `/users/me` | Yes | Update own profile (partial; also `PUT` alias) |
-| `POST` | `/users/:id/follow` | Yes | Follow user |
+| `PATCH` | `/users/me/privacy` | Yes | Privacy settings (private account) |
+| `GET` | `/users/me/follow-requests/incoming\|outgoing` | Yes | Follow requests |
+| `POST` | `/users/me/follow-requests/:id/accept\|decline` | Yes | Accept / decline |
+| `GET` | `/users/me/export` | Yes | Data export |
+| `POST` | `/users/me/deactivate\|reactivate` | Yes | Deactivate / reactivate |
+| `DELETE` | `/users/me` | Yes | Delete account |
+| `POST` | `/users/:id/follow` | Yes | Follow user (or request if private) |
 | `DELETE` | `/users/:id/follow` | Yes | Unfollow user |
 | `GET` | `/users/:id/followers` | Optional | List followers |
 | `GET` | `/users/:id/following` | Optional | List following |
@@ -809,7 +868,8 @@ http://localhost:4000/api
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| `POST` | `/posts/` | Yes | Create post (text + optional image multipart, or JSON text + poll) |
+| `POST` | `/posts/` | Yes | Create post (text + `media[]` image/gif/video or `poll {options, expiresAt}`) |
+| `GET` | `/posts/?author=&likedBy=&repostedBy=` | Optional | List posts by filter |
 | `GET` | `/posts/feed` | Yes | Get feed (tab=following/discovery) |
 | `GET` | `/posts/public` | No | Public feed (guests) |
 | `GET` | `/posts/:id` | Optional | Get single post |
@@ -829,7 +889,7 @@ http://localhost:4000/api
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| `GET` | `/search/?q=&type=` | Yes | Search users (type=users) or posts (type=posts) |
+| `GET` | `/search/?q=&type=` | Optional | Search (`type=all\|users\|posts\|colleges`) |
 
 ### Notification Endpoints
 
@@ -842,11 +902,39 @@ http://localhost:4000/api
 | `DELETE` | `/notifications/:id` | Yes | Delete notification |
 | `GET` | `/notifications/unread-count` | Yes | Get unread count |
 
+### Push Endpoints (Web Push / VAPID)
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/push/public-key` | No | VAPID public key |
+| `POST` | `/push/subscribe` | Yes | Subscribe device |
+| `DELETE` | `/push/unsubscribe` | Yes | Unsubscribe device |
+| `GET` | `/push/subscriptions` | Yes | List subscriptions |
+
 ### Report Endpoints
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | `POST` | `/reports/` | Yes | Report a user or post |
+| `GET` | `/reports/me` | Yes | My reports |
+| `POST` | `/reports/:id/appeal` | Yes | Appeal a report |
+| `POST` | `/reports/appeals` | Yes | File appeal |
+| `GET` | `/reports/appeals/me` | Yes | My appeals |
+
+### Admin Endpoints (env-gated `ADMIN_EMAIL` + `ADMIN_PASSKEY`)
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/admin/login` | No | Admin login (sets `adminToken`) |
+| `POST` | `/admin/logout` | Admin | Admin logout |
+| `GET` | `/admin/me` | Admin | Current admin |
+| `GET` | `/admin/stats` | Admin | Platform stats |
+| `GET` | `/admin/reports?status=` | Admin | Reports queue |
+| `PATCH` | `/admin/reports/:id` | Admin | Resolve (`dismissed\|actioned`) |
+| `GET` | `/admin/appeals` | Admin | Appeals queue |
+| `PATCH` | `/admin/appeals/:id` | Admin | Review (`upheld\|rejected`) |
+| `DELETE` | `/admin/posts/:id` | Admin | Delete post |
+| `PATCH` | `/admin/users/:id/suspend\|unsuspend` | Admin | Suspend / unsuspend |
 
 ### Hashtag Endpoints
 
@@ -868,7 +956,7 @@ http://localhost:4000/api
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| `GET` | `/events` | Yes | SSE stream (`notification`, `unread-count`, `connected` + heartbeat) |
+| `GET` | `/events` (+ alias `/events/events`) | Yes (cookie/`?token`/Bearer) | SSE (`connected`, `notification`, `unread-count`, `post:update`, `follow:update`, heartbeat 25s, replay 100/user) |
 
 ### Health Endpoints
 
@@ -938,17 +1026,20 @@ http://localhost:4000/api
 
 | Model | Collection | Purpose |
 |-------|-----------|---------|
-| `User` | `users` | Accounts, profiles (avatar/cover, pinned, college/course/year, socials, badges), stats |
-| `Post` | `posts` | Posts (text 500 + optional imageUrl + hashtags/mentions + poll) |
+| `User` | `users` | Accounts, profiles (avatar/cover, pinned, college/course/year, socials, badges, privacy, suspend/deactivate), stats |
+| `Post` | `posts` | Posts (text 500 + legacy `imageUrl` + `media[]` image/gif/video + hashtags/mentions + poll) |
 | `Comment` | `comments` | Replies on posts |
 | `Like` | `likes` | Post likes |
 | `Follow` | `follows` | Follow relationships |
+| `FollowRequest` | `followrequests` | Private-account follow requests (incoming/outgoing, accept/decline) |
 | `Repost` | `reposts` | Reposts |
 | `Bookmark` | `bookmarks` | Saved posts |
 | `PollVote` | `pollvotes` | Per-user poll votes (counts denormalized on Post) |
-| `Notification` | `notifications` | Follows, likes, replies, reposts |
+| `Notification` | `notifications` | Follows, likes, replies, reposts, follow-requests |
 | `Block` | `blocks` | Block relationships (mutual hide) |
 | `Report` | `reports` | User/post reports (open queue) |
+| `Appeal` | `appeals` | Report appeals (upheld/rejected) |
+| `PushSubscription` | `pushsubscriptions` | Web Push VAPID subscriptions |
 | `Otp` | `otps` | One-time passwords (TTL index) |
 | `College` | `colleges` | Colleges (slug, members, posts) |
 
@@ -1154,6 +1245,7 @@ bun run build
 
 **Environment variables for production**:
 - `NEXT_PUBLIC_API_URL` — Production backend URL
+- `NEXT_PUBLIC_VAPID_PUBLIC_KEY` — Web Push public key (must match backend `VAPID_PUBLIC_KEY`)
 
 ### Backend (Any Node.js host)
 
@@ -1170,9 +1262,11 @@ bun run start
 - `JWT_ACCESS_SECRET` — 32+ character random string
 - `JWT_REFRESH_SECRET` — 32+ character random string
 - `FRONTEND_URL` — Production frontend URL (for CORS)
-- `COOKIE_SECURE=true` — Enable secure cookies
-- `SMTP_*` — Gmail SMTP credentials
-- `APPWRITE_*` — Appwrite storage credentials
+- `COOKIE_SECURE=true` — Enable secure cookies (`COOKIE_SAMESITE=none` only when frontend + API are on different hosts)
+- `SMTP_*` — Gmail SMTP credentials (`SMTP_HOST/PORT/USER/PASS`, `EMAIL_FROM`)
+- `APPWRITE_*` — Appwrite storage credentials (`APPWRITE_ENDPOINT/PROJECT_ID/API_KEY/BUCKET_ID`, optional `APPWRITE_VIDEO_BUCKET_ID`)
+- `ADMIN_EMAIL` + `ADMIN_PASSKEY` — Enable `/api/admin/*` + `/admin` (optional `ADMIN_TOKEN_EXPIRES`)
+- `VAPID_PUBLIC/PRIVATE_KEY/SUBJECT` — Web Push (public key also goes to frontend)
 
 ### Production Checklist
 
@@ -1223,22 +1317,25 @@ bun run start
 | Understand design system | `DESIGN.md` |
 | Find any API endpoint | `frontend/lib/api.js` |
 | Change styling/design tokens | `frontend/app/globals.css` |
-| Add a new page | `frontend/app/` (create route group or folder) |
+| Add a new page | `frontend/app/` (create route group or folder; admin lives in `app/admin/`) |
 | Add a new component | `frontend/components/app/` |
 | Modify auth logic | `backend/src/services/authService.js` |
+| Modify privacy / follow-requests / export / deactivate | `backend/src/services/privacyService.js` + `followService.js` |
+| Modify push notifications | `backend/src/services/pushService.js` + `frontend/lib/push.js` |
+| Modify admin moderation | `backend/src/services/adminService.js` + `frontend/app/admin/page.jsx` |
 | Add a new DB model | `backend/src/models/` |
 | Add a new API route | `backend/src/routes/` + `backend/src/app.js` |
 | Change validation rules | `backend/src/middleware/validate.js` + route files |
-| Modify email templates | `backend/src/utils/email.js` |
+| Modify email templates | `backend/src/utils/email.js` (email-only `#ffcead` on `#0c122c` theme) |
 | Change rate limits | `backend/src/middleware/rateLimiter.js` |
 | Configure shadcn/ui | `frontend/components.json` |
 | Configure linter/formatter | `frontend/biome.json` |
-| Set up environment variables | `backend/.env.example` |
-| Understand auth middleware | `backend/src/middleware/auth.js` |
+| Set up environment variables | `backend/.env.example` (+ `frontend/.env` for `NEXT_PUBLIC_*`) |
+| Understand auth middleware | `backend/src/middleware/auth.js` (+ `adminAuth.js` for admin) |
 | Understand error handling | `backend/src/middleware/errorHandler.js` |
 | Understand JWT strategy | `backend/src/utils/jwt.js` |
 | Understand OTP strategy | `backend/src/utils/otp.js` |
 
 ---
 
-*Last updated: October 01, 2026*
+*Last updated: October 03, 2026*
