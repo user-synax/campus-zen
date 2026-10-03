@@ -44,21 +44,36 @@ export const searchService = {
           filter = { $or: [{ username: re }, { fullName: re }, { bio: re }, { college: re }, { course: re }] };
           sort = { createdAt: -1 };
         }
-        // mutual hide for logged-in viewers
+        // mutual hide + strict private + deactivated for logged-in viewers
+        const exclude = new Set();
         if (viewerId) {
           const hidden = await blockService.blockedIdsFor(viewerId);
-          if (hidden.length) filter._id = { $nin: hidden };
+          for (const id of hidden) exclude.add(String(id));
+          const { privacyService } = await import("./privacyService.js");
+          const privateHide = await privacyService.privateIdsToHide(viewerId);
+          for (const id of privateHide) exclude.add(String(id));
+        } else {
+          filter.isDeactivated = { $ne: true };
+          const privates = await User.find({ isPrivate: true }).select("_id").lean();
+          for (const u of privates) exclude.add(String(u._id));
         }
+        if (exclude.size) {
+          const arr = [...exclude];
+          if (filter._id) filter._id = { ...filter._id, $nin: arr };
+          else filter._id = { $nin: arr };
+        }
+        // Deactivated never appear for logged-in viewers either.
+        if (viewerId) filter.isDeactivated = { $ne: true };
         const [users, total] = await Promise.all([
           User.find(filter, useText ? { score: { $meta: "textScore" } } : {})
             .sort(useText ? { score: { $meta: "textScore" } } : { createdAt: -1 })
             .skip(skip)
             .limit(lim)
-            .select("fullName username avatarUrl bio college course academicYear followersCount followingCount isEmailVerified isPro isOwner")
+            .select("fullName username avatarUrl bio college course academicYear followersCount followingCount isEmailVerified isPro isOwner isCofounder")
             .lean(),
           User.countDocuments(filter),
         ]);
-        // add isFollowing for viewer
+        // add isFollowing for viewer + per-field visibility
         let followingSet = new Set();
         if (viewerId && users.length) {
           const { Follow } = await import("../models/Follow.js");
@@ -66,7 +81,11 @@ export const searchService = {
           const follows = await Follow.find({ follower: viewerId, following: { $in: ids } }).select("following").lean();
           followingSet = new Set(follows.map((f) => String(f.following)));
         }
-        const safe = users.map((u) => ({ ...u, isFollowing: followingSet.has(String(u._id)) }));
+        const { privacyService } = await import("./privacyService.js");
+        const safe = users.map((u) => {
+          const isF = followingSet.has(String(u._id));
+          return { ...privacyService.applyProfileVisibility(u, viewerId, isF), isFollowing: isF };
+        });
         return { users: safe, total };
       })();
     }
@@ -74,22 +93,33 @@ export const searchService = {
     let postsPromise = Promise.resolve({ posts: [], total: 0 });
     if (wantPosts) {
       postsPromise = (async () => {
+        const { privacyService } = await import("./privacyService.js");
+        const stripPrivate = async (posts) => {
+          if (!posts.length) return posts;
+          const hide = await privacyService.privateIdsToHide(viewerId || null);
+          if (!hide.size) {
+            // Still drop private authors for guests (privateIdsToHide(null) covers).
+            return posts.filter((p) => !p.author?.isPrivate || String(p.author?._id) === String(viewerId || ""));
+          }
+          return posts.filter((p) => !hide.has(String(p.author?._id || p.author)));
+        };
         // hashtag search: query starts with # → exact tag match
         if (query.startsWith("#")) {
           const rawTag = query.replace(/^#+/, "").toLowerCase().trim().slice(0, 30);
           if (!rawTag) return { posts: [], total: 0 };
           let filter = { hashtags: rawTag };
-          if (viewerId) {
-            const hidden = await blockService.blockedIdsFor(viewerId);
-            if (hidden.length) filter.author = { $nin: hidden };
-          }
+          const hide = await privacyService.privateIdsToHide(viewerId || null);
+          const blocked = viewerId ? await blockService.blockedIdsFor(viewerId) : [];
+          const allHide = new Set([...blocked.map(String), ...hide]);
+          if (allHide.size) filter.author = { $nin: [...allHide] };
           const lim2 = Math.max(1, Math.min(50, Number(limit)));
           const pg2 = Math.max(1, Number(page));
           const skip2 = (pg2 - 1) * lim2;
-          const [posts, total] = await Promise.all([
-            Post.find(filter).sort({ createdAt: -1 }).skip(skip2).limit(lim2).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner").lean(),
+          let [posts, total] = await Promise.all([
+            Post.find(filter).sort({ createdAt: -1 }).skip(skip2).limit(lim2).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner isCofounder isPrivate").lean(),
             Post.countDocuments(filter),
           ]);
+          posts = await stripPrivate(posts);
           if (viewerId && posts.length) {
             const ids = posts.map((p) => p._id);
             const [likes, reposts, saves] = await Promise.all([
@@ -116,15 +146,18 @@ export const searchService = {
         } else {
           filter = { text: re };
         }
-        // hide posts by blocked authors for logged-in viewers
-        if (viewerId) {
-          const hidden = await blockService.blockedIdsFor(viewerId);
-          if (hidden.length) filter.author = { $nin: hidden };
+        // hide posts by blocked + private + deactivated authors
+        {
+          const blocked = viewerId ? await blockService.blockedIdsFor(viewerId) : [];
+          const hide = await privacyService.privateIdsToHide(viewerId || null);
+          const allHide = new Set([...blocked.map(String), ...hide]);
+          if (allHide.size) filter.author = { $nin: [...allHide] };
         }
-        const [posts, total] = await Promise.all([
-          Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner").lean(),
+        let [posts, total] = await Promise.all([
+          Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner isCofounder isPrivate").lean(),
           Post.countDocuments(filter),
         ]);
+        posts = await stripPrivate(posts);
         // add isLiked/isReposted/isBookmarked for viewer
         if (viewerId && posts.length) {
           const ids = posts.map((p) => p._id);

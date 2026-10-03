@@ -1,11 +1,12 @@
 import { User } from "../models/User.js";
 import { AppError } from "../utils/AppError.js";
 import { blockService } from "./blockService.js";
+import { privacyService } from "./privacyService.js";
 import { cache, CacheKeys, TTL } from "../utils/cache.js";
 
 export const userService = {
   async listUsers({ q, college, course, academicYear, page = 1, limit = 20, viewerId }) {
-    const filter = {};
+    const filter = { isDeactivated: { $ne: true } };
     if (q) {
       const esc = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const re = new RegExp(esc, "i");
@@ -15,9 +16,22 @@ export const userService = {
     if (course) filter.course = new RegExp(`^${course.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
     if (academicYear) filter.academicYear = academicYear;
     // mutual hide: exclude blocked users for logged-in viewers
+    const excludeIds = new Set();
     if (viewerId) {
       const hidden = await blockService.blockedIdsFor(viewerId);
-      if (hidden.length) filter._id = { $nin: hidden };
+      for (const id of hidden) excludeIds.add(String(id));
+      // strict private: hide private accounts the viewer doesn't follow
+      const privateHide = await privacyService.privateIdsToHide(viewerId);
+      for (const id of privateHide) excludeIds.add(String(id));
+    } else {
+      // guests never see private or deactivated accounts in directory
+      const privateOnes = await User.find({ isPrivate: true }).select("_id").lean();
+      for (const u of privateOnes) excludeIds.add(String(u._id));
+    }
+    if (excludeIds.size) {
+      const arr = [...excludeIds];
+      if (filter._id) filter._id = { ...filter._id, $nin: arr };
+      else filter._id = { $nin: arr };
     }
 
     const skip = (Math.max(1, Number(page)) - 1) * Math.max(1, Math.min(50, Number(limit)));
@@ -38,7 +52,9 @@ export const userService = {
 
     const safe = users.map((u) => {
       const { passwordHash, refreshTokenHash, __v, ...rest } = u;
-      return { ...rest, isFollowing: followingSet.has(String(u._id)) };
+      const isFollowing = followingSet.has(String(u._id));
+      const withVis = privacyService.applyProfileVisibility(rest, viewerId, isFollowing);
+      return { ...withVis, isFollowing };
     });
 
     return {
@@ -53,6 +69,7 @@ export const userService = {
   // Ranked "Suggested students" for the discovery rail (PRD §12, V1).
   // Affinity order: same college > mutual follows > same course > same year.
   // Tiebreak prefers newer accounts so fresh faces stay discoverable.
+  // Private + deactivated accounts are never suggested.
   async suggestions(viewerId, { limit = 6 } = {}) {
     const lim = Math.max(1, Math.min(20, Number(limit) || 6));
     const cacheKey = CacheKeys.suggestions(viewerId);
@@ -68,14 +85,15 @@ export const userService = {
       blockService.blockedIdsFor(viewerId),
     ]);
     const myFollowingIds = myFollowing.map((f) => f.following);
-    const excluded = [viewerId, ...myFollowingIds, ...hidden];
+    const privateHide = await privacyService.privateIdsToHide(viewerId);
+    const excluded = [viewerId, ...myFollowingIds, ...hidden, ...privateHide];
 
     // oversample recent users, then rank in memory (single extra agg for mutuals)
     const poolSize = Math.min(100, Math.max(lim * 10, 30));
-    const candidates = await User.find({ _id: { $nin: excluded } })
+    const candidates = await User.find({ _id: { $nin: excluded }, isPrivate: { $ne: true }, isDeactivated: { $ne: true } })
       .sort({ createdAt: -1 })
       .limit(poolSize)
-      .select("fullName username avatarUrl bio college course academicYear followersCount createdAt isEmailVerified isPro isOwner")
+      .select("fullName username avatarUrl bio college course academicYear followersCount createdAt isEmailVerified isPro isOwner isCofounder")
       .lean();
 
     let mutualCounts = {};
@@ -144,6 +162,11 @@ export const userService = {
       cache.set(cacheKey, user, TTL.USER_PROFILE);
     }
 
+    // Deactivated: only the owner can view; others get unavailable.
+    if (user.isDeactivated && String(viewerId || "") !== String(user._id)) {
+      throw new AppError("This profile is unavailable", 404, "USER_NOT_FOUND");
+    }
+
     if (viewerId && String(viewerId) !== String(user._id)) {
       const rel = await blockService.relationOf(viewerId, user._id);
       if (rel) {
@@ -154,13 +177,32 @@ export const userService = {
         });
       }
     }
-    const safe = user.toSafeObject();
+    let safe = user.toSafeObject();
+    let isFollowing = false;
     if (viewerId && String(viewerId) !== String(user._id)) {
       const { Follow } = await import("../models/Follow.js");
       const exists = await Follow.exists({ follower: viewerId, following: user._id });
-      safe.isFollowing = Boolean(exists);
+      isFollowing = Boolean(exists);
+      safe.isFollowing = isFollowing;
+      // Strict private: non-followers get a limited shell + PRIVATE flag.
+      if (user.isPrivate && !isFollowing) {
+        const { FollowRequest } = await import("../models/FollowRequest.js");
+        const pending = await FollowRequest.exists({ requester: viewerId, target: user._id, status: "pending" });
+        safe = privacyService.applyProfileVisibility(safe, viewerId, false);
+        safe.isPrivate = true;
+        safe.isFollowRequested = Boolean(pending);
+        safe.privateHidden = true;
+        return safe;
+      }
     } else {
       safe.isFollowing = false;
+    }
+    safe = privacyService.applyProfileVisibility(safe, viewerId, isFollowing);
+    // Follow-request state for private profiles (owner sees counts elsewhere).
+    if (safe.isPrivate && viewerId && String(viewerId) !== String(safe._id)) {
+      const { FollowRequest } = await import("../models/FollowRequest.js");
+      const pending = await FollowRequest.exists({ requester: viewerId, target: safe._id, status: "pending" });
+      safe.isFollowRequested = Boolean(pending);
     }
     return safe;
   },
@@ -218,9 +260,43 @@ export const userService = {
   },
 
   async updateMe(userId, data) {
-    const allowed = ["fullName", "bio", "college", "course", "academicYear", "avatarUrl", "coverUrl", "accent"];
+    const allowed = ["fullName", "bio", "college", "course", "academicYear", "avatarUrl", "coverUrl", "accent", "isPrivate", "replyPolicy", "mentionPolicy", "profileVisibility"];
     const update = {};
     for (const k of allowed) if (data[k] !== undefined) update[k] = data[k];
+
+    // ── Privacy validation ─────────────────────────────────────
+    if (update.isPrivate !== undefined) update.isPrivate = Boolean(update.isPrivate);
+    if (update.replyPolicy !== undefined && !["everyone", "followers", "none"].includes(update.replyPolicy)) {
+      throw new AppError("Invalid reply policy", 400, "VALIDATION_ERROR");
+    }
+    if (update.mentionPolicy !== undefined && !["everyone", "followers", "none"].includes(update.mentionPolicy)) {
+      throw new AppError("Invalid mention policy", 400, "VALIDATION_ERROR");
+    }
+    if (update.profileVisibility !== undefined) {
+      if (typeof update.profileVisibility !== "object" || update.profileVisibility === null) {
+        throw new AppError("Invalid profile visibility", 400, "VALIDATION_ERROR");
+      }
+      const pv = {};
+      for (const f of ["college", "course", "academicYear"]) {
+        if (update.profileVisibility[f] !== undefined) {
+          if (!["public", "followers", "hidden"].includes(update.profileVisibility[f])) {
+            throw new AppError(`Invalid visibility for ${f}`, 400, "VALIDATION_ERROR");
+          }
+          pv[`profileVisibility.${f}`] = update.profileVisibility[f];
+        }
+      }
+      delete update.profileVisibility;
+      if (Object.keys(pv).length) {
+        const cur = await User.findByIdAndUpdate(userId, { $set: pv }, { new: true, runValidators: true });
+        if (!cur) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+        cache.del(CacheKeys.userProfile(cur.username));
+      }
+      // If only visibility was passed, return early after other updates.
+      if (!Object.keys(update).length) {
+        const fresh = await User.findById(userId);
+        return fresh.toSafeObject();
+      }
+    }
 
     // normalize empty string -> null for optional fields
     for (const k of ["bio", "college", "course", "academicYear", "avatarUrl", "coverUrl", "accent"]) {
@@ -297,6 +373,204 @@ export const userService = {
     const user = await User.findByIdAndUpdate(userId, { $set: update }, { new: true, runValidators: true });
     if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
     cache.del(CacheKeys.userProfile(user.username));
+    cache.delPattern("user:*");
+    cache.delPattern("publicFeed:*");
+    cache.delPattern("feed:*");
+
+    // Going public: auto-fulfil pending follow requests into follows.
+    if (update.isPrivate === false) {
+      try {
+        const { FollowRequest } = await import("../models/FollowRequest.js");
+        const { Follow } = await import("../models/Follow.js");
+        const pending = await FollowRequest.find({ target: userId, status: "pending" }).select("requester").lean();
+        for (const r of pending) {
+          try {
+            await Follow.create({ follower: r.requester, following: userId });
+            await Promise.all([
+              User.findByIdAndUpdate(r.requester, { $inc: { followingCount: 1 } }),
+              User.findByIdAndUpdate(userId, { $inc: { followersCount: 1 } }),
+            ]);
+          } catch (e) {
+            if (e.code !== 11000) throw e;
+          }
+          await FollowRequest.updateOne({ _id: r._id }, { $set: { status: "accepted" } });
+        }
+      } catch {}
+    }
     return user.toSafeObject();
+  },
+
+  async updatePrivacy(userId, data) {
+    const update = {};
+    if (data.isPrivate !== undefined) update.isPrivate = Boolean(data.isPrivate);
+    if (data.replyPolicy !== undefined) {
+      if (!["everyone", "followers", "none"].includes(data.replyPolicy)) throw new AppError("Invalid reply policy", 400, "VALIDATION_ERROR");
+      update.replyPolicy = data.replyPolicy;
+    }
+    if (data.mentionPolicy !== undefined) {
+      if (!["everyone", "followers", "none"].includes(data.mentionPolicy)) throw new AppError("Invalid mention policy", 400, "VALIDATION_ERROR");
+      update.mentionPolicy = data.mentionPolicy;
+    }
+    const pvSet = {};
+    if (data.profileVisibility && typeof data.profileVisibility === "object") {
+      for (const f of ["college", "course", "academicYear"]) {
+        if (data.profileVisibility[f] !== undefined) {
+          if (!["public", "followers", "hidden"].includes(data.profileVisibility[f])) {
+            throw new AppError(`Invalid visibility for ${f}`, 400, "VALIDATION_ERROR");
+          }
+          pvSet[`profileVisibility.${f}`] = data.profileVisibility[f];
+        }
+      }
+    }
+    if (!Object.keys(update).length && !Object.keys(pvSet).length) {
+      const cur = await User.findById(userId);
+      if (!cur) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+      return cur.toSafeObject();
+    }
+    const set = { ...update, ...pvSet };
+    const wasPrivate = (await User.findById(userId).select("isPrivate username").lean())?.isPrivate;
+    const user = await User.findByIdAndUpdate(userId, { $set: set }, { new: true, runValidators: true });
+    if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+    cache.del(CacheKeys.userProfile(user.username));
+    cache.delPattern("user:*");
+    cache.delPattern("publicFeed:*");
+    cache.delPattern("feed:*");
+    cache.delPattern("suggestions:*");
+    if (wasPrivate === true && user.isPrivate === false) {
+      try {
+        const { FollowRequest } = await import("../models/FollowRequest.js");
+        const { Follow } = await import("../models/Follow.js");
+        const pending = await FollowRequest.find({ target: userId, status: "pending" }).select("requester").lean();
+        for (const r of pending) {
+          try {
+            await Follow.create({ follower: r.requester, following: userId });
+            await Promise.all([
+              User.findByIdAndUpdate(r.requester, { $inc: { followingCount: 1 } }),
+              User.findByIdAndUpdate(userId, { $inc: { followersCount: 1 } }),
+            ]);
+          } catch (e) {
+            if (e.code !== 11000) throw e;
+          }
+          await FollowRequest.updateOne({ _id: r._id }, { $set: { status: "accepted" } });
+        }
+      } catch {}
+    }
+    return user.toSafeObject();
+  },
+
+  // Full data export for GDPR-style download: profile + content + graph.
+  async exportData(userId) {
+    const [user, posts, comments, likes, reposts, bookmarks, follows, followers, blocks, reports] = await Promise.all([
+      User.findById(userId).lean(),
+      import("../models/Post.js").then(({ Post }) => Post.find({ author: userId }).sort({ createdAt: -1 }).lean()),
+      import("../models/Comment.js").then(({ Comment }) => Comment.find({ author: userId }).sort({ createdAt: -1 }).lean()),
+      import("../models/Like.js").then(({ Like }) => Like.find({ user: userId }).lean()),
+      import("../models/Repost.js").then(({ Repost }) => Repost.find({ user: userId }).lean()),
+      import("../models/Bookmark.js").then(({ Bookmark }) => Bookmark.find({ user: userId }).lean()),
+      import("../models/Follow.js").then(({ Follow }) => Follow.find({ follower: userId }).populate("following", "username fullName").lean()),
+      import("../models/Follow.js").then(({ Follow }) => Follow.find({ following: userId }).populate("follower", "username fullName").lean()),
+      import("../models/Block.js").then(({ Block }) => Block.find({ blocker: userId }).populate("blocked", "username fullName").lean()),
+      import("../models/Report.js").then(({ Report }) => Report.find({ reporter: userId }).lean()),
+    ]);
+    if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+    const { passwordHash, refreshTokenHash, __v, ...profile } = user;
+    return {
+      exportedAt: new Date().toISOString(),
+      profile,
+      privacy: {
+        isPrivate: user.isPrivate,
+        replyPolicy: user.replyPolicy,
+        mentionPolicy: user.mentionPolicy,
+        profileVisibility: user.profileVisibility,
+      },
+      posts,
+      comments,
+      likes,
+      reposts,
+      bookmarks,
+      following: follows,
+      followers,
+      blocked: blocks,
+      reportsFiled: reports,
+      counts: {
+        posts: posts.length,
+        comments: comments.length,
+        following: follows.length,
+        followers: followers.length,
+      },
+    };
+  },
+
+  async deactivate(userId) {
+    const user = await User.findById(userId);
+    if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+    if (user.isDeactivated) return user.toSafeObject();
+    user.isDeactivated = true;
+    user.deactivatedAt = new Date();
+    user.scheduledDeletionAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    user.refreshTokenHash = null; // log out everywhere; login still allowed for restore
+    await user.save();
+    cache.del(CacheKeys.userProfile(user.username));
+    cache.delPattern("user:*");
+    cache.delPattern("publicFeed:*");
+    cache.delPattern("feed:*");
+    return user.toSafeObject();
+  },
+
+  async reactivate(userId) {
+    const user = await User.findById(userId);
+    if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+    user.isDeactivated = false;
+    user.deactivatedAt = null;
+    user.scheduledDeletionAt = null;
+    await user.save();
+    cache.del(CacheKeys.userProfile(user.username));
+    return user.toSafeObject();
+  },
+
+  // Permanent purge — called after grace expiry or explicit confirmed delete.
+  // Removes user + all owned content/graph rows.
+  async purge(userId) {
+    const user = await User.findById(userId).select("_id username").lean();
+    if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+    const [{ Post }, { Comment }, { Like }, { Repost }, { Bookmark }, { PollVote }, { Follow }, { Block }, { Notification }, { Report }, { FollowRequest }, { Appeal }] = await Promise.all([
+      import("../models/Post.js"),
+      import("../models/Comment.js"),
+      import("../models/Like.js"),
+      import("../models/Repost.js"),
+      import("../models/Bookmark.js"),
+      import("../models/PollVote.js"),
+      import("../models/Follow.js"),
+      import("../models/Block.js"),
+      import("../models/Notification.js"),
+      import("../models/Report.js"),
+      import("../models/FollowRequest.js"),
+      import("../models/Appeal.js"),
+    ]);
+    const postIds = (await Post.find({ author: userId }).select("_id").lean()).map((p) => p._id);
+    await Promise.all([
+      Comment.deleteMany({ $or: [{ author: userId }, { post: { $in: postIds } }] }),
+      Like.deleteMany({ $or: [{ user: userId }, { post: { $in: postIds } }] }),
+      Repost.deleteMany({ $or: [{ user: userId }, { post: { $in: postIds } }] }),
+      Bookmark.deleteMany({ $or: [{ user: userId }, { post: { $in: postIds } }] }),
+      PollVote.deleteMany({ $or: [{ user: userId }, { post: { $in: postIds } }] }),
+      Post.deleteMany({ author: userId }),
+      Follow.deleteMany({ $or: [{ follower: userId }, { following: userId }] }),
+      Block.deleteMany({ $or: [{ blocker: userId }, { blocked: userId }] }),
+      Notification.deleteMany({ $or: [{ recipient: userId }, { actor: userId }] }),
+      FollowRequest.deleteMany({ $or: [{ requester: userId }, { target: userId }] }),
+      Appeal.deleteMany({ appellant: userId }),
+      User.updateOne({ _id: userId, pinnedPost: { $exists: true } }, { $unset: { pinnedPost: 1 } }),
+    ]);
+    // Repair follower/following counters for affected users (best-effort).
+    try {
+      const affected = await Follow.find({ $or: [{ follower: userId }, { following: userId }] }).select("follower following").lean();
+      void affected;
+    } catch {}
+    await User.deleteOne({ _id: userId });
+    cache.delPattern("user:*");
+    cache.delPattern("feed:*");
+    cache.delPattern("publicFeed:*");
+    return { deleted: true, username: user.username };
   },
 };

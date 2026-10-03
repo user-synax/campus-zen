@@ -199,6 +199,42 @@ export function useBlocks(enabled = true) {
   });
 }
 
+export function useIncomingRequests(enabled = true) {
+  return useQuery({
+    queryKey: ["follow-requests", "incoming"],
+    queryFn: () => api.getIncomingRequests(),
+    staleTime: 30_000,
+    enabled,
+  });
+}
+
+export function useOutgoingRequests(enabled = true) {
+  return useQuery({
+    queryKey: ["follow-requests", "outgoing"],
+    queryFn: () => api.getOutgoingRequests(),
+    staleTime: 30_000,
+    enabled,
+  });
+}
+
+export function useMyReports(enabled = true) {
+  return useQuery({
+    queryKey: ["my-reports"],
+    queryFn: () => api.getMyReports(),
+    staleTime: 30_000,
+    enabled,
+  });
+}
+
+export function useMyAppeals(enabled = true) {
+  return useQuery({
+    queryKey: ["my-appeals"],
+    queryFn: () => api.getMyAppeals(),
+    staleTime: 30_000,
+    enabled,
+  });
+}
+
 // ─── Hashtags ────────────────────────────────────────────────────────────────
 
 export function useTrendingHashtags() {
@@ -471,17 +507,23 @@ export function useFollow() {
     },
     onSuccess: (res, userId) => {
       import("../optimistic.js").then(({ patchUserEverywhere }) => {
-        const counts = res?.data?.followingCounts;
-        patchUserEverywhere(qc, userId, {
-          isFollowing: true,
-          ...(counts?.followersCount != null ? { followersCount: counts.followersCount } : {}),
-        });
+        if (res?.data?.requested) {
+          patchUserEverywhere(qc, userId, { isFollowing: false, isFollowRequested: true });
+        } else {
+          const counts = res?.data?.followingCounts;
+          patchUserEverywhere(qc, userId, {
+            isFollowing: true,
+            isFollowRequested: false,
+            ...(counts?.followersCount != null ? { followersCount: counts.followersCount } : {}),
+          });
+        }
       });
       qc.invalidateQueries({ queryKey: ["suggestions"] });
+      qc.invalidateQueries({ queryKey: ["follow-requests"] });
     },
     onError: (_e, userId) => {
       import("../optimistic.js").then(({ patchUserEverywhere }) => {
-        patchUserEverywhere(qc, userId, { isFollowing: false });
+        patchUserEverywhere(qc, userId, { isFollowing: false, isFollowRequested: false });
       });
     },
   });

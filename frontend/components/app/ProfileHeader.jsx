@@ -5,6 +5,7 @@ import {
   Calendar,
   Flag,
   GraduationCap,
+  Lock,
   MapPin,
   MoreHorizontal,
 } from "lucide-react";
@@ -92,6 +93,7 @@ export function ProfileHeader({
   onEdit,
   onFollow,
   isFollowing,
+  isFollowRequested,
   followLoading,
   onFollowersClick,
   onFollowingClick,
@@ -236,6 +238,8 @@ export function ProfileHeader({
                     <span className="group-hover:hidden">Following</span>
                     <span className="hidden group-hover:inline">Unfollow</span>
                   </>
+                ) : isFollowRequested ? (
+                  "Requested"
                 ) : (
                   "Follow"
                 )}
@@ -301,6 +305,11 @@ export function ProfileHeader({
           <h1 className="flex items-center gap-1.5 text-[20px] leading-6 font-extrabold text-[var(--cz-text-primary)]">
             <span className="truncate">{displayName}</span>
             <UserBadge user={user} size="md" />
+            {user.isPrivate ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-[var(--cz-border-strong)] px-2 py-0.5 text-[12px] font-bold text-[var(--cz-text-secondary)]">
+                <Lock className="h-3 w-3" aria-hidden /> Private
+              </span>
+            ) : null}
           </h1>
           <p className="mt-0.5 text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">
             {user.followersCount != null || user.followingCount != null ? (

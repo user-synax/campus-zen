@@ -1,4 +1,5 @@
 import { Report } from "../models/Report.js";
+import { Appeal } from "../models/Appeal.js";
 import { Post } from "../models/Post.js";
 import { User } from "../models/User.js";
 import { Comment } from "../models/Comment.js";
@@ -33,15 +34,17 @@ export const adminService = {
   },
 
   async stats() {
-    const [open, dismissed, actioned, totalUsers, totalPosts, suspended] = await Promise.all([
+    const [open, dismissed, actioned, totalUsers, totalPosts, suspended, appealsOpen, appealsTotal] = await Promise.all([
       Report.countDocuments({ status: "open" }),
       Report.countDocuments({ status: "dismissed" }),
       Report.countDocuments({ status: "actioned" }),
       User.countDocuments({}),
       Post.countDocuments({}),
       User.countDocuments({ isSuspended: true }),
+      Appeal.countDocuments({ status: "open" }),
+      Appeal.countDocuments({}),
     ]);
-    return { reports: { open, dismissed, actioned, total: open + dismissed + actioned }, users: { total: totalUsers, suspended }, posts: { total: totalPosts } };
+    return { reports: { open, dismissed, actioned, total: open + dismissed + actioned }, users: { total: totalUsers, suspended }, posts: { total: totalPosts }, appeals: { open: appealsOpen, total: appealsTotal } };
   },
 
   async listReports({ status = "open", page = 1, limit = 20 }) {
@@ -88,6 +91,14 @@ export const adminService = {
     }
     const report = await Report.findByIdAndUpdate(reportId, { $set: { status } }, { new: true });
     if (!report) throw new AppError("Report not found", 404, "REPORT_NOT_FOUND");
+    // Feedback to the reporter (best-effort, never blocks admin).
+    try {
+      const { notificationService } = await import("./notificationService.js");
+      const { Notification } = await import("../models/Notification.js");
+      // System-style notification: actor = reporter self is skipped by create(),
+      // so insert directly with a moderation type.
+      await Notification.create({ recipient: report.reporter, actor: report.reporter, type: "report_update", post: report.targetType === "post" ? report.targetId : null });
+    } catch {}
     return report;
   },
 
@@ -154,5 +165,44 @@ export const adminService = {
     user.suspendReason = null;
     await user.save();
     return user.toSafeObject();
+  },
+
+  async listAppeals({ status = "open", page = 1, limit = 20 }) {
+    const lim = Math.max(1, Math.min(50, Number(limit) || 20));
+    const pg = Math.max(1, Number(page) || 1);
+    const skip = (pg - 1) * lim;
+    const filter = status === "all" ? {} : { status };
+    const [appeals, total] = await Promise.all([
+      Appeal.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(lim)
+        .populate("appellant", "fullName username avatarUrl isSuspended")
+        .populate("report", "targetType reason status targetId")
+        .lean(),
+      Appeal.countDocuments(filter),
+    ]);
+    return { appeals, total, page: pg, limit: lim, hasMore: skip + lim < total };
+  },
+
+  async reviewAppeal(appealId, { status, reviewNote }) {
+    if (!["upheld", "rejected"].includes(status)) {
+      throw new AppError("Status must be upheld or rejected", 400, "INVALID_STATUS");
+    }
+    const appeal = await Appeal.findById(appealId);
+    if (!appeal) throw new AppError("Appeal not found", 404, "APPEAL_NOT_FOUND");
+    appeal.status = status;
+    appeal.reviewNote = reviewNote ? String(reviewNote).slice(0, 1000) : null;
+    appeal.reviewedAt = new Date();
+    await appeal.save();
+    // Upheld report-appeal reopens the report for a second look.
+    if (status === "upheld" && appeal.report) {
+      await Report.findByIdAndUpdate(appeal.report, { $set: { status: "open" } });
+    }
+    try {
+      const { Notification } = await import("../models/Notification.js");
+      await Notification.create({ recipient: appeal.appellant, actor: appeal.appellant, type: "appeal_update" });
+    } catch {}
+    return appeal;
   },
 };

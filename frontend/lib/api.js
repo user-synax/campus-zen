@@ -148,6 +148,35 @@ export const api = {
   },
   updateMe: (payload) =>
     request("/api/users/me", { method: "PATCH", body: payload }),
+  updatePrivacy: (payload) =>
+    request("/api/users/me/privacy", { method: "PATCH", body: payload }),
+  getIncomingRequests: (params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "")
+        qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(`/api/users/me/follow-requests/incoming${q ? `?${q}` : ""}`, { method: "GET" });
+  },
+  getOutgoingRequests: (params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "")
+        qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(`/api/users/me/follow-requests/outgoing${q ? `?${q}` : ""}`, { method: "GET" });
+  },
+  acceptFollowRequest: (requestId) =>
+    request(`/api/users/me/follow-requests/${encodeURIComponent(requestId)}/accept`, { method: "POST" }),
+  declineFollowRequest: (requestId) =>
+    request(`/api/users/me/follow-requests/${encodeURIComponent(requestId)}/decline`, { method: "POST" }),
+  exportData: () => request("/api/users/me/export", { method: "GET" }),
+  deactivateAccount: () => request("/api/users/me/deactivate", { method: "POST" }),
+  reactivateAccount: () => request("/api/users/me/reactivate", { method: "POST" }),
+  deleteAccount: (confirm) =>
+    request("/api/users/me", { method: "DELETE", body: confirm ? { confirm } : {} }),
   getUserPosts: (username, params = {}) => {
     const qs = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => {
@@ -264,6 +293,28 @@ export const api = {
   },
   fileReport: (payload) =>
     request("/api/reports", { method: "POST", body: payload }),
+  getMyReports: (params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "")
+        qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(`/api/reports/me${q ? `?${q}` : ""}`, { method: "GET" });
+  },
+  appealReport: (reportId, payload) =>
+    request(`/api/reports/${encodeURIComponent(reportId)}/appeal`, { method: "POST", body: payload }),
+  fileAppeal: (payload) =>
+    request("/api/reports/appeals", { method: "POST", body: payload }),
+  getMyAppeals: (params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "")
+        qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(`/api/reports/appeals/me${q ? `?${q}` : ""}`, { method: "GET" });
+  },
   getFollowers: (id, params = {}) => {
     const qs = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => {
@@ -493,5 +544,19 @@ export const api = {
   adminUnsuspendUser: (id) =>
     request(`/api/admin/users/${encodeURIComponent(id)}/unsuspend`, {
       method: "PATCH",
+    }),
+  adminAppeals: (params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "")
+        qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(`/api/admin/appeals${q ? `?${q}` : ""}`, { method: "GET" });
+  },
+  adminReviewAppeal: (id, payload) =>
+    request(`/api/admin/appeals/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: payload,
     }),
 };

@@ -21,6 +21,14 @@ const updateMeSchema = z.object({
   avatarUrl: z.string().url().nullable().optional().or(z.literal("").transform(() => null)),
   coverUrl: z.string().url().nullable().optional().or(z.literal("").transform(() => null)),
   accent: z.enum(["peach", "lavender", "mint", "sky", "rose"]).nullable().optional(),
+  isPrivate: z.boolean().optional(),
+  replyPolicy: z.enum(["everyone", "followers", "none"]).optional(),
+  mentionPolicy: z.enum(["everyone", "followers", "none"]).optional(),
+  profileVisibility: z.object({
+    college: z.enum(["public", "followers", "hidden"]).optional(),
+    course: z.enum(["public", "followers", "hidden"]).optional(),
+    academicYear: z.enum(["public", "followers", "hidden"]).optional(),
+  }).optional(),
   socialLinks: z
     .object({
       github: z
@@ -36,6 +44,21 @@ const updateMeSchema = z.object({
       instagram: z.string().trim().max(30).nullable().optional().or(z.literal("").transform(() => null)),
     })
     .optional(),
+});
+
+const privacySchema = z.object({
+  isPrivate: z.boolean().optional(),
+  replyPolicy: z.enum(["everyone", "followers", "none"]).optional(),
+  mentionPolicy: z.enum(["everyone", "followers", "none"]).optional(),
+  profileVisibility: z.object({
+    college: z.enum(["public", "followers", "hidden"]).optional(),
+    course: z.enum(["public", "followers", "hidden"]).optional(),
+    academicYear: z.enum(["public", "followers", "hidden"]).optional(),
+  }).optional(),
+});
+
+const deleteMeSchema = z.object({
+  confirm: z.string().optional(),
 });
 
 const meLimiter = rateLimit({
@@ -81,6 +104,20 @@ router.post("/:id/follow", followLimiter, protect, validate(idParam, "params"), 
 router.delete("/:id/follow", followLimiter, protect, validate(idParam, "params"), followController.unfollow);
 router.get("/:id/followers", meLimiter, optionalAuth, validate(idParam, "params"), followController.getFollowers);
 router.get("/:id/following", meLimiter, optionalAuth, validate(idParam, "params"), followController.getFollowing);
+
+// follow requests — approval queue for private accounts
+const requestIdParam = z.object({ requestId: z.string().regex(/^[a-f\d]{24}$/i, "Invalid id") });
+router.get("/me/follow-requests/incoming", protect, followController.incoming);
+router.get("/me/follow-requests/outgoing", protect, followController.outgoing);
+router.post("/me/follow-requests/:requestId/accept", protect, validate(requestIdParam, "params"), followController.accept);
+router.post("/me/follow-requests/:requestId/decline", protect, validate(requestIdParam, "params"), followController.decline);
+
+// privacy + data controls — before /:username to avoid param clash
+router.patch("/me/privacy", meLimiter, protect, validate(privacySchema), userController.updatePrivacy);
+router.get("/me/export", protect, userController.exportMe);
+router.post("/me/deactivate", protect, userController.deactivateMe);
+router.post("/me/reactivate", protect, userController.reactivateMe);
+router.delete("/me", protect, validate(deleteMeSchema), userController.deleteMe);
 
 // block — before /:username to avoid param clash
 router.get("/me/blocks", protect, blockController.list);

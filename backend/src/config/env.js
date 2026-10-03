@@ -20,6 +20,9 @@ export const env = {
   // Owner badge (red) — exactly one account. Compared case-insensitively
   // against the user's email; synced on signup (pre-save) and login.
   OWNER_EMAIL: (process.env.OWNER_EMAIL || "usersynax@gmail.com").toLowerCase().trim(),
+  // Co-founder badge (lavender) — exactly one account (yashvardhan4646@gmail.com).
+  // Same sync mechanism as OWNER_EMAIL so clients get isCofounder flag.
+  COFOUNDER_EMAIL: (process.env.COFOUNDER_EMAIL || "yashvardhan4646@gmail.com").toLowerCase().trim(),
   COOKIE_SECURE: process.env.COOKIE_SECURE === "true",
   // lax for same-origin prod, "none" when frontend and API live on different hosts
   COOKIE_SAMESITE: ["lax", "strict", "none"].includes(process.env.COOKIE_SAMESITE)

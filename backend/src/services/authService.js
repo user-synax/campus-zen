@@ -147,11 +147,13 @@ export const authService = {
 
     user.refreshTokenHash = hashToken(refreshToken);
     user.lastLoginAt = new Date();
-    // backfill: accounts created before isOwner existed get flagged here
+    // backfill: accounts created before isOwner/isCofounder existed get flagged here
     // (pre-save hook covers all future saves)
     try {
       const { env } = await import("../config/env.js");
-      user.isOwner = String(user.email || "").toLowerCase().trim() === env.OWNER_EMAIL;
+      const clean = String(user.email || "").toLowerCase().trim();
+      user.isOwner = clean === env.OWNER_EMAIL;
+      user.isCofounder = clean === env.COFOUNDER_EMAIL;
     } catch {}
     await user.save();
 

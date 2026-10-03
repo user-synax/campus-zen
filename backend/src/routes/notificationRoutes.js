@@ -14,7 +14,7 @@ const paginationQuery = z.object({
   // "all" is the no-filter case the client sends explicitly, so it has to be
   // in the enum alongside the specific types.
   type: z
-    .enum(["all", "follow", "like", "reply", "repost", "mention"])
+    .enum(["all", "follow", "like", "reply", "repost", "mention", "follow_request", "follow_accept", "report_update", "appeal_update"])
     .optional(),
 });
 

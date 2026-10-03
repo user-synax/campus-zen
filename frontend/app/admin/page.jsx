@@ -49,6 +49,7 @@ export default function AdminPage() {
 
   const [stats, setStats] = useState(null);
   const [tab, setTab] = useState("open");
+  const [section, setSection] = useState("reports"); // reports | appeals
   const [reports, setReports] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -56,6 +57,11 @@ export default function AdminPage() {
   const [listError, setListError] = useState(null);
   const [acting, setActing] = useState({}); // id -> action label
   const [suspendReason, setSuspendReason] = useState({}); // reportId -> text
+  const [appeals, setAppeals] = useState([]);
+  const [appealsTotal, setAppealsTotal] = useState(0);
+  const [appealsPage, setAppealsPage] = useState(1);
+  const [appealsTab, setAppealsTab] = useState("open");
+  const [reviewNote, setReviewNote] = useState({});
 
   const fetchReports = useCallback(async (status, pg) => {
     setLoading(true);
@@ -83,6 +89,22 @@ export default function AdminPage() {
     } catch {}
   }, []);
 
+  const fetchAppeals = useCallback(async (status, pg) => {
+    setLoading(true);
+    try {
+      const res = await api.adminAppeals({ status, page: pg, limit: 20 });
+      const d = res.data || {};
+      if (pg === 1) setAppeals(d.appeals || []);
+      else setAppeals((prev) => [...prev, ...(d.appeals || [])]);
+      setAppealsTotal(d.total || 0);
+      setAppealsPage(d.page || pg);
+    } catch (err) {
+      setListError(err.data?.message || err.message || "Failed to load appeals");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     (async () => {
       try {
@@ -90,11 +112,12 @@ export default function AdminPage() {
         setPhase("dash");
         fetchStats();
         fetchReports("open", 1);
+        fetchAppeals("open", 1);
       } catch {
         setPhase("login");
       }
     })();
-  }, [fetchReports, fetchStats]);
+  }, [fetchReports, fetchStats, fetchAppeals]);
 
   const switchTab = (id) => {
     setTab(id);
@@ -249,6 +272,21 @@ export default function AdminPage() {
     }
   };
 
+  const doReviewAppeal = async (appeal, status) => {
+    markActing(appeal._id, status);
+    try {
+      const note = (reviewNote[appeal._id] || "").trim();
+      await api.adminReviewAppeal(appeal._id, note ? { status, reviewNote: note } : { status });
+      setAppeals((prev) => prev.map((a) => (a._id === appeal._id ? { ...a, status } : a)));
+      fetchStats();
+      if (appealsTab === "open") setAppeals((prev) => prev.filter((a) => a._id !== appeal._id));
+    } catch (err) {
+      alert(err.data?.message || err.message || "Failed");
+    } finally {
+      clearActing(appeal._id);
+    }
+  };
+
   if (phase === "checking") {
     return (
       <div className="grid min-h-dvh place-items-center bg-[var(--cz-bg)]">
@@ -367,7 +405,7 @@ export default function AdminPage() {
             {[
               { label: "Open reports", value: stats.reports?.open ?? 0 },
               { label: "Total reports", value: stats.reports?.total ?? 0 },
-              { label: "Users", value: stats.users?.total ?? 0 },
+              { label: "Open appeals", value: stats.appeals?.open ?? 0 },
               { label: "Suspended", value: stats.users?.suspended ?? 0 },
             ].map((s) => (
               <div
@@ -385,11 +423,31 @@ export default function AdminPage() {
           </div>
         ) : null}
 
-        <div
-          className="mt-5 flex gap-2"
-          role="tablist"
-          aria-label="Report status"
-        >
+        <div className="mt-5 flex gap-2" role="tablist" aria-label="Section">
+          {[
+            { id: "reports", label: "Reports" },
+            { id: "appeals", label: `Appeals${stats?.appeals?.open ? ` (${stats.appeals.open})` : ""}` },
+          ].map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={section === t.id}
+              onClick={() => setSection(t.id)}
+              className={`h-[32px] rounded-full px-4 text-[14px] font-bold transition-colors ${section === t.id ? "bg-[var(--cz-text-primary)] text-[var(--cz-bg)]" : "border border-[var(--cz-border-strong)] hover:bg-[var(--cz-surface-strong)]"}`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {section === "reports" ? (
+          <>
+            <div
+              className="mt-3 flex gap-2"
+              role="tablist"
+              aria-label="Report status"
+            >
           {TABS.map((t) => (
             <button
               key={t.id}
@@ -585,7 +643,7 @@ export default function AdminPage() {
             No {tab} reports.
           </p>
         ) : null}
-        {!loading && reports.length > 0 ? (
+        {!loading && reports.length > 0 && section === "reports" ? (
           <div className="mt-4 flex items-center justify-between">
             <p className="text-[13px] text-[var(--cz-text-secondary)]">
               {total} total
@@ -600,6 +658,69 @@ export default function AdminPage() {
             </Button>
           </div>
         ) : null}
+          </>
+        ) : (
+          <>
+            <div className="mt-3 flex gap-2" role="tablist" aria-label="Appeal status">
+              {[
+                { id: "open", label: "Open" },
+                { id: "upheld", label: "Upheld" },
+                { id: "rejected", label: "Rejected" },
+                { id: "all", label: "All" },
+              ].map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={appealsTab === t.id}
+                  onClick={() => { setAppealsTab(t.id); setAppeals([]); fetchAppeals(t.id, 1); }}
+                  className={`h-[32px] rounded-full px-4 text-[14px] font-bold transition-colors ${appealsTab === t.id ? "bg-[var(--cz-accent)] text-[var(--cz-text-inverse)]" : "border border-[var(--cz-border-strong)] hover:bg-[var(--cz-surface-strong)]"}`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <div className="mt-4 flex flex-col gap-3">
+              {appeals.map((a) => {
+                const busy = Boolean(acting[a._id]);
+                return (
+                  <article key={a._id} className="rounded-2xl border border-[var(--cz-border)] p-4">
+                    <div className="flex flex-wrap items-center gap-2 text-[13px] text-[var(--cz-text-secondary)]">
+                      <span className="rounded-full bg-[var(--cz-surface-strong)] px-2 py-0.5 font-bold text-[var(--cz-text-primary)]">{a.type}</span>
+                      <span className="rounded-full border border-[var(--cz-border-strong)] px-2 py-0.5">{a.status}</span>
+                      <span className="ml-auto">{timeAgo(a.createdAt)}</span>
+                    </div>
+                    <p className="mt-2 text-[15px]">
+                      <span className="font-bold">@{a.appellant?.username || "?"}</span>
+                      <span className="text-[var(--cz-text-secondary)]"> appealed{a.report ? ` report (${a.report.reason} · ${a.report.status})` : ` ${a.type}`}</span>
+                    </p>
+                    <p className="mt-2 rounded-xl bg-[var(--cz-surface-strong)] p-3 text-[14px] whitespace-pre-wrap">{a.message}</p>
+                    <input
+                      value={reviewNote[a._id] || ""}
+                      onChange={(e) => setReviewNote((p) => ({ ...p, [a._id]: e.target.value }))}
+                      placeholder="Review note to user (optional)"
+                      maxLength={1000}
+                      className="mt-2 h-[36px] w-full rounded-xl border border-[var(--cz-border-strong)] bg-transparent px-3 text-[14px] outline-none placeholder:text-[var(--cz-text-secondary)] focus:border-[var(--cz-accent)]"
+                    />
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Button variant="secondary" size="sm" disabled={busy} onClick={() => doReviewAppeal(a, "upheld")}>Uphold (reopen)</Button>
+                      <Button variant="secondary" size="sm" disabled={busy} onClick={() => doReviewAppeal(a, "rejected")}>Reject</Button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+            {!loading && appeals.length === 0 ? (
+              <p className="py-10 text-center text-[15px] text-[var(--cz-text-secondary)]">No {appealsTab} appeals.</p>
+            ) : null}
+            {!loading && appeals.length > 0 ? (
+              <div className="mt-4 flex items-center justify-between">
+                <p className="text-[13px] text-[var(--cz-text-secondary)]">{appealsTotal} total</p>
+                <Button variant="secondary" size="sm" disabled={loading || appeals.length >= appealsTotal} onClick={() => fetchAppeals(appealsTab, appealsPage + 1)}>Show more</Button>
+              </div>
+            ) : null}
+          </>
+        )}
       </main>
     </div>
   );

@@ -153,10 +153,22 @@ export const collegeService = {
       if (!anyUser) throw new AppError("College not found", 404, "COLLEGE_NOT_FOUND");
       await this.ensureCollege(clean);
     }
-    const filter = { collegeSlug: clean };
+    const filter = { collegeSlug: clean, isDeactivated: { $ne: true } };
     if (viewerId) {
       const hidden = await blockService.blockedIdsFor(viewerId);
       if (hidden.length) filter._id = { $nin: hidden };
+      try {
+        const { privacyService } = await import("./privacyService.js");
+        const hide = await privacyService.privateIdsToHide(viewerId);
+        if (hide.size) {
+          const arr = [...hide];
+          if (filter._id) filter._id = { $nin: [...filter._id.$nin, ...arr] };
+          else filter._id = { $nin: arr };
+        }
+      } catch {}
+    } else {
+      const privates = await User.find({ isPrivate: true }).select("_id").lean();
+      if (privates.length) filter._id = { $nin: privates.map((u) => u._id) };
     }
     const [users, total] = await Promise.all([
       User.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim).lean(),
@@ -173,7 +185,27 @@ export const collegeService = {
     }
     const safe = users.map((u) => {
       const { passwordHash, refreshTokenHash, __v, ...rest } = u;
-      return { ...rest, isFollowing: followingSet.has(String(u._id)) };
+      const isF = followingSet.has(String(u._id));
+      let out = { ...rest, isFollowing: isF };
+      try {
+        // lazy to avoid circular import cost at top
+        const vis = rest.profileVisibility || {};
+        if (viewerId && String(viewerId) !== String(u._id) && !isF) {
+          if ((vis.college || "public") !== "public") { out.college = null; out.collegeSlug = null; }
+          if ((vis.course || "public") !== "public") out.course = null;
+          if ((vis.academicYear || "public") !== "public") out.academicYear = null;
+        } else if (!viewerId) {
+          if ((vis.college || "public") !== "public") { out.college = null; out.collegeSlug = null; }
+          if ((vis.course || "public") !== "public") out.course = null;
+          if ((vis.academicYear || "public") !== "public") out.academicYear = null;
+        } else {
+          // followers-only: hidden level still hides
+          if ((vis.college || "public") === "hidden") { out.college = null; out.collegeSlug = null; }
+          if ((vis.course || "public") === "hidden") out.course = null;
+          if ((vis.academicYear || "public") === "hidden") out.academicYear = null;
+        }
+      } catch {}
+      return out;
     });
     return { users: safe, total, page: pg, limit: lim, hasMore: skip + lim < total };
   },
@@ -183,19 +215,34 @@ export const collegeService = {
     const lim = Math.max(1, Math.min(50, Number(limit) || 20));
     const pg = Math.max(1, Number(page) || 1);
     const skip = (pg - 1) * lim;
-    const members = await User.find({ collegeSlug: clean }).select("_id").lean();
+    const members = await User.find({ collegeSlug: clean }).select("_id isPrivate isDeactivated").lean();
     if (!members.length) {
       const exists = await College.exists({ slug: clean });
       if (!exists) throw new AppError("College not found", 404, "COLLEGE_NOT_FOUND");
       return { posts: [], total: 0, page: pg, limit: lim, hasMore: false };
     }
-    let ids = members.map((m) => m._id);
+    let ids = members.filter((m) => !m.isDeactivated).map((m) => m._id);
+    // Private members hidden unless viewer follows them (or is them).
     if (viewerId) {
+      const { Follow } = await import("../models/Follow.js");
+      const privateIds = members.filter((m) => m.isPrivate && String(m._id) !== String(viewerId)).map((m) => m._id);
+      let followingSet = new Set();
+      if (privateIds.length) {
+        const rows = await Follow.find({ follower: viewerId, following: { $in: privateIds } }).select("following").lean();
+        followingSet = new Set(rows.map((r) => String(r.following)));
+      }
+      ids = ids.filter((id) => {
+        const m = members.find((x) => String(x._id) === String(id));
+        if (m?.isPrivate && String(id) !== String(viewerId) && !followingSet.has(String(id))) return false;
+        return true;
+      });
       const hidden = await blockService.blockedIdsFor(viewerId);
       if (hidden.length) {
         const set = new Set(hidden.map(String));
         ids = ids.filter((id) => !set.has(String(id)));
       }
+    } else {
+      ids = members.filter((m) => !m.isPrivate && !m.isDeactivated).map((m) => m._id);
     }
     if (!ids.length) return { posts: [], total: 0, page: pg, limit: lim, hasMore: false };
     const filter = { author: { $in: ids } };
@@ -204,7 +251,7 @@ export const collegeService = {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(lim)
-        .populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner college collegeSlug")
+        .populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner isCofounder college collegeSlug")
         .lean(),
       Post.countDocuments(filter),
     ]);

@@ -74,6 +74,31 @@ const userSchema = new mongoose.Schema(
     followingCount: { type: Number, default: 0, min: 0 },
     postCount: { type: Number, default: 0, min: 0 },
 
+    // ── Privacy & safety controls ──────────────────────────────────
+    // Strict private: approval queue + followers-only visibility.
+    isPrivate: { type: Boolean, default: false, index: true },
+    // Global interaction defaults (per user answers: global only, no per-post).
+    replyPolicy: {
+      type: String,
+      enum: ["everyone", "followers", "none"],
+      default: "everyone",
+    },
+    mentionPolicy: {
+      type: String,
+      enum: ["everyone", "followers", "none"],
+      default: "everyone",
+    },
+    // Per-field academic visibility: public | followers | hidden
+    profileVisibility: {
+      college: { type: String, enum: ["public", "followers", "hidden"], default: "public" },
+      course: { type: String, enum: ["public", "followers", "hidden"], default: "public" },
+      academicYear: { type: String, enum: ["public", "followers", "hidden"], default: "public" },
+    },
+    // Deactivation with 30-day grace before permanent purge.
+    isDeactivated: { type: Boolean, default: false, index: true },
+    deactivatedAt: { type: Date, default: null },
+    scheduledDeletionAt: { type: Date, default: null, index: true },
+
     // dual-token: hashed refresh token (sha256 hex)
     refreshTokenHash: { type: String, default: null, select: false },
 
@@ -82,11 +107,13 @@ const userSchema = new mongoose.Schema(
     isSuspended: { type: Boolean, default: false, index: true },
     suspendedAt: { type: Date, default: null },
     suspendReason: { type: String, default: null, maxlength: 500 },
-    // badge tiers — owner (red, exactly OWNER_EMAIL), pro (gold, future
-    // subscription), verified (blue, email verified). isOwner syncs from
-    // email on save so no email ever leaks to clients for badge checks.
+    // badge tiers — owner (red, exactly OWNER_EMAIL), cofounder (lavender,
+    // exactly COFOUNDER_EMAIL), pro (gold, future subscription), verified
+    // (blue, email verified). isOwner/isCofounder sync from email on save
+    // so no email ever leaks to clients for badge checks.
     isPro: { type: Boolean, default: false },
     isOwner: { type: Boolean, default: false, index: true },
+    isCofounder: { type: Boolean, default: false, index: true },
     lastLoginAt: { type: Date, default: null },
   },
   { timestamps: true }
@@ -106,12 +133,15 @@ userSchema.methods.toSafeObject = function () {
   return obj;
 };
 
-// Owner flag follows the email — single source of truth is OWNER_EMAIL,
-// so clients never need the email address to decide the red badge.
+// Owner + co-founder flags follow the email — single source of truth is
+// OWNER_EMAIL / COFOUNDER_EMAIL, so clients never need the email address
+// to decide the red / lavender badge.
 userSchema.pre("save", function (next) {
   try {
     if (this.isNew || this.isModified("email")) {
-      this.isOwner = String(this.email || "").toLowerCase().trim() === env.OWNER_EMAIL;
+      const clean = String(this.email || "").toLowerCase().trim();
+      this.isOwner = clean === env.OWNER_EMAIL;
+      this.isCofounder = clean === env.COFOUNDER_EMAIL;
     }
   } catch {}
   next();

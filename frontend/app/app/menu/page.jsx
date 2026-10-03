@@ -20,6 +20,10 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { CzImage } from "@/components/app/CzImage";
 import { PageHeader } from "@/components/app/PageHeader";
+import { AccountData } from "@/components/app/AccountData";
+import { FollowRequests } from "@/components/app/FollowRequests";
+import { PrivacySettings } from "@/components/app/PrivacySettings";
+import { SafetyReports } from "@/components/app/SafetyReports";
 import { UserBadge } from "@/components/ui/verified-badge";
 import { api } from "@/lib/api";
 import { useBlocks, useMe } from "@/lib/hooks/queries";
@@ -330,6 +334,11 @@ export default function MenuPage() {
             </Link>
           ))}
         </nav>
+
+        {user ? <PrivacySettings user={user} /> : null}
+        <FollowRequests />
+        <SafetyReports />
+        {user ? <AccountData user={user} /> : null}
 
         <button
           type="button"

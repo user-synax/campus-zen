@@ -21,6 +21,10 @@ export const userController = {
     const viewerId = req.user?._id || null;
     const { page, limit } = req.query;
     const user = await userService.getByUsername(req.params.username, viewerId);
+    if (user.privateHidden) {
+      const { AppError } = await import("../utils/AppError.js");
+      throw new AppError("This account is private. Follow to see their posts.", 403, "PRIVATE_ACCOUNT");
+    }
     const result = await postService.list({ author: user._id, page, limit, viewerId });
     res.json({ success: true, data: result });
   }),
@@ -29,6 +33,10 @@ export const userController = {
     const viewerId = req.user?._id || null;
     const { page, limit } = req.query;
     const user = await userService.getByUsername(req.params.username, viewerId);
+    if (user.privateHidden) {
+      const { AppError } = await import("../utils/AppError.js");
+      throw new AppError("This account is private.", 403, "PRIVATE_ACCOUNT");
+    }
     const result = await postService.listRepliesByUser(user._id, { page, limit });
     res.json({ success: true, data: result });
   }),
@@ -37,6 +45,10 @@ export const userController = {
     const viewerId = req.user?._id || null;
     const { page, limit } = req.query;
     const user = await userService.getByUsername(req.params.username, viewerId);
+    if (user.privateHidden) {
+      const { AppError } = await import("../utils/AppError.js");
+      throw new AppError("This account is private.", 403, "PRIVATE_ACCOUNT");
+    }
     const result = await postService.list({ likedBy: user._id, page, limit, viewerId });
     res.json({ success: true, data: result });
   }),
@@ -44,7 +56,11 @@ export const userController = {
   getUserReposts: asyncHandler(async (req, res) => {
     const viewerId = req.user?._id || null;
     const { page, limit } = req.query;
-    const user = await userService.getByUsername(req.params.username);
+    const user = await userService.getByUsername(req.params.username, viewerId);
+    if (user.privateHidden) {
+      const { AppError } = await import("../utils/AppError.js");
+      throw new AppError("This account is private.", 403, "PRIVATE_ACCOUNT");
+    }
     const result = await postService.list({ repostedBy: user._id, page, limit, viewerId });
     res.json({ success: true, data: result });
   }),
@@ -53,8 +69,46 @@ export const userController = {
     const viewerId = req.user?._id || null;
     const { page, limit } = req.query;
     const user = await userService.getByUsername(req.params.username, viewerId);
-    const result = await postService.mediaByAuthor(user._id, { page, limit });
+    if (user.privateHidden) {
+      const { AppError } = await import("../utils/AppError.js");
+      throw new AppError("This account is private.", 403, "PRIVATE_ACCOUNT");
+    }
+    const result = await postService.mediaByAuthor(user._id, { page, limit }, viewerId);
     res.json({ success: true, data: result });
+  }),
+
+  updatePrivacy: asyncHandler(async (req, res) => {
+    const user = await userService.updatePrivacy(req.user._id, req.body);
+    res.json({ success: true, message: "Privacy settings updated", data: { user } });
+  }),
+
+  exportMe: asyncHandler(async (req, res) => {
+    const data = await userService.exportData(req.user._id);
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Content-Disposition", `attachment; filename="campuszen-export-${Date.now()}.json"`);
+    res.json({ success: true, data });
+  }),
+
+  deactivateMe: asyncHandler(async (req, res) => {
+    const user = await userService.deactivate(req.user._id);
+    res.json({ success: true, message: "Account deactivated. You have 30 days to restore before permanent deletion.", data: { user } });
+  }),
+
+  reactivateMe: asyncHandler(async (req, res) => {
+    const user = await userService.reactivate(req.user._id);
+    res.json({ success: true, message: "Account restored", data: { user } });
+  }),
+
+  deleteMe: asyncHandler(async (req, res) => {
+    // Graceful delete: deactivate first; purge only on explicit confirm.
+    const { confirm } = req.body || {};
+    if (confirm === "PERMANENTLY_DELETE") {
+      const result = await userService.purge(req.user._id);
+      res.json({ success: true, message: "Account permanently deleted", data: result });
+      return;
+    }
+    const user = await userService.deactivate(req.user._id);
+    res.json({ success: true, message: "Account scheduled for deletion in 30 days. Reactivate to cancel.", data: { user, scheduledDeletionAt: user.scheduledDeletionAt } });
   }),
 
   myBookmarks: asyncHandler(async (req, res) => {

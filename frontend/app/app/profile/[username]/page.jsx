@@ -7,6 +7,7 @@ import { BlockedProfile } from "@/components/app/BlockedProfile";
 import { EditProfileModal } from "@/components/app/EditProfileModal";
 import { EmptyState } from "@/components/app/EmptyState";
 import { FollowModal } from "@/components/app/FollowModal";
+import { PrivateProfile } from "@/components/app/PrivateProfile";
 import { ProfileHeader, ProfileTabs } from "@/components/app/ProfileHeader";
 import {
   TabGitHub,
@@ -28,6 +29,7 @@ export default function UserProfilePage() {
   const [error, setError] = useState("");
   const [followLoading, setFollowLoading] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [isRequested, setIsRequested] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [followModal, setFollowModal] = useState({
     open: false,
@@ -61,6 +63,7 @@ export default function UserProfilePage() {
           setUser(u);
           if (u?.isFollowing !== undefined)
             setIsFollowing(Boolean(u.isFollowing));
+          if (u?.isFollowRequested !== undefined) setIsRequested(Boolean(u.isFollowRequested));
         } else {
           const e = userRes.reason;
           if (e?.data?.code === "PROFILE_BLOCKED")
@@ -105,14 +108,24 @@ export default function UserProfilePage() {
       if (isFollowing) {
         await api.unfollowUser(user._id);
         setIsFollowing(false);
+        setIsRequested(false);
         setUser((u) => ({
           ...u,
           followersCount: Math.max(0, (u.followersCount ?? 1) - 1),
         }));
+      } else if (isRequested) {
+        await api.unfollowUser(user._id);
+        setIsRequested(false);
+        setUser((u) => ({ ...u, isFollowRequested: false }));
       } else {
-        await api.followUser(user._id);
-        setIsFollowing(true);
-        setUser((u) => ({ ...u, followersCount: (u.followersCount ?? 0) + 1 }));
+        const res = await api.followUser(user._id);
+        if (res?.data?.requested) {
+          setIsRequested(true);
+          setUser((u) => ({ ...u, isFollowRequested: true }));
+        } else {
+          setIsFollowing(true);
+          setUser((u) => ({ ...u, followersCount: (u.followersCount ?? 0) + 1 }));
+        }
       }
     } catch (e) {
       if (e.data?.code === "SELF_FOLLOW")
@@ -180,6 +193,7 @@ export default function UserProfilePage() {
         user={user}
         isOwn={!!isOwn}
         isFollowing={isFollowing}
+        isFollowRequested={isRequested}
         followLoading={followLoading}
         onEdit={() => setEditOpen(true)}
         onFollow={handleFollow}
@@ -195,29 +209,35 @@ export default function UserProfilePage() {
         blockLoading={blockLoading}
       />
 
-      <ProfileTabs active={tab} onChange={setTab} />
+      {user.privateHidden && !isOwn ? (
+        <PrivateProfile user={user} isFollowRequested={isRequested} onFollow={handleFollow} followLoading={followLoading} />
+      ) : (
+        <>
+          <ProfileTabs active={tab} onChange={setTab} />
 
-      {tab === "posts" ? (
-        <TabPosts
-          username={user.username}
-          currentUser={me}
-          pinnedPost={user.pinnedPost}
-          onPinChange={(p) => setUser((u) => ({ ...u, pinnedPost: p }))}
-        />
-      ) : tab === "replies" ? (
-        <TabReplies username={user.username} />
-      ) : tab === "media" ? (
-        <TabMedia username={user.username} currentUser={me} />
-      ) : tab === "likes" ? (
-        <TabLikes username={user.username} currentUser={me} />
-      ) : tab === "reposts" ? (
-        <TabReposts username={user.username} currentUser={me} />
-      ) : tab === "github" ? (
-        <TabGitHub
-          github={user.socialLinks?.github}
-          onLink={isOwn ? () => setEditOpen(true) : undefined}
-        />
-      ) : null}
+          {tab === "posts" ? (
+            <TabPosts
+              username={user.username}
+              currentUser={me}
+              pinnedPost={user.pinnedPost}
+              onPinChange={(p) => setUser((u) => ({ ...u, pinnedPost: p }))}
+            />
+          ) : tab === "replies" ? (
+            <TabReplies username={user.username} />
+          ) : tab === "media" ? (
+            <TabMedia username={user.username} currentUser={me} />
+          ) : tab === "likes" ? (
+            <TabLikes username={user.username} currentUser={me} />
+          ) : tab === "reposts" ? (
+            <TabReposts username={user.username} currentUser={me} />
+          ) : tab === "github" ? (
+            <TabGitHub
+              github={user.socialLinks?.github}
+              onLink={isOwn ? () => setEditOpen(true) : undefined}
+            />
+          ) : null}
+        </>
+      )}
 
       {isOwn ? (
         <EditProfileModal

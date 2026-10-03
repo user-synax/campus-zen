@@ -27,6 +27,17 @@ const suspendSchema = z.object({
   reason: z.string().trim().max(500).optional(),
 });
 
+const appealQuerySchema = z.object({
+  status: z.enum(["open", "upheld", "rejected", "all"]).optional().default("open"),
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(50).optional().default(20),
+});
+
+const reviewAppealSchema = z.object({
+  status: z.enum(["upheld", "rejected"]),
+  reviewNote: z.string().trim().max(1000).optional(),
+});
+
 const idParamSchema = z.object({
   id: z.string().regex(/^[a-f\d]{24}$/i, "Invalid id"),
 });
@@ -40,6 +51,8 @@ router.get("/me", requireAdmin, adminController.me);
 router.get("/stats", requireAdmin, adminController.stats);
 router.get("/reports", requireAdmin, validate(reportsQuerySchema, "query"), adminController.listReports);
 router.patch("/reports/:id", requireAdmin, validate(idParamSchema, "params"), validate(resolveSchema), adminController.resolveReport);
+router.get("/appeals", requireAdmin, validate(appealQuerySchema, "query"), adminController.listAppeals);
+router.patch("/appeals/:id", requireAdmin, validate(idParamSchema, "params"), validate(reviewAppealSchema), adminController.reviewAppeal);
 router.delete("/posts/:id", requireAdmin, validate(idParamSchema, "params"), adminController.deletePost);
 router.patch("/users/:id/suspend", requireAdmin, validate(idParamSchema, "params"), validate(suspendSchema), adminController.suspendUser);
 router.patch("/users/:id/unsuspend", requireAdmin, validate(idParamSchema, "params"), adminController.unsuspendUser);

@@ -162,13 +162,73 @@ async function attachPollVotes(posts, viewerId) {
   });
 }
 
-// strip posts whose author is blocked (either direction) from a fetched list
+// strip posts whose author is blocked (either direction) or hidden by
+// strict-private / deactivation rules from a fetched list
 async function withoutBlockedAuthors(posts, viewerId) {
-  if (!viewerId || !posts.length) return posts;
-  const hidden = await blockService.blockedIdsFor(viewerId);
-  if (!hidden.length) return posts;
-  const set = new Set(hidden.map(String));
+  if (!posts.length) return posts;
+  const hidden = viewerId ? await blockService.blockedIdsFor(viewerId) : [];
+  let privateHide = [];
+  try {
+    const { privacyService } = await import("./privacyService.js");
+    const set = await privacyService.privateIdsToHide(viewerId || null);
+    privateHide = [...set];
+  } catch {}
+  if (!hidden.length && !privateHide.length) return posts;
+  const set = new Set([...hidden.map(String), ...privateHide.map(String)]);
   return posts.filter((p) => !set.has(String(p.author?._id || p.author)));
+}
+
+// Combined hidden-author filter for Mongo queries (blocked + private + deactivated).
+async function hiddenAuthorFilter(viewerId) {
+  const hidden = viewerId ? await blockService.blockedIdsFor(viewerId) : [];
+  let privateHide = [];
+  try {
+    const { privacyService } = await import("./privacyService.js");
+    const set = await privacyService.privateIdsToHide(viewerId || null);
+    privateHide = [...set];
+  } catch {}
+  const all = new Set([...hidden.map(String), ...privateHide.map(String)]);
+  return all;
+}
+
+// Enforce mention policy before creating content — hard 403 with clear code.
+async function assertMentionsAllowed(actorId, usernames) {
+  if (!usernames?.length) return;
+  const unique = [...new Set(usernames.map((u) => String(u).toLowerCase()))].slice(0, 10);
+  if (!unique.length) return;
+  const users = await User.find({ username: { $in: unique } })
+    .select("_id username mentionPolicy")
+    .lean();
+  const { privacyService } = await import("./privacyService.js");
+  for (const u of users) {
+    const gate = await privacyService.mentionGate(actorId, u);
+    if (gate) {
+      const { AppError } = await import("../utils/AppError.js");
+      throw new AppError(gate.message, gate.status, gate.code);
+    }
+  }
+}
+
+// Enforce private/deactivated visibility for a single post author.
+// Throws 404 POST_NOT_FOUND when hidden (indistinguishable from deleted).
+async function assertCanSeePost(viewerId, authorId, authorDoc = null) {
+  const { AppError } = await import("../utils/AppError.js");
+  let author = authorDoc;
+  if (!author) {
+    author = await User.findById(authorId).select("_id isPrivate isDeactivated").lean();
+  }
+  if (!author) return;
+  if (author.isDeactivated && String(viewerId || "") !== String(author._id)) {
+    throw new AppError("Post not found", 404, "POST_NOT_FOUND");
+  }
+  if (author.isPrivate) {
+    if (!viewerId) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
+    if (String(viewerId) !== String(author._id)) {
+      const { Follow } = await import("../models/Follow.js");
+      const ok = await Follow.exists({ follower: viewerId, following: author._id });
+      if (!ok) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
+    }
+  }
 }
 
 // private saves — no counters, no notifications; attached wherever isLiked/isReposted are set
@@ -213,6 +273,7 @@ export const postService = {
     if (poll && files.length) throw new AppError("Poll and media can't be combined", 400, "INVALID_POLL");
     if (!t && !files.length && !poll) throw new AppError("Post must have text, media or a poll", 400, "EMPTY_POST");
     validateMediaFiles(files, meta);
+    await assertMentionsAllowed(authorId, extractMentions(t));
 
     let imageUrl = null;
     let media = [];
@@ -265,7 +326,7 @@ export const postService = {
     cache.delPattern("trending:*");
     cache.delPattern("hashtag:*");
     cache.delPattern(`media:${authorId}:*`);
-    const populated = await Post.findById(post._id).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner");
+    const populated = await Post.findById(post._id).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner isCofounder");
     return populated;
   },
 
@@ -274,7 +335,7 @@ export const postService = {
     let post = cache.get(cacheKey);
 
     if (!post) {
-      post = await Post.findById(postId).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner").lean();
+      post = await Post.findById(postId).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner isCofounder isPrivate").lean();
       if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
       cache.set(cacheKey, post, TTL.POST);
     }
@@ -283,6 +344,13 @@ export const postService = {
     if (viewerId) {
       const authorId = post.author?._id || post.author;
       if (await blockService.isBlocked(viewerId, authorId)) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
+    }
+    // strict private + deactivated → indistinguishable from deleted
+    {
+      const authorId = post.author?._id || post.author;
+      const authorDoc = typeof post.author === "object" ? null : null;
+      // Fetch privacy flags (cached post may lack them).
+      await assertCanSeePost(viewerId, authorId, authorDoc);
     }
     // Clone to avoid mutating cached object
     const result = { ...post };
@@ -309,12 +377,13 @@ export const postService = {
     if (!t || t.length > 500) throw new AppError("Post must be 1-500 characters", 400, "INVALID_TEXT");
     const oldMentions = new Set((post.mentions || []).map((m) => String(m).toLowerCase()));
     const newMentions = extractMentions(t);
+    const added = newMentions.filter((m) => !oldMentions.has(m));
+    await assertMentionsAllowed(userId, added);
     post.text = t;
     post.hashtags = extractHashtags(t);
     post.mentions = newMentions;
     post.edited = true;
     await post.save();
-    const added = newMentions.filter((m) => !oldMentions.has(m));
     await notifyMentions(userId, added, post._id);
     // Invalidate caches
     cache.del(CacheKeys.post(postId));
@@ -323,7 +392,7 @@ export const postService = {
     cache.delPattern(`userPosts:${post.author}:*`);
     cache.delPattern("hashtag:*");
     cache.delPattern(`media:${post.author}:*`);
-    const populated = await Post.findById(post._id).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner");
+    const populated = await Post.findById(post._id).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner isCofounder");
     return populated;
   },
 
@@ -384,19 +453,20 @@ export const postService = {
     const cached = cache.get(cacheKey);
     if (cached) return cached;
 
-    // get following ids + self, minus blocked authors
+    // get following ids + self, minus blocked/hidden authors
     const follows = await Follow.find({ follower: userId }).select("following").lean();
     const ids = follows.map((f) => f.following);
     ids.push(userId);
-    const hidden = await blockService.blockedIdsFor(userId);
-    const authorFilter = hidden.length ? { $in: ids, $nin: hidden } : { $in: ids };
+    const hiddenSet = await hiddenAuthorFilter(userId);
+    const visibleIds = ids.filter((id) => !hiddenSet.has(String(id)));
+    const authorFilter = { $in: visibleIds.length ? visibleIds : ["000000000000000000000000"] };
     // limit+1 probe instead of a second countDocuments scan — one query per
     // page instead of two (free-tier Mongo thanks us on every scroll)
     const posts = await Post.find({ author: authorFilter })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(lim + 1)
-      .populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner")
+      .populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner isCofounder")
       .lean();
     const hasMore = posts.length > lim;
     if (hasMore) posts.pop();
@@ -426,36 +496,53 @@ export const postService = {
     const skip = (Math.max(1, Number(page)) - 1) * lim;
     const cacheKey = CacheKeys.publicFeed(page, lim);
     const cached = cache.get(cacheKey);
+    // Per-viewer strip helper (private/blocked/deactivated never in discovery).
+    const stripForViewer = async (posts) => {
+      if (!posts.length) return posts;
+      let out = await withoutBlockedAuthors(posts, viewerId);
+      // Guests + non-followers: drop private authors (belt-and-braces).
+      out = out.filter((p) => {
+        const a = p.author;
+        if (!a) return true;
+        if (a.isPrivate && String(a._id || a) !== String(viewerId || "")) return false;
+        return true;
+      });
+      return out;
+    };
     if (cached) {
       // Still need per-viewer data even on cache hit
       if (viewerId && cached.posts.length) {
-        const posts = cached.posts.map(p => ({ ...p })); // shallow clone
+        let posts = cached.posts.map(p => ({ ...p })); // shallow clone
+        posts = await stripForViewer(posts);
         const postIds = posts.map((p) => p._id);
-        const [likes, reposts] = await Promise.all([
-          Like.find({ user: viewerId, post: { $in: postIds } }).select("post").lean(),
-          Repost.find({ user: viewerId, post: { $in: postIds } }).select("post").lean(),
-        ]);
-        const likeSet = new Set(likes.map((l) => String(l.post)));
-        const repostSet = new Set(reposts.map((r) => String(r.post)));
-        posts.forEach((p) => {
-          p.isLiked = likeSet.has(String(p._id));
-          p.isReposted = repostSet.has(String(p._id));
-        });
-        await attachBookmarked(posts, viewerId);
-        await attachPollVotes(posts, viewerId);
+        if (postIds.length) {
+          const [likes, reposts] = await Promise.all([
+            Like.find({ user: viewerId, post: { $in: postIds } }).select("post").lean(),
+            Repost.find({ user: viewerId, post: { $in: postIds } }).select("post").lean(),
+          ]);
+          const likeSet = new Set(likes.map((l) => String(l.post)));
+          const repostSet = new Set(reposts.map((r) => String(r.post)));
+          posts.forEach((p) => {
+            p.isLiked = likeSet.has(String(p._id));
+            p.isReposted = repostSet.has(String(p._id));
+          });
+          await attachBookmarked(posts, viewerId);
+          await attachPollVotes(posts, viewerId);
+        }
         return { ...cached, posts };
       }
-      const freshPosts = cached.posts.map((p) => ({ ...p }));
+      const freshPosts = await stripForViewer(cached.posts.map((p) => ({ ...p })));
       await attachPollVotes(freshPosts, viewerId || null);
       return { ...cached, posts: freshPosts };
     }
 
-    const hidden = viewerId ? await blockService.blockedIdsFor(viewerId) : [];
-    const filter = hidden.length ? { author: { $nin: hidden } } : {};
+    const hiddenSet = await hiddenAuthorFilter(viewerId);
+    const filter = hiddenSet.size ? { author: { $nin: [...hiddenSet] } } : {};
     // same limit+1 probe as feed — no countDocuments scan per scroll page
-    const posts = await Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim + 1).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner").lean();
-    const hasMore = posts.length > lim;
-    if (hasMore) posts.pop();
+    const raw = await Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim + 1).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner isCofounder isPrivate").lean();
+    const hasMore = raw.length > lim;
+    if (hasMore) raw.pop();
+    const posts = await stripForViewer(raw);
     if (posts.length && viewerId) {
       const postIds = posts.map((p) => p._id);
       const [likes, reposts] = await Promise.all([
@@ -482,6 +569,7 @@ export const postService = {
     const post = await Post.findById(postId).select("author");
     if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
     await blockService.assertNoBlock(userId, post.author, "You can't interact with this account's posts.");
+    await assertCanSeePost(userId, post.author);
     let inserted = false;
     try {
       await Like.create({ user: userId, post: postId });
@@ -535,6 +623,7 @@ export const postService = {
     const post = await Post.findById(postId).select("author");
     if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
     await blockService.assertNoBlock(userId, post.author, "You can't interact with this account's posts.");
+    await assertCanSeePost(userId, post.author);
     const existing = await Like.findOne({ user: userId, post: postId }).select("_id");
     if (existing) return this.unlikePost(userId, postId);
     try {
@@ -549,6 +638,7 @@ export const postService = {
     const post = await Post.findById(postId).select("author");
     if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
     await blockService.assertNoBlock(userId, post.author, "You can't interact with this account's posts.");
+    await assertCanSeePost(userId, post.author);
     let inserted = false;
     try {
       await Repost.create({ user: userId, post: postId });
@@ -600,6 +690,7 @@ export const postService = {
     const post = await Post.findById(postId).select("author");
     if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
     await blockService.assertNoBlock(userId, post.author, "You can't interact with this account's posts.");
+    await assertCanSeePost(userId, post.author);
     const existing = await Repost.findOne({ user: userId, post: postId }).select("_id");
     if (existing) return this.unrepostPost(userId, postId);
     try {
@@ -614,6 +705,7 @@ export const postService = {
     const post = await Post.findById(postId).select("author");
     if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
     await blockService.assertNoBlock(userId, post.author, "You can't interact with this account's posts.");
+    await assertCanSeePost(userId, post.author);
     try {
       await Bookmark.create({ user: userId, post: postId });
     } catch (e) {
@@ -635,6 +727,7 @@ export const postService = {
     const post = await Post.findById(postId).select("author");
     if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
     await blockService.assertNoBlock(userId, post.author, "You can't interact with this account's posts.");
+    await assertCanSeePost(userId, post.author);
     const existing = await Bookmark.findOne({ user: userId, post: postId }).select("_id");
     if (existing) {
       await Bookmark.deleteOne({ _id: existing._id });
@@ -665,6 +758,7 @@ export const postService = {
     if (idx >= post.poll.options.length) throw new AppError("Invalid option", 400, "INVALID_POLL_VOTE");
     if (pollClosed(post.poll)) throw new AppError("Poll is closed", 400, "POLL_CLOSED");
     await blockService.assertNoBlock(userId, post.author, "You can't interact with this account's posts.");
+    await assertCanSeePost(userId, post.author);
 
     const existing = await PollVote.findOne({ post: postId, user: userId });
     if (existing && existing.optionIndex === idx) {
@@ -719,7 +813,7 @@ export const postService = {
       return result;
     }
     const posts = await Post.find({ _id: { $in: postIds } })
-      .populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner")
+      .populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner isCofounder")
       .lean();
     const map = new Map(posts.map((p) => [String(p._id), p]));
     let ordered = postIds.map((id) => map.get(String(id))).filter(Boolean);
@@ -748,9 +842,18 @@ export const postService = {
     const post = await Post.findById(postId).select("author");
     if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
     await blockService.assertNoBlock(userId, post.author, "You can't interact with this account's posts.");
+    await assertCanSeePost(userId, post.author);
+    // Global reply policy on the post author's settings.
+    {
+      const { privacyService } = await import("./privacyService.js");
+      const author = await User.findById(post.author).select("_id replyPolicy").lean();
+      const gate = await privacyService.replyGate(userId, author || { _id: post.author });
+      if (gate) throw new AppError(gate.message, gate.status, gate.code);
+    }
     const t = text.trim();
     if (!t || t.length > 500) throw new AppError("Reply must be 1-500 characters", 400, "INVALID_TEXT");
     const mentions = extractMentions(t);
+    await assertMentionsAllowed(userId, mentions);
     const comment = await Comment.create({ post: postId, author: userId, text: t, mentions });
     const updatedPost = await Post.findByIdAndUpdate(postId, { $inc: { replyCount: 1 } }, { new: true }).select("replyCount author");
     if (String(post.author) !== String(userId)) {
@@ -767,7 +870,7 @@ export const postService = {
     // Invalidate only post + comments; feeds patch replyCount live via SSE
     cache.del(CacheKeys.post(postId));
     cache.delPattern(`comments:${postId}:*`);
-    const populated = await Comment.findById(comment._id).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner");
+    const populated = await Comment.findById(comment._id).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner isCofounder");
     return { comment: populated, replyCount: updatedPost.replyCount };
   },
 
@@ -777,13 +880,14 @@ export const postService = {
     if (viewerId && (await blockService.isBlocked(viewerId, post.author))) {
       throw new AppError("Post not found", 404, "POST_NOT_FOUND");
     }
+    await assertCanSeePost(viewerId, post.author);
     const lim = Math.max(1, Math.min(50, Number(limit)));
     const skip = (Math.max(1, Number(page)) - 1) * lim;
     const cacheKey = CacheKeys.comments(postId, page, lim);
     const cached = cache.get(cacheKey);
     if (cached) return cached;
     const [comments, total] = await Promise.all([
-      Comment.find({ post: postId }).sort({ createdAt: 1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner").lean(),
+      Comment.find({ post: postId }).sort({ createdAt: 1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner isCofounder").lean(),
       Comment.countDocuments({ post: postId }),
     ]);
     const result = { comments, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
@@ -812,7 +916,7 @@ export const postService = {
       }
       filter = { _id: { $in: postIds } };
       // preserve like order
-      const posts = await Post.find(filter).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner").lean();
+      const posts = await Post.find(filter).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner isCofounder").lean();
       const map = new Map(posts.map((p) => [String(p._id), p]));
       let ordered = postIds.map((id) => map.get(String(id))).filter(Boolean);
       if (viewerId) ordered = await withoutBlockedAuthors(ordered, viewerId);
@@ -850,7 +954,7 @@ export const postService = {
         return result;
       }
       filter = { _id: { $in: postIds } };
-      const posts = await Post.find(filter).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner").lean();
+      const posts = await Post.find(filter).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner isCofounder").lean();
       const map = new Map(posts.map((p) => [String(p._id), p]));
       let ordered = postIds.map((id) => map.get(String(id))).filter(Boolean);
       if (viewerId) ordered = await withoutBlockedAuthors(ordered, viewerId);
@@ -877,6 +981,18 @@ export const postService = {
 
     if (author) {
       filter.author = author;
+      // Strict private: only owner + followers can list posts.
+      if (viewerId && String(viewerId) !== String(author)) {
+        const target = await User.findById(author).select("_id isPrivate isDeactivated").lean();
+        if (target?.isDeactivated) throw new AppError("Posts unavailable", 403, "PRIVATE_ACCOUNT");
+        if (target?.isPrivate) {
+          const ok = await Follow.exists({ follower: viewerId, following: author });
+          if (!ok) throw new AppError("This account is private. Follow to see their posts.", 403, "PRIVATE_ACCOUNT");
+        }
+      } else if (!viewerId) {
+        const target = await User.findById(author).select("_id isPrivate isDeactivated").lean();
+        if (target?.isPrivate || target?.isDeactivated) throw new AppError("Posts unavailable", 403, "PRIVATE_ACCOUNT");
+      }
     }
 
     const cacheKey = author ? CacheKeys.userPosts(author, page, lim) : null;
@@ -886,7 +1002,7 @@ export const postService = {
     }
 
     const [posts, total] = await Promise.all([
-      Post.find(filter).sort(sort).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner").lean(),
+      Post.find(filter).sort(sort).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner isCofounder").lean(),
       Post.countDocuments(filter),
     ]);
 
@@ -913,7 +1029,19 @@ export const postService = {
 
   // media posts by author for the profile Media tab — light payload for the grid.
   // Matches legacy imageUrl posts and new media[] posts (images, GIFs, videos).
-  async mediaByAuthor(authorId, { page = 1, limit = 20 }) {
+  async mediaByAuthor(authorId, { page = 1, limit = 20 }, viewerId = null) {
+    // Strict private gate mirrors list().
+    if (viewerId && String(viewerId) !== String(authorId)) {
+      const target = await User.findById(authorId).select("_id isPrivate isDeactivated").lean();
+      if (target?.isDeactivated) throw new AppError("Posts unavailable", 403, "PRIVATE_ACCOUNT");
+      if (target?.isPrivate) {
+        const ok = await Follow.exists({ follower: viewerId, following: authorId });
+        if (!ok) throw new AppError("This account is private.", 403, "PRIVATE_ACCOUNT");
+      }
+    } else if (!viewerId) {
+      const target = await User.findById(authorId).select("_id isPrivate isDeactivated").lean();
+      if (target?.isPrivate || target?.isDeactivated) throw new AppError("Posts unavailable", 403, "PRIVATE_ACCOUNT");
+    }
     const lim = Math.max(1, Math.min(50, Number(limit)));
     const skip = (Math.max(1, Number(page)) - 1) * lim;
     const cacheKey = CacheKeys.mediaByAuthor(authorId, page, lim);
@@ -944,7 +1072,7 @@ export const postService = {
     const cached = cache.get(cacheKey);
     if (cached) return cached;
     const [comments, total] = await Promise.all([
-      Comment.find({ author: authorId }).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("post", "text author createdAt").populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner").lean(),
+      Comment.find({ author: authorId }).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("post", "text author createdAt").populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner isCofounder").lean(),
       Comment.countDocuments({ author: authorId }),
     ]);
     // also populate post author for context — single $in query, no N+1
@@ -994,13 +1122,15 @@ export const postService = {
       await attachPollVotes(freshPosts, viewerId || null);
       return { ...cached, posts: freshPosts };
     }
-    const hidden = viewerId ? await blockService.blockedIdsFor(viewerId) : [];
+    const hiddenSet = await hiddenAuthorFilter(viewerId);
     const filter = { hashtags: tag };
-    if (hidden.length) filter.author = { $nin: hidden };
-    const [posts, total] = await Promise.all([
-      Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner").lean(),
+    if (hiddenSet.size) filter.author = { $nin: [...hiddenSet] };
+    const [rawPosts, total] = await Promise.all([
+      Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner isCofounder isPrivate").lean(),
       Post.countDocuments(filter),
     ]);
+    let posts = await withoutBlockedAuthors(rawPosts, viewerId);
+    posts = posts.filter((p) => !p.author?.isPrivate || String(p.author?._id) === String(viewerId || ""));
     if (posts.length && viewerId) {
       const postIds = posts.map((p) => p._id);
       const [likes, reposts] = await Promise.all([

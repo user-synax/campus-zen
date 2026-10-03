@@ -8,6 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { BlockedProfile } from "@/components/app/BlockedProfile";
 import { EmptyState } from "@/components/app/EmptyState";
 import { FollowModal } from "@/components/app/FollowModal";
+import { PrivateProfile } from "@/components/app/PrivateProfile";
 import { ProfileHeader, ProfileTabs } from "@/components/app/ProfileHeader";
 import {
   TabGitHub,
@@ -44,6 +45,7 @@ export default function PublicProfilePage() {
   const { data: userData, isPending, error } = useUser(username);
   const user = userData?.data?.user || null;
   const isFollowing = user?.isFollowing ?? false;
+  const isRequested = user?.isFollowRequested ?? false;
 
   const isOwn = me && user && me.username === user.username;
 
@@ -60,7 +62,20 @@ export default function PublicProfilePage() {
   const handleFollow = async () => {
     if (!user || isOwn || isGuest) return;
     const was = isFollowing;
+    const wasRequested = isRequested;
     const prevCount = user.followersCount ?? 0;
+    if (wasRequested) {
+      patchUser({ isFollowRequested: false });
+      setFollowLoading(true);
+      try {
+        await api.unfollowUser(user._id);
+        toast.success("Follow request cancelled");
+      } catch {
+        patchUser({ isFollowRequested: true });
+      }
+      setFollowLoading(false);
+      return;
+    }
     // Instant: optimistic patch first
     patchUser({
       isFollowing: !was,
@@ -81,15 +96,15 @@ export default function PublicProfilePage() {
         patchUser({ isFollowing: false, followersCount: serverCount });
         toast.success(`Unfollowed @${user.username}`);
       } else {
-        const promise = api.followUser(user._id);
-        toast.promise(promise, {
-          loading: `Following @${user.username}...`,
-          success: `Following @${user.username} — you'll see their posts live`,
-          error: "Couldn't follow. Try again.",
-        });
-        const res = await promise;
-        const serverCount = res?.data?.followingCounts?.followersCount ?? prevCount + 1;
-        patchUser({ isFollowing: true, followersCount: serverCount });
+        const res = await api.followUser(user._id);
+        if (res?.data?.requested) {
+          patchUser({ isFollowing: false, isFollowRequested: true, followersCount: prevCount });
+          toast.success(`Request sent to @${user.username} — awaiting approval`);
+        } else {
+          const serverCount = res?.data?.followingCounts?.followersCount ?? prevCount + 1;
+          patchUser({ isFollowing: true, followersCount: serverCount });
+          toast.success(`Following @${user.username} — you'll see their posts live`);
+        }
       }
     } catch {
       patchUser({ isFollowing: was, followersCount: prevCount });
@@ -152,6 +167,7 @@ export default function PublicProfilePage() {
         user={user}
         isOwn={!!isOwn}
         isFollowing={isFollowing}
+        isFollowRequested={isRequested}
         followLoading={followLoading}
         onEdit={
           isOwn ? () => (window.location.href = "/app/profile") : undefined
@@ -192,26 +208,32 @@ export default function PublicProfilePage() {
         </div>
       ) : null}
 
-      <ProfileTabs active={tab} onChange={setTab} />
+      {user.privateHidden && !isOwn ? (
+        <PrivateProfile user={user} isFollowRequested={isRequested} onFollow={isGuest ? undefined : handleFollow} followLoading={followLoading} />
+      ) : (
+        <>
+          <ProfileTabs active={tab} onChange={setTab} />
 
-      {tab === "posts" ? (
-        <TabPosts
-          username={user.username}
-          currentUser={me}
-          pinnedPost={user.pinnedPost}
-          onPinChange={(p) => patchUser({ pinnedPost: p })}
-        />
-      ) : tab === "replies" ? (
-        <TabReplies username={user.username} />
-      ) : tab === "media" ? (
-        <TabMedia username={user.username} currentUser={me} />
-      ) : tab === "likes" ? (
-        <TabLikes username={user.username} currentUser={me} />
-      ) : tab === "reposts" ? (
-        <TabReposts username={user.username} currentUser={me} />
-      ) : tab === "github" ? (
-        <TabGitHub github={user.socialLinks?.github} />
-      ) : null}
+          {tab === "posts" ? (
+            <TabPosts
+              username={user.username}
+              currentUser={me}
+              pinnedPost={user.pinnedPost}
+              onPinChange={(p) => patchUser({ pinnedPost: p })}
+            />
+          ) : tab === "replies" ? (
+            <TabReplies username={user.username} />
+          ) : tab === "media" ? (
+            <TabMedia username={user.username} currentUser={me} />
+          ) : tab === "likes" ? (
+            <TabLikes username={user.username} currentUser={me} />
+          ) : tab === "reposts" ? (
+            <TabReposts username={user.username} currentUser={me} />
+          ) : tab === "github" ? (
+            <TabGitHub github={user.socialLinks?.github} />
+          ) : null}
+        </>
+      )}
 
       <FollowModal
         open={followModal.open}

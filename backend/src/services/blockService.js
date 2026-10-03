@@ -66,6 +66,16 @@ export const blockService = {
     }
 
     await Block.create({ blocker: blockerId, blocked: blockedId });
+    // Cancel any pending follow requests in either direction.
+    try {
+      const { FollowRequest } = await import("../models/FollowRequest.js");
+      await FollowRequest.deleteMany({
+        $or: [
+          { requester: blockerId, target: blockedId },
+          { requester: blockedId, target: blockerId },
+        ],
+      });
+    } catch {}
     return { blocked: true };
   },
 

@@ -7,13 +7,36 @@ export const followController = {
     const targetId = req.params.id;
     // ensure target exists and get live counts
     const result = await followService.follow(req.user._id, targetId);
+    if (result.requested) return res.status(202).json({ success: true, message: "Follow request sent. Awaiting approval.", data: result });
     res.status(201).json({ success: true, message: "Followed", data: result });
   }),
 
   unfollow: asyncHandler(async (req, res) => {
     const targetId = req.params.id;
     const result = await followService.unfollow(req.user._id, targetId);
-    res.json({ success: true, message: "Unfollowed", data: result });
+    res.json({ success: true, message: result.cancelledRequest ? "Follow request cancelled" : "Unfollowed", data: result });
+  }),
+
+  incoming: asyncHandler(async (req, res) => {
+    const { page, limit } = req.query;
+    const result = await followService.incomingRequests(req.user._id, { page, limit });
+    res.json({ success: true, data: result });
+  }),
+
+  outgoing: asyncHandler(async (req, res) => {
+    const { page, limit } = req.query;
+    const result = await followService.outgoingRequests(req.user._id, { page, limit });
+    res.json({ success: true, data: result });
+  }),
+
+  accept: asyncHandler(async (req, res) => {
+    const result = await followService.acceptRequest(req.user._id, req.params.requestId);
+    res.json({ success: true, message: "Follow request accepted", data: result });
+  }),
+
+  decline: asyncHandler(async (req, res) => {
+    const result = await followService.declineRequest(req.user._id, req.params.requestId);
+    res.json({ success: true, message: "Follow request declined", data: result });
   }),
 
   getFollowers: asyncHandler(async (req, res) => {
