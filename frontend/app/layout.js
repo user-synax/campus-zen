@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import "./globals.css";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { CzToaster } from "@/components/ui/sonner";
+import { PushRegistrar } from "@/components/app/PushRegistrar";
 import { readThemeCookie } from "@/lib/theme";
 
 // TwitterChirp is proprietary — Inter is the documented substitute.
@@ -103,6 +104,7 @@ export default async function RootLayout({ children }) {
         <script type="application/ld+json">
           {JSON.stringify(orgJsonLd)}
         </script>
+        <PushRegistrar />
         <QueryProvider>{children}</QueryProvider>
         <CzToaster />
       </body>

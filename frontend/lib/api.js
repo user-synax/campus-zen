@@ -269,6 +269,13 @@ export const api = {
     }),
   clearReadNotifications: () =>
     request("/api/notifications/clear-read", { method: "DELETE" }),
+  getPushPublicKey: () => request("/api/push/public-key", { method: "GET" }),
+  subscribePush: (payload) =>
+    request("/api/push/subscribe", { method: "POST", body: payload }),
+  unsubscribePush: (endpoint) =>
+    request("/api/push/unsubscribe", { method: "DELETE", body: { endpoint } }),
+  getPushSubscriptions: () =>
+    request("/api/push/subscriptions", { method: "GET" }),
   followUser: (id) =>
     request(`/api/users/${encodeURIComponent(id)}/follow`, { method: "POST" }),
   unfollowUser: (id) =>

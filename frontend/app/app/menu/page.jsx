@@ -75,6 +75,10 @@ export default function MenuPage() {
   const onLogout = async () => {
     setLoggingOut(true);
     try {
+      const { ensureUnsubscribed } = await import("@/lib/push");
+      await ensureUnsubscribed(api);
+    } catch {}
+    try {
       await api.logout();
     } catch {}
     router.replace("/login");

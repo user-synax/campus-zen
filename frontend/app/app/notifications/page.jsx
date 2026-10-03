@@ -18,6 +18,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { CzImage } from "@/components/app/CzImage";
 import { EmptyState, PostSkeleton } from "@/components/app/EmptyState";
 import { PageHeader } from "@/components/app/PageHeader";
+import { PushSettings } from "@/components/app/PushSettings";
 import { withAvatarRing } from "@/lib/avatar";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
@@ -264,6 +265,10 @@ export default function NotificationsPage() {
             {t.label}
           </button>
         ))}
+      </div>
+
+      <div className="px-4 pt-3">
+        <PushSettings />
       </div>
 
       {isPending ? (

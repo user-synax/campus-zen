@@ -1,6 +1,8 @@
 import { Notification } from "../models/Notification.js";
 import { blockService } from "./blockService.js";
 import { pushNotification, pushUnreadCount } from "../routes/sseRoutes.js";
+import { User } from "../models/User.js";
+import { Post } from "../models/Post.js";
 
 // Burst coalesce window: same (recipient, actor, type, post) within 10s
 // collapses without DB. Pruned opportunistically to bound memory.
@@ -48,6 +50,29 @@ export const notificationService = {
       createdAt: notif.createdAt,
     });
     pushUnreadCount(recipient, unreadCount);
+    // Fire-and-forget OS-level push (works when app is closed).
+    // Never blocks or fails the notification write.
+    setImmediate(() => {
+      import("./pushService.js")
+        .then(async ({ pushService }) => {
+          if (!pushService.isEnabled()) return;
+          const [actorDoc, postDoc] = await Promise.all([
+            User.findById(actor).select("fullName username").lean(),
+            post ? Post.findById(post).select("text").lean() : null,
+          ]);
+          const payload = pushService.buildPayload({
+            type,
+            actorName: actorDoc?.fullName || "CampusZen",
+            actorUsername: actorDoc?.username || "",
+            postPreview: postDoc?.text || "",
+            postId: post ? String(post) : null,
+            notifId: notif._id,
+            unreadCount,
+          });
+          await pushService.sendToUser(recipient, payload);
+        })
+        .catch(() => {});
+    });
     return notif;
   },
 

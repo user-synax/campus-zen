@@ -39,7 +39,11 @@ export const env = {
   // often fails from datacenter IPs). When set, sendMail uses Resend
   // instead of SMTP. No new dependency: plain fetch, no SDK needed.
   RESEND_API_KEY: process.env.RESEND_API_KEY || "",
-  // Admin dashboard (env-gated, no DB user needed).
+  // Push (Web Push / VAPID) — OS-level notifications when app is closed.
+  // Public key is safe to expose; private key never leaves the server.
+  VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY || "",
+  VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY || "",
+  VAPID_SUBJECT: process.env.VAPID_SUBJECT || "mailto:admin@campuszen.app",
   // Set both in backend .env to enable /admin:
   //   ADMIN_EMAIL=you@example.com
   //   ADMIN_PASSKEY=<long random string 32+ chars>

@@ -21,6 +21,17 @@ const nextConfig = {
   async headers() {
     return [
       {
+        // Service worker must never be cached — browsers check for updates
+        // on every navigation when Cache-Control is no-cache.
+        source: "/sw.js",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=0, must-revalidate",
+          },
+        ],
+      },
+      {
         // Cache static assets aggressively (immutable)
         source: "/_next/static/:path*",
         headers: [
