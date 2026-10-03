@@ -8,18 +8,22 @@ export function Hero() {
       <div className="grid items-center gap-10 lg:grid-cols-12 lg:gap-8">
         <div className="lg:col-span-7">
           <Reveal>
-            <h1 className="text-[42px] leading-[1.03] font-extrabold tracking-[-0.035em] text-[var(--cz-text-primary)] sm:text-[56px]">
-              CampusZen is the campus
+            <p className="inline-flex items-center rounded-full border border-[var(--cz-border-strong)] px-3 py-1 text-[13px] font-bold leading-[18px] text-[var(--cz-text-secondary)]">
+              Built for college students across India
+            </p>
+            <h1 className="mt-4 text-[42px] leading-[1.03] font-extrabold tracking-[-0.035em] text-[var(--cz-text-primary)] sm:text-[56px]">
+              The social network
               <br />
-              conversation, in one feed.
+              for your college life.
             </h1>
           </Reveal>
 
           <Reveal delay={0.06}>
             <p className="mt-5 max-w-[46ch] text-[15px] leading-[21px] text-[var(--cz-text-secondary)]">
-              Discover students by college and course, follow classmates and
-              seniors, and post text, images, and polls. Hashtags, college
-              feeds, and realtime notifications keep campus in one timeline.
+              Find students by college, course, and year. Follow classmates and
+              seniors, then post 500-character updates with photos and polls —
+              with likes, replies, hashtags, and realtime notifications in one
+              feed.
             </p>
           </Reveal>
 
@@ -39,8 +43,7 @@ export function Hero() {
               </Link>
             </div>
             <p className="mt-4 text-[13px] leading-[18px] text-[var(--cz-text-secondary)]">
-              Free to join · OTP-verified emails · 500-char posts + images &amp;
-              polls
+              Free to join · OTP-verified email · Posts, photos &amp; polls
             </p>
           </Reveal>
         </div>
