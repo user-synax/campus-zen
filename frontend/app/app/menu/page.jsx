@@ -3,6 +3,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Bookmark,
+  BadgeCheck,
   ChevronRight,
   FileText,
   Loader2,
@@ -143,6 +144,43 @@ export default function MenuPage() {
                 </span>
               </>
             )}
+          </span>
+          <ChevronRight className={chevron} aria-hidden />
+        </Link>
+
+        <Link
+          href="/app/verified"
+          aria-label="Get verified"
+          className="mt-4 flex items-center gap-3 rounded-[16px] border border-[var(--cz-border)] p-4 transition-colors hover:bg-[var(--cz-surface-strong)]"
+        >
+          <span className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[16px] font-bold text-[var(--cz-text-primary)]">
+            {user?.avatarUrl ? (
+              <CzImage
+                src={user.avatarUrl}
+                alt=""
+                className="h-full w-full rounded-full"
+                imgClassName="h-full w-full"
+              />
+            ) : (
+              initial
+            )}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="flex items-center gap-1">
+              <span className="truncate text-[15px] font-extrabold">
+                {user?.fullName || "CampusZen Student"}
+              </span>
+              <UserBadge user={user ? { ...user, isVerified: true } : null} size="sm" />
+            </span>
+            <span className="mt-0.5 flex items-center gap-1 text-[14px] font-bold text-[var(--cz-accent)]">
+              <BadgeCheck className="h-4 w-4" aria-hidden />
+              {user?.isVerified ? "Verified" : "Get Verified"}
+            </span>
+            <span className="block truncate text-[13px] text-[var(--cz-text-secondary)]">
+              {user?.isVerified
+                ? "Blue tick active on your profile"
+                : "50+ posts or 100+ followers — preview your tick"}
+            </span>
           </span>
           <ChevronRight className={chevron} aria-hidden />
         </Link>

@@ -71,16 +71,24 @@ export const authService = {
       username: cleanUsername,
       email: cleanEmail,
       passwordHash,
-      isEmailVerified: false,
+      // No compulsory OTP — domain allowlist (gmail/proton) is the gate.
+      isEmailVerified: true,
     });
 
-    // Respond 201 immediately — OTP delivery happens in background.
-    // Blocking the response on Gmail SMTP is what made signup take
-    // 10–60s on Render. If delivery fails, resend-otp still works.
-    const plainOtp = await persistOtp({ email: cleanEmail, type: "verify" });
-    sendOtpInBackground({ email: cleanEmail, type: "verify", otp: plainOtp });
+    // Auto-login: issue tokens immediately so signup lands straight in /app.
+    const accessToken = signAccessToken({ id: user._id, username: user.username, role: user.role });
+    const refreshToken = signRefreshToken({ id: user._id }, true);
+    user.refreshTokenHash = hashToken(refreshToken);
+    user.lastLoginAt = new Date();
+    try {
+      const { env } = await import("../config/env.js");
+      const clean = String(user.email || "").toLowerCase().trim();
+      user.isOwner = clean === env.OWNER_EMAIL;
+      user.isCofounder = clean === env.COFOUNDER_EMAIL;
+    } catch {}
+    await user.save();
 
-    return user.toSafeObject();
+    return { user: user.toSafeObject(), accessToken, refreshToken };
   },
 
   async verifyEmail({ email, otp }) {
@@ -245,7 +253,7 @@ export const authService = {
   async getMe(userId) {
     const user = await User.findById(userId).populate({
       path: "pinnedPost",
-      populate: { path: "author", select: "fullName username avatarUrl isEmailVerified" },
+      populate: { path: "author", select: "fullName username avatarUrl isEmailVerified isVerified" },
     });
     if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
     return user.toSafeObject();

@@ -1,5 +1,6 @@
 import { Report } from "../models/Report.js";
 import { Appeal } from "../models/Appeal.js";
+import { VerificationRequest } from "../models/VerificationRequest.js";
 import { Post } from "../models/Post.js";
 import { User } from "../models/User.js";
 import { Comment } from "../models/Comment.js";
@@ -34,7 +35,7 @@ export const adminService = {
   },
 
   async stats() {
-    const [open, dismissed, actioned, totalUsers, totalPosts, suspended, appealsOpen, appealsTotal] = await Promise.all([
+    const [open, dismissed, actioned, totalUsers, totalPosts, suspended, appealsOpen, appealsTotal, verifOpen, verifTotal, verifiedCount] = await Promise.all([
       Report.countDocuments({ status: "open" }),
       Report.countDocuments({ status: "dismissed" }),
       Report.countDocuments({ status: "actioned" }),
@@ -43,8 +44,11 @@ export const adminService = {
       User.countDocuments({ isSuspended: true }),
       Appeal.countDocuments({ status: "open" }),
       Appeal.countDocuments({}),
+      VerificationRequest.countDocuments({ status: "open" }),
+      VerificationRequest.countDocuments({}),
+      User.countDocuments({ isVerified: true }),
     ]);
-    return { reports: { open, dismissed, actioned, total: open + dismissed + actioned }, users: { total: totalUsers, suspended }, posts: { total: totalPosts }, appeals: { open: appealsOpen, total: appealsTotal } };
+    return { reports: { open, dismissed, actioned, total: open + dismissed + actioned }, users: { total: totalUsers, suspended, verified: verifiedCount }, posts: { total: totalPosts }, appeals: { open: appealsOpen, total: appealsTotal }, verifications: { open: verifOpen, total: verifTotal } };
   },
 
   async listReports({ status = "open", page = 1, limit = 20 }) {
@@ -204,5 +208,62 @@ export const adminService = {
       await Notification.create({ recipient: appeal.appellant, actor: appeal.appellant, type: "appeal_update" });
     } catch {}
     return appeal;
+  },
+
+  async listVerifications({ status = "open", page = 1, limit = 20 }) {
+    const lim = Math.max(1, Math.min(50, Number(limit) || 20));
+    const pg = Math.max(1, Number(page) || 1);
+    const skip = (pg - 1) * lim;
+    const filter = status === "all" ? {} : { status };
+    const [requests, total] = await Promise.all([
+      VerificationRequest.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(lim)
+        .populate("user", "fullName username avatarUrl bio college postCount followersCount followingCount isVerified createdAt")
+        .lean(),
+      VerificationRequest.countDocuments(filter),
+    ]);
+    // refresh live counts so admin sees current sufficiency, not just snapshot
+    const withLive = await Promise.all(
+      requests.map(async (r) => {
+        try {
+          if (!r.user?._id) return { ...r, live: null };
+          const live = await User.findById(r.user._id).select("postCount followersCount isVerified").lean();
+          return { ...r, live };
+        } catch {
+          return { ...r, live: null };
+        }
+      })
+    );
+    return { requests: withLive, total, page: pg, limit: lim, hasMore: skip + lim < total };
+  },
+
+  async reviewVerification(requestId, { status, reviewNote }) {
+    if (!["approved", "rejected"].includes(status)) {
+      throw new AppError("Status must be approved or rejected", 400, "INVALID_STATUS");
+    }
+    const req = await VerificationRequest.findById(requestId);
+    if (!req) throw new AppError("Verification request not found", 404, "VERIFICATION_NOT_FOUND");
+    req.status = status;
+    req.reviewNote = reviewNote ? String(reviewNote).slice(0, 1000) : null;
+    req.reviewedAt = new Date();
+    await req.save();
+    if (status === "approved") {
+      await User.findByIdAndUpdate(req.user, { $set: { isVerified: true } });
+    }
+    try {
+      const { Notification } = await import("../models/Notification.js");
+      await Notification.create({ recipient: req.user, actor: req.user, type: "appeal_update" });
+    } catch {}
+    return req;
+  },
+
+  async setUserVerified(userId, isVerified) {
+    const user = await User.findById(userId);
+    if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+    user.isVerified = Boolean(isVerified);
+    await user.save();
+    return user.toSafeObject();
   },
 };

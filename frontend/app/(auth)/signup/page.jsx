@@ -140,10 +140,7 @@ export default function SignupPage() {
         email: email.trim().toLowerCase(),
         password,
       });
-      try {
-        sessionStorage.setItem("cz_pending_email", email.trim().toLowerCase());
-      } catch {}
-      // OTP skipped for now — go directly to app, show verify banner if needed
+      // No OTP — domain allowlist is the gate, backend auto-logs in via cookies.
       router.push(`/app`);
     } catch (err) {
       const data = err.data || {};

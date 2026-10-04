@@ -22,8 +22,8 @@ const verifiedBadgeSizePixels = {
 const verifiedBadgeToneClassNames = {
   brand: "text-[var(--cz-accent)]",
   neutral: "text-[var(--cz-text-secondary)]",
-  // owner badge — red, exactly one account (OWNER_EMAIL)
-  owner: "text-[#e11d48]",
+  // Founder badge — red, exactly one account (Founder_EMAIL)
+  Founder: "text-[#e11d48]",
   // cofounder badge — lavender, exactly one account (COFOUNDER_EMAIL)
   cofounder: "text-[#a78bfa]",
   // pro badge — gold, future subscription tier
@@ -34,7 +34,7 @@ const verifiedBadgeToneClassNames = {
 // arbitrary-value classes above (a missing rule renders as inherited
 // white-in-dark-mode instead of red/lavender/gold). Inline style always wins.
 const verifiedBadgeToneStyles = {
-  owner: { color: "#eb1c49" },
+  Founder: { color: "#eb1c49" },
   cofounder: { color: "#a78bfa" },
   pro: { color: "#eab308" },
 };
@@ -127,24 +127,23 @@ export { VerifiedBadge };
 export default VerifiedBadge;
 
 // ─── Badge tiers ─────────────────────────────────────────────────────────────
-// owner (red) > cofounder (lavender) > pro (gold) > verified (blue).
-// Only OWNER_EMAIL ever resolves to owner; only COFOUNDER_EMAIL ever
+// Founder (red) > cofounder (lavender) > pro (gold) > verified (blue).
+// Only Founder_EMAIL ever resolves to Founder; only COFOUNDER_EMAIL ever
 // resolves to cofounder; pro reads user.isPro (subscription later);
-// verified reads the existing isEmailVerified flag. Email allowlist
-// (gmail.com, proton.me) is enforced at signup/login, so no other domain
-// can reach verified.
-export const OWNER_EMAIL = "usersynax@gmail.com";
+// verified reads user.isVerified (admin-granted via verification appeals:
+// 50+ posts OR 100+ followers). Email verification no longer grants a badge.
+export const Founder_EMAIL = "usersynax@gmail.com";
 export const COFOUNDER_EMAIL = "yashvardhan4646@gmail.com";
 
 export function getBadgeKind(user) {
   if (!user) return null;
   if (
-    user.isOwner ||
+    user.isFounder ||
     String(user.email || "")
       .toLowerCase()
-      .trim() === OWNER_EMAIL
+      .trim() === Founder_EMAIL
   )
-    return "owner";
+    return "Founder";
   if (
     user.isCofounder ||
     String(user.email || "")
@@ -153,19 +152,19 @@ export function getBadgeKind(user) {
   )
     return "cofounder";
   if (user.isPro) return "pro";
-  if (user.isEmailVerified) return "verified";
+  if (user.isVerified) return "verified";
   return null;
 }
 
 export function badgeToneFor(kind) {
-  if (kind === "owner") return "owner";
+  if (kind === "Founder") return "Founder";
   if (kind === "cofounder") return "cofounder";
   if (kind === "pro") return "pro";
   return "brand";
 }
 
 export function badgeLabelFor(kind) {
-  if (kind === "owner") return "Owner";
+  if (kind === "Founder") return "Founder";
   if (kind === "cofounder") return "Co-founder";
   if (kind === "pro") return "Pro user";
   return "Verified user";

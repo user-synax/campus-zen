@@ -109,11 +109,14 @@ const userSchema = new mongoose.Schema(
     suspendReason: { type: String, default: null, maxlength: 500 },
     // badge tiers — owner (red, exactly OWNER_EMAIL), cofounder (lavender,
     // exactly COFOUNDER_EMAIL), pro (gold, future subscription), verified
-    // (blue, email verified). isOwner/isCofounder sync from email on save
+    // (blue, admin-granted via verification appeals). isOwner/isCofounder sync from email on save
     // so no email ever leaks to clients for badge checks.
     isPro: { type: Boolean, default: false },
     isOwner: { type: Boolean, default: false, index: true },
     isCofounder: { type: Boolean, default: false, index: true },
+    // manual blue-tick — granted from /admin after appeal review.
+    // Replaces the old isEmailVerified-driven badge.
+    isVerified: { type: Boolean, default: false, index: true },
     lastLoginAt: { type: Date, default: null },
   },
   { timestamps: true }

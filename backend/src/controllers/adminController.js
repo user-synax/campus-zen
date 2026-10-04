@@ -65,4 +65,22 @@ export const adminController = {
     const appeal = await adminService.reviewAppeal(req.params.id, { status, reviewNote });
     res.json({ success: true, message: `Appeal ${status}`, data: { appeal } });
   }),
+
+  listVerifications: asyncHandler(async (req, res) => {
+    const { status = "open", page = 1, limit = 20 } = req.query;
+    const data = await adminService.listVerifications({ status, page, limit });
+    res.json({ success: true, data });
+  }),
+
+  reviewVerification: asyncHandler(async (req, res) => {
+    const { status, reviewNote } = req.body;
+    const request = await adminService.reviewVerification(req.params.id, { status, reviewNote });
+    res.json({ success: true, message: `Verification ${status}`, data: { request } });
+  }),
+
+  setUserVerified: asyncHandler(async (req, res) => {
+    const { isVerified } = req.body || {};
+    const user = await adminService.setUserVerified(req.params.id, isVerified);
+    res.json({ success: true, message: isVerified ? "User verified" : "Verification revoked", data: { user } });
+  }),
 };

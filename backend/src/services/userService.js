@@ -93,7 +93,7 @@ export const userService = {
     const candidates = await User.find({ _id: { $nin: excluded }, isPrivate: { $ne: true }, isDeactivated: { $ne: true } })
       .sort({ createdAt: -1 })
       .limit(poolSize)
-      .select("fullName username avatarUrl bio college course academicYear followersCount createdAt isEmailVerified isPro isOwner isCofounder")
+      .select("fullName username avatarUrl bio college course academicYear followersCount createdAt isEmailVerified isVerified isPro isOwner isCofounder")
       .lean();
 
     let mutualCounts = {};
@@ -156,7 +156,7 @@ export const userService = {
     if (!user) {
       user = await User.findOne({ username: clean }).populate({
         path: "pinnedPost",
-        populate: { path: "author", select: "fullName username avatarUrl isEmailVerified" },
+        populate: { path: "author", select: "fullName username avatarUrl isEmailVerified isVerified" },
       });
       if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
       cache.set(cacheKey, user, TTL.USER_PROFILE);
@@ -533,7 +533,7 @@ export const userService = {
   async purge(userId) {
     const user = await User.findById(userId).select("_id username").lean();
     if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
-    const [{ Post }, { Comment }, { Like }, { Repost }, { Bookmark }, { PollVote }, { Follow }, { Block }, { Notification }, { Report }, { FollowRequest }, { Appeal }] = await Promise.all([
+    const [{ Post }, { Comment }, { Like }, { Repost }, { Bookmark }, { PollVote }, { Follow }, { Block }, { Notification }, { Report }, { FollowRequest }, { Appeal }, { VerificationRequest }] = await Promise.all([
       import("../models/Post.js"),
       import("../models/Comment.js"),
       import("../models/Like.js"),
@@ -546,6 +546,7 @@ export const userService = {
       import("../models/Report.js"),
       import("../models/FollowRequest.js"),
       import("../models/Appeal.js"),
+      import("../models/VerificationRequest.js"),
     ]);
     const postIds = (await Post.find({ author: userId }).select("_id").lean()).map((p) => p._id);
     await Promise.all([
@@ -560,6 +561,7 @@ export const userService = {
       Notification.deleteMany({ $or: [{ recipient: userId }, { actor: userId }] }),
       FollowRequest.deleteMany({ $or: [{ requester: userId }, { target: userId }] }),
       Appeal.deleteMany({ appellant: userId }),
+      VerificationRequest.deleteMany({ user: userId }),
       User.updateOne({ _id: userId, pinnedPost: { $exists: true } }, { $unset: { pinnedPost: 1 } }),
     ]);
     // Repair follower/following counters for affected users (best-effort).

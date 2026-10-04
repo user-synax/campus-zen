@@ -69,7 +69,7 @@ export const searchService = {
             .sort(useText ? { score: { $meta: "textScore" } } : { createdAt: -1 })
             .skip(skip)
             .limit(lim)
-            .select("fullName username avatarUrl bio college course academicYear followersCount followingCount isEmailVerified isPro isOwner isCofounder")
+            .select("fullName username avatarUrl bio college course academicYear followersCount followingCount isEmailVerified isVerified isPro isOwner isCofounder")
             .lean(),
           User.countDocuments(filter),
         ]);
@@ -116,7 +116,7 @@ export const searchService = {
           const pg2 = Math.max(1, Number(page));
           const skip2 = (pg2 - 1) * lim2;
           let [posts, total] = await Promise.all([
-            Post.find(filter).sort({ createdAt: -1 }).skip(skip2).limit(lim2).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner isCofounder isPrivate").lean(),
+            Post.find(filter).sort({ createdAt: -1 }).skip(skip2).limit(lim2).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isCofounder isPrivate").lean(),
             Post.countDocuments(filter),
           ]);
           posts = await stripPrivate(posts);
@@ -154,7 +154,7 @@ export const searchService = {
           if (allHide.size) filter.author = { $nin: [...allHide] };
         }
         let [posts, total] = await Promise.all([
-          Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified isPro isOwner isCofounder isPrivate").lean(),
+          Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isCofounder isPrivate").lean(),
           Post.countDocuments(filter),
         ]);
         posts = await stripPrivate(posts);

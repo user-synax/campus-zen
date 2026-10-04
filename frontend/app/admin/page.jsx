@@ -2,6 +2,7 @@
 
 import {
   AlertCircle,
+  BadgeCheck,
   Eye,
   EyeOff,
   Flag,
@@ -12,6 +13,7 @@ import {
   UserCheck,
   UserX,
 } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { Button } from "@/components/ui/button";
@@ -49,7 +51,7 @@ export default function AdminPage() {
 
   const [stats, setStats] = useState(null);
   const [tab, setTab] = useState("open");
-  const [section, setSection] = useState("reports"); // reports | appeals
+  const [section, setSection] = useState("reports"); // reports | appeals | verifications
   const [reports, setReports] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -62,6 +64,10 @@ export default function AdminPage() {
   const [appealsPage, setAppealsPage] = useState(1);
   const [appealsTab, setAppealsTab] = useState("open");
   const [reviewNote, setReviewNote] = useState({});
+  const [verifs, setVerifs] = useState([]);
+  const [verifsTotal, setVerifsTotal] = useState(0);
+  const [verifsPage, setVerifsPage] = useState(1);
+  const [verifsTab, setVerifsTab] = useState("open");
 
   const fetchReports = useCallback(async (status, pg) => {
     setLoading(true);
@@ -105,6 +111,22 @@ export default function AdminPage() {
     }
   }, []);
 
+  const fetchVerifs = useCallback(async (status, pg) => {
+    setLoading(true);
+    try {
+      const res = await api.adminVerifications({ status, page: pg, limit: 20 });
+      const d = res.data || {};
+      if (pg === 1) setVerifs(d.requests || []);
+      else setVerifs((prev) => [...prev, ...(d.requests || [])]);
+      setVerifsTotal(d.total || 0);
+      setVerifsPage(d.page || pg);
+    } catch (err) {
+      setListError(err.data?.message || err.message || "Failed to load verifications");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     (async () => {
       try {
@@ -113,11 +135,12 @@ export default function AdminPage() {
         fetchStats();
         fetchReports("open", 1);
         fetchAppeals("open", 1);
+        fetchVerifs("open", 1);
       } catch {
         setPhase("login");
       }
     })();
-  }, [fetchReports, fetchStats, fetchAppeals]);
+  }, [fetchReports, fetchStats, fetchAppeals, fetchVerifs]);
 
   const switchTab = (id) => {
     setTab(id);
@@ -140,6 +163,8 @@ export default function AdminPage() {
       setPasskey("");
       fetchStats();
       fetchReports(tab, 1);
+      fetchAppeals("open", 1);
+      fetchVerifs("open", 1);
     } catch (err) {
       setLoginError(err.data?.message || err.message || "Login failed");
     } finally {
@@ -287,6 +312,68 @@ export default function AdminPage() {
     }
   };
 
+  const doReviewVerification = async (req, status) => {
+    markActing(req._id, status);
+    try {
+      const note = (reviewNote[req._id] || "").trim();
+      await api.adminReviewVerification(req._id, note ? { status, reviewNote: note } : { status });
+      const userId = req.user?._id;
+      setVerifs((prev) =>
+        prev.map((v) =>
+          v._id === req._id
+            ? {
+                ...v,
+                status,
+                reviewNote: note || v.reviewNote,
+                user: v.user ? { ...v.user, isVerified: status === "approved" ? true : v.user.isVerified } : v.user,
+                live: v.live ? { ...v.live, isVerified: status === "approved" ? true : v.live.isVerified } : v.live,
+              }
+            : v,
+        ),
+      );
+      // Keep the populated user flag in sync for Grant/Revoke display
+      if (userId && status === "approved") {
+        setVerifs((prev) =>
+          prev.map((v) =>
+            v.user && String(v.user._id) === String(userId) ? { ...v, user: { ...v.user, isVerified: true } } : v,
+          ),
+        );
+      }
+      fetchStats();
+      if (verifsTab === "open") setVerifs((prev) => prev.filter((v) => v._id !== req._id));
+    } catch (err) {
+      alert(err.data?.message || err.message || "Failed");
+    } finally {
+      clearActing(req._id);
+    }
+  };
+
+  const doSetVerified = async (req, isVerified) => {
+    const userId = req.user?._id;
+    if (!userId) return;
+    if (!confirm(isVerified ? `Grant blue tick to @${req.user?.username || "user"}?` : `Revoke blue tick from @${req.user?.username || "user"}?`)) return;
+    markActing(req._id, isVerified ? "granting" : "revoking");
+    try {
+      await api.adminSetVerified(userId, isVerified);
+      setVerifs((prev) =>
+        prev.map((v) =>
+          v._id === req._id
+            ? {
+                ...v,
+                user: v.user ? { ...v.user, isVerified } : v.user,
+                live: v.live ? { ...v.live, isVerified } : v.live,
+              }
+            : v,
+        ),
+      );
+      fetchStats();
+    } catch (err) {
+      alert(err.data?.message || err.message || "Failed");
+    } finally {
+      clearActing(req._id);
+    }
+  };
+
   if (phase === "checking") {
     return (
       <div className="grid min-h-dvh place-items-center bg-[var(--cz-bg)]">
@@ -407,6 +494,8 @@ export default function AdminPage() {
               { label: "Total reports", value: stats.reports?.total ?? 0 },
               { label: "Open appeals", value: stats.appeals?.open ?? 0 },
               { label: "Suspended", value: stats.users?.suspended ?? 0 },
+              { label: "Open verifications", value: stats.verifications?.open ?? 0 },
+              { label: "Verified users", value: stats.users?.verified ?? 0 },
             ].map((s) => (
               <div
                 key={s.label}
@@ -427,6 +516,7 @@ export default function AdminPage() {
           {[
             { id: "reports", label: "Reports" },
             { id: "appeals", label: `Appeals${stats?.appeals?.open ? ` (${stats.appeals.open})` : ""}` },
+            { id: "verifications", label: `Verification${stats?.verifications?.open ? ` (${stats.verifications.open})` : ""}` },
           ].map((t) => (
             <button
               key={t.id}
@@ -659,7 +749,7 @@ export default function AdminPage() {
           </div>
         ) : null}
           </>
-        ) : (
+        ) : section === "appeals" ? (
           <>
             <div className="mt-3 flex gap-2" role="tablist" aria-label="Appeal status">
               {[
@@ -717,6 +807,108 @@ export default function AdminPage() {
               <div className="mt-4 flex items-center justify-between">
                 <p className="text-[13px] text-[var(--cz-text-secondary)]">{appealsTotal} total</p>
                 <Button variant="secondary" size="sm" disabled={loading || appeals.length >= appealsTotal} onClick={() => fetchAppeals(appealsTab, appealsPage + 1)}>Show more</Button>
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <>
+            <div className="mt-3 flex gap-2" role="tablist" aria-label="Verification status">
+              {[
+                { id: "open", label: "Open" },
+                { id: "approved", label: "Approved" },
+                { id: "rejected", label: "Rejected" },
+                { id: "all", label: "All" },
+              ].map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={verifsTab === t.id}
+                  onClick={() => { setVerifsTab(t.id); setVerifs([]); fetchVerifs(t.id, 1); }}
+                  className={`h-[32px] rounded-full px-4 text-[14px] font-bold transition-colors ${verifsTab === t.id ? "bg-[var(--cz-accent)] text-[var(--cz-text-inverse)]" : "border border-[var(--cz-border-strong)] hover:bg-[var(--cz-surface-strong)]"}`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <div className="mt-4 flex flex-col gap-3">
+              {verifs.map((v) => {
+                const busy = Boolean(acting[v._id]);
+                const u = v.user || {};
+                const live = v.live || {};
+                const posts = live.postCount ?? u.postCount ?? v.postCount ?? 0;
+                const followers = live.followersCount ?? u.followersCount ?? v.followersCount ?? 0;
+                const verified = live.isVerified ?? u.isVerified ?? false;
+                const initial = (u.fullName?.[0] || u.username?.[0] || "?").toUpperCase();
+                return (
+                  <article key={v._id} className="rounded-2xl border border-[var(--cz-border)] p-4">
+                    <div className="flex flex-wrap items-center gap-2 text-[13px] text-[var(--cz-text-secondary)]">
+                      <span className="rounded-full bg-[var(--cz-surface-strong)] px-2 py-0.5 font-bold text-[var(--cz-text-primary)]">verification</span>
+                      <span className="rounded-full border border-[var(--cz-border-strong)] px-2 py-0.5">{v.status}</span>
+                      {verified ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[var(--cz-accent-soft)] px-2 py-0.5 font-bold text-[var(--cz-accent)]">
+                          <BadgeCheck className="h-3.5 w-3.5" aria-hidden /> verified
+                        </span>
+                      ) : null}
+                      <span className="ml-auto">{timeAgo(v.createdAt)}</span>
+                    </div>
+                    <div className="mt-3 flex items-center gap-3">
+                      <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[15px] font-bold">
+                        {u.avatarUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={u.avatarUrl} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          initial
+                        )}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[15px] font-bold">
+                          {u.fullName || u.username || "Deleted user"}
+                        </span>
+                        <span className="block truncate text-[14px] text-[var(--cz-text-secondary)]">
+                          {u.username ? (
+                            <Link href={`/u/${u.username}`} className="font-bold text-[var(--cz-accent)] hover:underline">
+                              @{u.username}
+                            </Link>
+                          ) : (
+                            "no profile"
+                          )}
+                          {" · "}
+                          {posts}/50 posts {" · "}
+                          {followers}/100 followers
+                        </span>
+                      </span>
+                    </div>
+                    {v.message ? (
+                      <p className="mt-2 rounded-xl bg-[var(--cz-surface-strong)] p-3 text-[14px] whitespace-pre-wrap">{v.message}</p>
+                    ) : null}
+                    <input
+                      value={reviewNote[v._id] || ""}
+                      onChange={(e) => setReviewNote((p) => ({ ...p, [v._id]: e.target.value }))}
+                      placeholder="Review note to user (optional)"
+                      maxLength={1000}
+                      className="mt-2 h-[36px] w-full rounded-xl border border-[var(--cz-border-strong)] bg-transparent px-3 text-[14px] outline-none placeholder:text-[var(--cz-text-secondary)] focus:border-[var(--cz-accent)]"
+                    />
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Button variant="secondary" size="sm" disabled={busy} onClick={() => doReviewVerification(v, "approved")}>Approve</Button>
+                      <Button variant="secondary" size="sm" disabled={busy} onClick={() => doReviewVerification(v, "rejected")}>Reject</Button>
+                      {verified ? (
+                        <Button variant="dangerSolid" size="sm" disabled={busy} onClick={() => doSetVerified(v, false)}>Revoke</Button>
+                      ) : (
+                        <Button variant="secondary" size="sm" disabled={busy} onClick={() => doSetVerified(v, true)}>Grant</Button>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+            {!loading && verifs.length === 0 ? (
+              <p className="py-10 text-center text-[15px] text-[var(--cz-text-secondary)]">No {verifsTab} verifications.</p>
+            ) : null}
+            {!loading && verifs.length > 0 ? (
+              <div className="mt-4 flex items-center justify-between">
+                <p className="text-[13px] text-[var(--cz-text-secondary)]">{verifsTotal} total</p>
+                <Button variant="secondary" size="sm" disabled={loading || verifs.length >= verifsTotal} onClick={() => fetchVerifs(verifsTab, verifsPage + 1)}>Show more</Button>
               </div>
             ) : null}
           </>

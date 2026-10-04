@@ -4,10 +4,11 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 
 export const authController = {
   signup: asyncHandler(async (req, res) => {
-    const user = await authService.signup(req.body);
+    const { user, accessToken, refreshToken } = await authService.signup(req.body);
+    setAuthCookies(res, { accessToken, refreshToken, remember: true });
     res.status(201).json({
       success: true,
-      message: "Account created. Verification code sent to your email.",
+      message: "Account created.",
       data: { user },
     });
   }),
@@ -28,7 +29,7 @@ export const authController = {
     setAuthCookies(res, { accessToken, refreshToken, remember: rem });
     res.json({
       success: true,
-      message: user.isEmailVerified ? "Logged in" : "Logged in — please verify your email (banner)",
+      message: "Logged in",
       data: { user },
     });
   }),

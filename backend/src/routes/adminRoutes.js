@@ -38,6 +38,21 @@ const reviewAppealSchema = z.object({
   reviewNote: z.string().trim().max(1000).optional(),
 });
 
+const verificationQuerySchema = z.object({
+  status: z.enum(["open", "approved", "rejected", "all"]).optional().default("open"),
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(50).optional().default(20),
+});
+
+const reviewVerificationSchema = z.object({
+  status: z.enum(["approved", "rejected"]),
+  reviewNote: z.string().trim().max(1000).optional(),
+});
+
+const setVerifiedSchema = z.object({
+  isVerified: z.boolean(),
+});
+
 const idParamSchema = z.object({
   id: z.string().regex(/^[a-f\d]{24}$/i, "Invalid id"),
 });
@@ -56,5 +71,8 @@ router.patch("/appeals/:id", requireAdmin, validate(idParamSchema, "params"), va
 router.delete("/posts/:id", requireAdmin, validate(idParamSchema, "params"), adminController.deletePost);
 router.patch("/users/:id/suspend", requireAdmin, validate(idParamSchema, "params"), validate(suspendSchema), adminController.suspendUser);
 router.patch("/users/:id/unsuspend", requireAdmin, validate(idParamSchema, "params"), adminController.unsuspendUser);
+router.get("/verifications", requireAdmin, validate(verificationQuerySchema, "query"), adminController.listVerifications);
+router.patch("/verifications/:id", requireAdmin, validate(idParamSchema, "params"), validate(reviewVerificationSchema), adminController.reviewVerification);
+router.patch("/users/:id/verified", requireAdmin, validate(idParamSchema, "params"), validate(setVerifiedSchema), adminController.setUserVerified);
 
 export default router;

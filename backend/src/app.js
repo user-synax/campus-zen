@@ -17,6 +17,7 @@ import sseRoutes from "./routes/sseRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
 import collegeRoutes from "./routes/collegeRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import verificationRoutes from "./routes/verificationRoutes.js";
 import { notFound, errorHandler } from "./middleware/errorHandler.js";
 
 const app = express();
@@ -64,6 +65,7 @@ app.use("/api/events", sseRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/colleges", collegeRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/verifications", verificationRoutes);
 
 // 404
 app.use(notFound);

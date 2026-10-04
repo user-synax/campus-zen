@@ -6,7 +6,6 @@ import {
   EyeOff,
   Loader2,
   LogIn,
-  ShieldAlert,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -58,25 +57,11 @@ export default function LoginPage() {
     if (!validate()) return;
     setLoading(true);
     try {
-      const res = await api.login({
+      await api.login({
         username: username.trim().toLowerCase(),
         password,
         remember,
       });
-      const user = res.data?.user;
-      // allow login but show verify banner if not verified per spec §10
-      if (user && !user.isEmailVerified) {
-        setServerMsg({
-          type: "warn",
-          text: "Logged in — please verify your email. Redirecting to app…",
-          email: user.email,
-        });
-        setTimeout(() => {
-          router.push(`/app`);
-          router.refresh();
-        }, 700);
-        return;
-      }
       router.push("/app");
       router.refresh();
     } catch (err) {
@@ -116,29 +101,9 @@ export default function LoginPage() {
       <AuthShell title="Sign in to CampusZen">
         <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
           {serverMsg ? (
-            <div
-              className={`flex items-start gap-2 rounded-[4px] px-3 py-2.5 text-[15px] leading-[20px] ${
-                serverMsg.type === "warn"
-                  ? "bg-[var(--cz-accent-soft)] text-[var(--cz-accent)]"
-                  : "bg-[color-mix(in_srgb,var(--cz-error)_10%,transparent)] text-[var(--cz-error)]"
-              }`}
-            >
-              {serverMsg.type === "warn" ? (
-                <ShieldAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden />
-              ) : (
-                <AlertCircle className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden />
-              )}
-              <span>
-                {serverMsg.text}{" "}
-                {serverMsg.type === "warn" && serverMsg.email ? (
-                  <Link
-                    href={`/verify-email?email=${encodeURIComponent(serverMsg.email)}`}
-                    className="font-bold underline underline-offset-2"
-                  >
-                    Verify now
-                  </Link>
-                ) : null}
-              </span>
+            <div className="flex items-start gap-2 rounded-[4px] bg-[color-mix(in_srgb,var(--cz-error)_10%,transparent)] px-3 py-2.5 text-[15px] leading-[20px] text-[var(--cz-error)]">
+              <AlertCircle className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden />
+              <span>{serverMsg.text}</span>
             </div>
           ) : null}
 

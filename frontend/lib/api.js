@@ -566,4 +566,27 @@ export const api = {
       method: "PATCH",
       body: payload,
     }),
+  getVerificationStatus: () =>
+    request("/api/verifications/me", { method: "GET" }),
+  requestVerification: (payload = {}) =>
+    request("/api/verifications/request", { method: "POST", body: payload }),
+  adminVerifications: (params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "")
+        qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(`/api/admin/verifications${q ? `?${q}` : ""}`, { method: "GET" });
+  },
+  adminReviewVerification: (id, payload) =>
+    request(`/api/admin/verifications/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: payload,
+    }),
+  adminSetVerified: (id, isVerified) =>
+    request(`/api/admin/users/${encodeURIComponent(id)}/verified`, {
+      method: "PATCH",
+      body: { isVerified },
+    }),
 };

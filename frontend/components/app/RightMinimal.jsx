@@ -251,6 +251,8 @@ export function RightMinimal({ currentUser }) {
     if (q) router.push(`/app/search?q=${encodeURIComponent(q)}`);
   };
 
+  const showVerifiedCard = currentUser && !currentUser.isVerified;
+
   return (
     <div className="sticky top-0 flex flex-col gap-4 px-2 py-3">
       {/* DESIGN.md — Search Input: mist fill, no visible border */}
@@ -270,6 +272,40 @@ export function RightMinimal({ currentUser }) {
           />
         </div>
       </form>
+
+      {showVerifiedCard ? (
+        <section className="overflow-hidden rounded-[16px] border border-[var(--cz-border)] p-4">
+          <div className="flex items-center gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] font-bold">
+              {currentUser.avatarUrl ? (
+                <CzImage src={currentUser.avatarUrl} alt="" className="h-full w-full rounded-full" imgClassName="h-full w-full" />
+              ) : (
+                initialsFor(currentUser)
+              )}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-1">
+                <span className="truncate text-[15px] font-bold">
+                  {currentUser.fullName || currentUser.username}
+                </span>
+                <UserBadge user={{ ...currentUser, isVerified: true }} size="sm" />
+              </span>
+              <span className="block truncate text-[13px] text-[var(--cz-text-secondary)]">
+                See your blue tick preview
+              </span>
+            </span>
+          </div>
+          <Link
+            href="/app/verified"
+            className="mt-3 flex h-[36px] items-center justify-center rounded-full bg-[var(--cz-accent)] px-4 text-[14px] font-bold text-white transition-opacity hover:opacity-90"
+          >
+            Get Verified
+          </Link>
+          <p className="mt-2 text-[12px] leading-[16px] text-[var(--cz-text-secondary)]">
+            50+ posts or 100+ followers to apply.
+          </p>
+        </section>
+      ) : null}
 
       <section className="overflow-hidden rounded-[16px] border border-[var(--cz-border)]">
         <h2 className="px-4 pt-3 pb-1 text-[20px] leading-6 font-extrabold text-[var(--cz-text-primary)]">
