@@ -16,6 +16,12 @@ export function LandingNav() {
         <nav className="flex items-center gap-1" aria-label="Primary">
           <ThemeToggle className="h-[36px] w-[36px]" side="bottom" />
           <Link
+            href="/docs"
+            className="inline-flex h-[34px] items-center rounded-full px-4 text-[15px] font-bold text-[var(--cz-text-primary)] transition-colors hover:bg-[var(--cz-surface-strong)]"
+          >
+            Docs
+          </Link>
+          <Link
             href="/login"
             className="inline-flex h-[34px] items-center rounded-full px-4 text-[15px] font-bold text-[var(--cz-text-primary)] transition-colors hover:bg-[var(--cz-surface-strong)]"
           >

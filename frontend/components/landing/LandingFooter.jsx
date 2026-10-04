@@ -14,6 +14,7 @@ export function LandingFooter() {
           aria-label="Footer"
         >
           {[
+            { href: "/docs", label: "Docs" },
             { href: "/terms", label: "Terms of Service" },
             { href: "/privacy", label: "Privacy Policy" },
             { href: "/u", label: "Students" },
