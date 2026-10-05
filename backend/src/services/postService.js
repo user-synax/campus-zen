@@ -1079,7 +1079,7 @@ export const postService = {
     const postAuthorIds = [...new Set(comments.map((c) => String(c.post?.author)).filter(Boolean))];
     if (postAuthorIds.length) {
       const authors = await User.find({ _id: { $in: postAuthorIds } })
-        .select("fullName username avatarUrl")
+        .select("fullName username avatarUrl isEmailVerified isVerified isPro isOwner isCofounder")
         .lean();
       const authorMap = new Map(authors.map((a) => [String(a._id), a]));
       for (const c of comments) {

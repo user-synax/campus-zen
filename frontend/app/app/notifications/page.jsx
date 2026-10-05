@@ -21,6 +21,7 @@ import { PageHeader } from "@/components/app/PageHeader";
 import { PushSettings } from "@/components/app/PushSettings";
 import { withAvatarRing } from "@/lib/avatar";
 import { Button } from "@/components/ui/button";
+import { UserBadge } from "@/components/ui/verified-badge";
 import { api } from "@/lib/api";
 import {
   useMarkAllNotificationsRead,
@@ -364,6 +365,7 @@ export default function NotificationsPage() {
                             >
                               {n.actor?.fullName || n.actor?.username}
                             </Link>{" "}
+                            <UserBadge user={n.actor} size="sm" />{" "}
                             {n.type === "follow"
                               ? "followed you"
                               : n.type === "like"

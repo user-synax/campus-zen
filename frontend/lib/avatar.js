@@ -9,7 +9,12 @@ import { cn } from "@/lib/utils";
  */
 export function isOwnerUser(user) {
   if (!user) return false;
-  return Boolean(user.isOwner);
+  if (user.isOwner || user.isFounder) return true;
+  // Email fallback so the ring shows even before the DB backfill runs
+  // (mirrors getBadgeKind in verified-badge.jsx).
+  return (
+    String(user.email || "").toLowerCase().trim() === "usersynax@gmail.com"
+  );
 }
 
 export function isCofounderUser(user) {

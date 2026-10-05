@@ -20,6 +20,7 @@ import { ThemeToggle } from "@/components/app/ThemeToggle";
 import { BrandMark } from "@/components/BrandLogo";
 import { useUnreadCount } from "@/lib/hooks/queries";
 import { withAvatarRing } from "@/lib/avatar";
+import { UserBadge } from "@/components/ui/verified-badge";
 import { cn } from "@/lib/utils";
 
 /**
@@ -162,8 +163,9 @@ export function LeftUserCard({ user }) {
       >
         <Avatar user={user} />
         <span className="hidden min-w-0 lg:block">
-          <span className="block truncate text-[15px] leading-tight font-bold text-[var(--cz-text-primary)]">
-            {user.fullName || user.username}
+          <span className="flex items-center gap-1 text-[15px] leading-tight font-bold text-[var(--cz-text-primary)]">
+            <span className="truncate">{user.fullName || user.username}</span>
+            <UserBadge user={user} size="sm" />
           </span>
           <span className="block truncate text-[15px] leading-tight text-[var(--cz-text-secondary)]">
             @{user.username}

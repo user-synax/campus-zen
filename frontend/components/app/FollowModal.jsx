@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CzImage } from "@/components/app/CzImage";
 import { Button } from "@/components/ui/button";
+import { UserBadge } from "@/components/ui/verified-badge";
 import { api } from "@/lib/api";
 import { withAvatarRing } from "@/lib/avatar";
 
@@ -52,8 +53,9 @@ function UserRow({ user, viewerId, onToggle }) {
           )}
         </span>
         <span className="min-w-0 flex-1 text-left">
-          <span className="block truncate text-[15px] font-bold leading-[20px] text-[var(--cz-text-primary)]">
-            {user.fullName || user.username}
+          <span className="flex items-center gap-1 text-[15px] font-bold leading-[20px] text-[var(--cz-text-primary)]">
+            <span className="truncate">{user.fullName || user.username}</span>
+            <UserBadge user={user} size="sm" />
           </span>
           <span className="block truncate text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">
             @{user.username}

@@ -89,7 +89,7 @@ export const notificationService = {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(lim)
-        .populate("actor", "fullName username avatarUrl")
+        .populate("actor", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isCofounder")
         .populate("post", "text")
         .lean(),
       Notification.countDocuments(query),

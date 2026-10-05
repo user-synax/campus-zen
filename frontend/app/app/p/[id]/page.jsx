@@ -11,6 +11,7 @@ import { PostCard } from "@/components/app/PostCard";
 import { ReplyComposer } from "@/components/app/ReplyComposer";
 import { RichText } from "@/components/app/RichText";
 import { Button } from "@/components/ui/button";
+import { UserBadge } from "@/components/ui/verified-badge";
 import { withAvatarRing } from "@/lib/avatar";
 import { isHiddenPost } from "@/lib/hiddenPosts";
 import { useMe, usePost, useReplies } from "@/lib/hooks/queries";
@@ -230,6 +231,7 @@ export default function PostDetailPage() {
                   <span className="truncate text-[15px] font-bold text-[var(--cz-text-primary)]">
                     {c.author?.fullName || c.author?.username}
                   </span>
+                  <UserBadge user={c.author} size="sm" />
                   <span className="truncate text-[15px] text-[var(--cz-text-secondary)]">
                     @{c.author?.username}
                   </span>

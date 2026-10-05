@@ -156,7 +156,7 @@ export const userService = {
     if (!user) {
       user = await User.findOne({ username: clean }).populate({
         path: "pinnedPost",
-        populate: { path: "author", select: "fullName username avatarUrl isEmailVerified isVerified" },
+        populate: { path: "author", select: "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isCofounder" },
       });
       if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
       cache.set(cacheKey, user, TTL.USER_PROFILE);
