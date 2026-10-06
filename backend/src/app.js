@@ -26,8 +26,28 @@ const app = express();
 app.set("trust proxy", 1);
 
 // security
+// JSON-only API: strict enforced CSP. This header only matters when a browser
+// navigates directly to the API (fetch/XHR is governed by the frontend's CSP
+// connect-src). 'none' everywhere + frame-ancestors 'none' blocks any
+// document rendering / clickjacking if the API ever returns HTML.
 app.use(helmet({
-  contentSecurityPolicy: false,
+  contentSecurityPolicy: {
+    useDefaults: false,
+    directives: {
+      defaultSrc: ["'none'"],
+      scriptSrc: ["'none'"],
+      styleSrc: ["'none'"],
+      imgSrc: ["'none'"],
+      connectSrc: ["'none'"],
+      fontSrc: ["'none'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'none'"],
+      frameSrc: ["'none'"],
+      formAction: ["'none'"],
+      baseUri: ["'none'"],
+      frameAncestors: ["'none'"],
+    },
+  },
   crossOriginEmbedderPolicy: false,
 }));
 app.use(cors({
