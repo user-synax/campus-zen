@@ -10,6 +10,26 @@ const router = Router();
 
 const textSchema = z.object({ text: z.string().trim().min(1, "Text required").max(500, "Max 500 characters") });
 const idParam = z.object({ id: z.string().regex(/^[a-f\d]{24}$/i, "Invalid id") });
+const usernameParam = z.object({
+  username: z.string().regex(/^[a-z0-9_]{3,20}$/i, "Invalid username"),
+  slug: z.string().regex(/^[a-z0-9][a-z0-9-]{0,99}$/i, "Invalid slug"),
+});
+const articleBodySchema = z.object({
+  title: z.string().trim().min(1, "Title required").max(120, "Max 120 characters"),
+  description: z.string().trim().max(200, "Max 200 characters").optional().default(""),
+  body: z.string().trim().min(1, "Body required").max(50000, "Max 50000 characters"),
+});
+const articleUpdateSchema = z.object({
+  title: z.string().trim().min(1).max(120).optional(),
+  description: z.string().trim().max(200).optional(),
+  body: z.string().trim().min(1).max(50000).optional(),
+}).refine((v) => v.title !== undefined || v.description !== undefined || v.body !== undefined, { message: "Nothing to update" });
+const lookupSchema = z.object({
+  refs: z.array(z.object({
+    username: z.string().min(1).max(20),
+    slug: z.string().min(1).max(100),
+  })).max(10),
+});
 const paginationQuery = z.object({
   page: z.coerce.number().int().min(1).optional().default(1),
   limit: z.coerce.number().int().min(1).max(50).optional().default(20),
@@ -22,6 +42,13 @@ const interactionLimiter = rateLimit({ windowMs: 60 * 1000, max: 60, standardHea
 // create — accepts JSON (text only) or multipart/form-data (text + media[] + posters[] + mediaMeta)
 router.post("/", protect, createLimiter, postMediaFields, postController.create);
 
+// articles — must sit before /:id so Express matches them first
+router.post("/articles", protect, createLimiter, postMediaFields, validate(articleBodySchema), postController.createArticle);
+router.get("/articles", optionalAuth, feedLimiter, validate(paginationQuery, "query"), postController.listArticles);
+router.post("/articles/lookup", optionalAuth, interactionLimiter, validate(lookupSchema), postController.lookupArticles);
+router.get("/articles/:username/:slug", optionalAuth, validate(usernameParam, "params"), postController.getArticleBySlug);
+router.patch("/articles/:id", protect, validate(idParam, "params"), validate(articleUpdateSchema), postController.updateArticle);
+
 // single list for profile tabs — author / likedBy / repostedBy (single endpoint per your choice)
 const listQuery = z.object({
   page: z.coerce.number().int().min(1).optional().default(1),
@@ -29,6 +56,7 @@ const listQuery = z.object({
   author: z.string().regex(/^[a-f\d]{24}$/i).optional(),
   likedBy: z.string().regex(/^[a-f\d]{24}$/i).optional(),
   repostedBy: z.string().regex(/^[a-f\d]{24}$/i).optional(),
+  kind: z.enum(["post", "article"]).optional(),
 });
 router.get("/", optionalAuth, feedLimiter, validate(listQuery, "query"), postController.list);
 

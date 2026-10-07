@@ -10,6 +10,15 @@ import { notificationService } from "./notificationService.js";
 import { blockService } from "./blockService.js";
 import { extractHashtags, normalizeHashtag } from "../utils/hashtags.js";
 import { extractMentions } from "../utils/mentions.js";
+import {
+  ARTICLE_BODY_MAX,
+  ARTICLE_DESC_MAX,
+  ARTICLE_TITLE_MAX,
+  buildArticleTeaser,
+  extractArticleMentions,
+  isValidArticleSlug,
+  slugifyArticle,
+} from "../utils/articles.js";
 import { AppError } from "../utils/AppError.js";
 import { cache, CacheKeys, TTL } from "../utils/cache.js";
 import { pushPostUpdate } from "../routes/sseRoutes.js";
@@ -264,6 +273,64 @@ async function notifyMentions(actorId, usernames, postId, skipId = null) {
   } catch {}
 }
 
+async function ensureUniqueArticleSlug(authorId, baseSlug) {
+  let slug = baseSlug;
+  for (let i = 0; i < 20; i++) {
+    const exists = await Post.exists({ author: authorId, slug, kind: "article" });
+    if (!exists) return slug;
+    slug = `${baseSlug}-${i + 2}`.slice(0, 100);
+  }
+  return `${baseSlug}-${Date.now().toString(36)}`.slice(0, 100);
+}
+
+function invalidateArticleCaches(authorId, username, slug) {
+  cache.delPattern("feed:*");
+  cache.delPattern("publicFeed:*");
+  cache.delPattern(`userPosts:${authorId}:*`);
+  cache.delPattern(`userArticles:${authorId}:*`);
+  cache.delPattern("articles:*");
+  cache.delPattern("trending:*");
+  cache.delPattern("hashtag:*");
+  cache.delPattern(`media:${authorId}:*`);
+  if (username && slug) cache.del(CacheKeys.article(username, slug));
+}
+
+async function uploadMediaFiles(files, posters, meta) {
+  if (!files.length) return { media: [], imageUrl: null };
+  const { isAppwriteConfigured, uploadToAppwrite } = await import("../config/appwrite.js");
+  if (!isAppwriteConfigured()) throw new AppError("Media upload not configured", 503, "APPWRITE_NOT_CONFIGURED");
+  const uploaded = [];
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    const kind = kindOf(f.mimetype);
+    const up = await uploadToAppwrite(f.buffer, f.originalname, f.mimetype);
+    const m = meta?.[i] || {};
+    const entry = {
+      url: up.viewUrl,
+      kind,
+      mime: f.mimetype,
+      bytes: f.size,
+      width: Number(m.width) > 0 ? Math.round(Number(m.width)) : null,
+      height: Number(m.height) > 0 ? Math.round(Number(m.height)) : null,
+      duration: kind === "video" && Number(m.duration) > 0 ? Number(m.duration) : null,
+      posterUrl: null,
+      fileId: up.fileId,
+      posterFileId: null,
+    };
+    if (kind === "video" && posters?.length) {
+      const p = posters[0];
+      if (p && p.size <= MEDIA_LIMITS.POSTER_MAX_BYTES && String(p.mimetype || "").startsWith("image/")) {
+        const pup = await uploadToAppwrite(p.buffer, p.originalname || "poster.jpg", p.mimetype);
+        entry.posterUrl = pup.viewUrl;
+        entry.posterFileId = pup.fileId;
+      }
+    }
+    uploaded.push(entry);
+  }
+  const firstVisual = uploaded.find((mm) => mm.kind === "image" || mm.kind === "gif");
+  return { media: uploaded, imageUrl: firstVisual ? firstVisual.url : null };
+}
+
 export const postService = {
   async create(authorId, text, mediaInput, pollInput) {
     const t = text?.trim() || "";
@@ -274,55 +341,27 @@ export const postService = {
     if (!t && !files.length && !poll) throw new AppError("Post must have text, media or a poll", 400, "EMPTY_POST");
     validateMediaFiles(files, meta);
     await assertMentionsAllowed(authorId, extractMentions(t));
+    const { media, imageUrl } = await uploadMediaFiles(files, posters, meta);
+    const articleRefs = extractArticleMentions(t).map((r) => r.key);
 
-    let imageUrl = null;
-    let media = [];
-    if (files.length) {
-      const { isAppwriteConfigured, uploadToAppwrite } = await import("../config/appwrite.js");
-      if (!isAppwriteConfigured()) throw new AppError("Media upload not configured", 503, "APPWRITE_NOT_CONFIGURED");
-      const uploaded = [];
-      for (let i = 0; i < files.length; i++) {
-        const f = files[i];
-        const kind = kindOf(f.mimetype);
-        const up = await uploadToAppwrite(f.buffer, f.originalname, f.mimetype);
-        const m = meta?.[i] || {};
-        const entry = {
-          url: up.viewUrl,
-          kind,
-          mime: f.mimetype,
-          bytes: f.size,
-          width: Number(m.width) > 0 ? Math.round(Number(m.width)) : null,
-          height: Number(m.height) > 0 ? Math.round(Number(m.height)) : null,
-          duration: kind === "video" && Number(m.duration) > 0 ? Number(m.duration) : null,
-          posterUrl: null,
-          fileId: up.fileId,
-          posterFileId: null,
-        };
-        // Single-video posts may carry one client-generated poster JPEG
-        // (first frame, ~640px) so feeds render an image-weight placeholder
-        // and never fetch video bytes until play.
-        if (kind === "video" && posters?.length) {
-          const p = posters[0];
-          if (p && p.size <= MEDIA_LIMITS.POSTER_MAX_BYTES && String(p.mimetype || "").startsWith("image/")) {
-            const pup = await uploadToAppwrite(p.buffer, p.originalname || "poster.jpg", p.mimetype);
-            entry.posterUrl = pup.viewUrl;
-            entry.posterFileId = pup.fileId;
-          }
-        }
-        uploaded.push(entry);
-      }
-      media = uploaded;
-      const firstVisual = media.find((m) => m.kind === "image" || m.kind === "gif");
-      imageUrl = firstVisual ? firstVisual.url : null;
-    }
-
-    const post = await Post.create({ author: authorId, text: t || undefined, imageUrl, media, poll: poll || undefined, hashtags: extractHashtags(t), mentions: extractMentions(t) });
+    const post = await Post.create({
+      author: authorId,
+      kind: "post",
+      text: t || undefined,
+      imageUrl,
+      media,
+      poll: poll || undefined,
+      hashtags: extractHashtags(t),
+      mentions: extractMentions(t),
+      articleMentions: articleRefs,
+    });
+    // Invalidate caches that include this post
     await User.findByIdAndUpdate(authorId, { $inc: { postCount: 1 } });
     await notifyMentions(authorId, extractMentions(t), post._id);
-    // Invalidate caches that include this post
     cache.delPattern("feed:*");
     cache.delPattern("publicFeed:*");
     cache.delPattern(`userPosts:${authorId}:*`);
+    cache.delPattern("articles:*");
     cache.delPattern("trending:*");
     cache.delPattern("hashtag:*");
     cache.delPattern(`media:${authorId}:*`);
@@ -372,6 +411,9 @@ export const postService = {
     const post = await Post.findById(postId);
     if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
     if (String(post.author) !== String(userId)) throw new AppError("Not authorized to edit this post", 403, "FORBIDDEN");
+    if (post.kind === "article") {
+      throw new AppError("Use article update for articles", 400, "USE_ARTICLE_UPDATE");
+    }
     if (Date.now() - new Date(post.createdAt).getTime() > EDIT_WINDOW_MS) throw new AppError("Edit window expired (5 minutes)", 403, "EDIT_WINDOW_EXPIRED");
     const t = text.trim();
     if (!t || t.length > 500) throw new AppError("Post must be 1-500 characters", 400, "INVALID_TEXT");
@@ -382,6 +424,7 @@ export const postService = {
     post.text = t;
     post.hashtags = extractHashtags(t);
     post.mentions = newMentions;
+    post.articleMentions = extractArticleMentions(t).map((r) => r.key);
     post.edited = true;
     await post.save();
     await notifyMentions(userId, added, post._id);
@@ -394,6 +437,205 @@ export const postService = {
     cache.delPattern(`media:${post.author}:*`);
     const populated = await Post.findById(post._id).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isCofounder");
     return populated;
+  },
+
+  async createArticle(authorId, { title, description, body }, mediaInput) {
+    const t = String(title || "").trim();
+    const d = String(description || "").trim();
+    const b = String(body || "").trim();
+    if (!t || t.length > ARTICLE_TITLE_MAX) throw new AppError(`Title must be 1-${ARTICLE_TITLE_MAX} characters`, 400, "INVALID_TITLE");
+    if (d.length > ARTICLE_DESC_MAX) throw new AppError(`Description max ${ARTICLE_DESC_MAX} characters`, 400, "INVALID_DESCRIPTION");
+    if (!b || b.length > ARTICLE_BODY_MAX) throw new AppError(`Article body must be 1-${ARTICLE_BODY_MAX} characters`, 400, "INVALID_BODY");
+    const { files, posters, meta } = normalizeMediaInput(mediaInput);
+    if (files.length) validateMediaFiles(files, meta);
+    const combined = `${t}\n${d}\n${b}`;
+    await assertMentionsAllowed(authorId, extractMentions(combined));
+    const { media, imageUrl } = await uploadMediaFiles(files, posters, meta);
+    const baseSlug = slugifyArticle(t);
+    const slug = await ensureUniqueArticleSlug(authorId, baseSlug);
+    const teaser = buildArticleTeaser(d, b);
+    const articleRefs = extractArticleMentions(combined).map((r) => r.key);
+    const post = await Post.create({
+      author: authorId,
+      kind: "article",
+      title: t,
+      description: d || undefined,
+      body: b,
+      slug,
+      text: teaser || undefined,
+      imageUrl,
+      media,
+      hashtags: extractHashtags(combined),
+      mentions: extractMentions(combined),
+      articleMentions: articleRefs,
+    });
+    await User.findByIdAndUpdate(authorId, { $inc: { postCount: 1 } });
+    await notifyMentions(authorId, extractMentions(combined), post._id);
+    invalidateArticleCaches(authorId, null, null);
+    const populated = await Post.findById(post._id).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isCofounder");
+    return { post: populated, slug };
+  },
+
+  async updateArticle(postId, userId, { title, description, body }) {
+    const post = await Post.findById(postId);
+    if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
+    if (String(post.author) !== String(userId)) throw new AppError("Not authorized to edit this article", 403, "FORBIDDEN");
+    if (post.kind !== "article") throw new AppError("Not an article", 400, "NOT_ARTICLE");
+    if (title !== undefined) {
+      const t = String(title || "").trim();
+      if (!t || t.length > ARTICLE_TITLE_MAX) throw new AppError(`Title must be 1-${ARTICLE_TITLE_MAX} characters`, 400, "INVALID_TITLE");
+      post.title = t;
+    }
+    if (description !== undefined) {
+      const d = String(description || "").trim();
+      if (d.length > ARTICLE_DESC_MAX) throw new AppError(`Description max ${ARTICLE_DESC_MAX} characters`, 400, "INVALID_DESCRIPTION");
+      post.description = d || undefined;
+    }
+    if (body !== undefined) {
+      const b = String(body || "").trim();
+      if (!b || b.length > ARTICLE_BODY_MAX) throw new AppError(`Article body must be 1-${ARTICLE_BODY_MAX} characters`, 400, "INVALID_BODY");
+      post.body = b;
+    }
+    const combined = `${post.title || ""}\n${post.description || ""}\n${post.body || ""}`;
+    const newMentions = extractMentions(combined);
+    const oldMentions = new Set((post.mentions || []).map((m) => String(m).toLowerCase()));
+    const added = newMentions.filter((m) => !oldMentions.has(m));
+    await assertMentionsAllowed(userId, added);
+    post.text = buildArticleTeaser(post.description, post.body) || undefined;
+    post.hashtags = extractHashtags(combined);
+    post.mentions = newMentions;
+    post.articleMentions = extractArticleMentions(combined).map((r) => r.key);
+    post.edited = true;
+    await post.save();
+    await notifyMentions(userId, added, post._id);
+    cache.del(CacheKeys.post(postId));
+    const authorUser = await User.findById(post.author).select("username").lean();
+    invalidateArticleCaches(post.author, authorUser?.username, post.slug);
+    const populated = await Post.findById(post._id).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isCofounder");
+    return populated;
+  },
+
+  async getArticleBySlug(username, slug, viewerId) {
+    const uname = String(username || "").toLowerCase().trim();
+    const s = String(slug || "").toLowerCase().trim();
+    if (!/^[a-z0-9_]{3,20}$/.test(uname)) throw new AppError("Invalid username", 400, "INVALID_USERNAME");
+    if (!isValidArticleSlug(s)) throw new AppError("Invalid slug", 400, "INVALID_SLUG");
+    const cacheKey = CacheKeys.article(uname, s);
+    let cached = cache.get(cacheKey);
+    let post = null;
+    if (cached) {
+      post = cached;
+    } else {
+      const user = await User.findOne({ username: uname }).select("_id username").lean();
+      if (!user) throw new AppError("Article not found", 404, "ARTICLE_NOT_FOUND");
+      post = await Post.findOne({ author: user._id, slug: s, kind: "article" })
+        .populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isCofounder isPrivate")
+        .lean();
+      if (!post) throw new AppError("Article not found", 404, "ARTICLE_NOT_FOUND");
+      cache.set(cacheKey, post, TTL.POST);
+    }
+    if (viewerId) {
+      const authorId = post.author?._id || post.author;
+      if (await blockService.isBlocked(viewerId, authorId)) throw new AppError("Article not found", 404, "ARTICLE_NOT_FOUND");
+    }
+    await assertCanSeePost(viewerId, post.author?._id || post.author);
+    const result = { ...post };
+    if (viewerId) {
+      const [liked, reposted, bookmarked] = await Promise.all([
+        Like.exists({ user: viewerId, post: post._id }),
+        Repost.exists({ user: viewerId, post: post._id }),
+        Bookmark.exists({ user: viewerId, post: post._id }),
+      ]);
+      result.isLiked = Boolean(liked);
+      result.isReposted = Boolean(reposted);
+      result.isBookmarked = Boolean(bookmarked);
+    }
+    return result;
+  },
+
+  async listArticles({ page = 1, limit = 20 }, viewerId) {
+    const lim = Math.max(1, Math.min(50, Number(limit)));
+    const skip = (Math.max(1, Number(page)) - 1) * lim;
+    const cacheKey = CacheKeys.articleList(page, lim);
+    const cached = cache.get(cacheKey);
+    const attachFlags = async (posts) => {
+      if (viewerId && posts.length) {
+        const ids = posts.map((p) => p._id);
+        const [likes, reposts] = await Promise.all([
+          Like.find({ user: viewerId, post: { $in: ids } }).select("post").lean(),
+          Repost.find({ user: viewerId, post: { $in: ids } }).select("post").lean(),
+        ]);
+        const likeSet = new Set(likes.map((l) => String(l.post)));
+        const repostSet = new Set(reposts.map((r) => String(r.post)));
+        posts.forEach((p) => {
+          p.isLiked = likeSet.has(String(p._id));
+          p.isReposted = repostSet.has(String(p._id));
+        });
+        await attachBookmarked(posts, viewerId);
+      }
+      return posts;
+    };
+    if (cached) {
+      const posts = (cached.posts || []).map((p) => ({ ...p }));
+      const visible = await withoutBlockedAuthors(posts, viewerId);
+      await attachFlags(visible);
+      return { ...cached, posts: visible };
+    }
+    const hiddenSet = await hiddenAuthorFilter(viewerId);
+    const filter = { kind: "article" };
+    if (hiddenSet.size) filter.author = { $nin: [...hiddenSet] };
+    const [raw, total] = await Promise.all([
+      Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isCofounder isPrivate").lean(),
+      Post.countDocuments(filter),
+    ]);
+    let posts = await withoutBlockedAuthors(raw, viewerId);
+    posts = posts.filter((p) => !p.author?.isPrivate || String(p.author?._id) === String(viewerId || ""));
+    await attachFlags(posts);
+    const result = { posts, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
+    cache.set(cacheKey, { ...result, posts: raw }, TTL.FEED);
+    return result;
+  },
+
+  async lookupArticles(refs, viewerId) {
+    if (!Array.isArray(refs) || !refs.length) return { articles: [] };
+    const clean = refs.slice(0, 10).map((r) => ({
+      username: String(r.username || "").toLowerCase(),
+      slug: String(r.slug || "").toLowerCase(),
+    })).filter((r) => /^[a-z0-9_]{3,20}$/.test(r.username) && isValidArticleSlug(r.slug));
+    if (!clean.length) return { articles: [] };
+    const usernames = [...new Set(clean.map((r) => r.username))];
+    const users = await User.find({ username: { $in: usernames } }).select("_id username").lean();
+    const userMap = new Map(users.map((u) => [u.username.toLowerCase(), u]));
+    const or = [];
+    for (const r of clean) {
+      const u = userMap.get(r.username);
+      if (u) or.push({ author: u._id, slug: r.slug, kind: "article" });
+    }
+    if (!or.length) return { articles: [] };
+    const posts = await Post.find({ $or: or })
+      .select("title description body text slug author createdAt likeCount replyCount repostCount")
+      .populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isCofounder isPrivate")
+      .lean();
+    const hidden = viewerId ? await blockService.blockedIdsFor(viewerId) : [];
+    const hideSet = new Set(hidden.map(String));
+    const out = [];
+    for (const p of posts) {
+      if (hideSet.has(String(p.author?._id || p.author))) continue;
+      const excerpt = (p.description || "").trim() || buildArticleTeaser("", p.body || "").slice(0, 200);
+      out.push({
+        _id: p._id,
+        username: p.author?.username,
+        slug: p.slug,
+        key: `${p.author?.username?.toLowerCase()}/${p.slug}`,
+        title: p.title,
+        description: excerpt,
+        likeCount: p.likeCount,
+        replyCount: p.replyCount,
+        createdAt: p.createdAt,
+        author: { username: p.author?.username, fullName: p.author?.fullName, avatarUrl: p.author?.avatarUrl },
+      });
+    }
+    return { articles: out };
   },
 
   async remove(postId, userId) {
@@ -417,6 +659,14 @@ export const postService = {
     cache.delPattern("feed:*");
     cache.delPattern("publicFeed:*");
     cache.delPattern(`userPosts:${userId}:*`);
+    cache.delPattern(`userArticles:${userId}:*`);
+    cache.delPattern("articles:*");
+    if (post.kind === "article") {
+      try {
+        const u = await User.findById(post.author).select("username").lean();
+        if (u?.username && post.slug) cache.del(CacheKeys.article(u.username, post.slug));
+      } catch {}
+    }
     cache.delPattern("hashtag:*");
     cache.delPattern(`media:${userId}:*`);
     cache.delPattern("trending:*");
@@ -854,7 +1104,7 @@ export const postService = {
     if (!t || t.length > 500) throw new AppError("Reply must be 1-500 characters", 400, "INVALID_TEXT");
     const mentions = extractMentions(t);
     await assertMentionsAllowed(userId, mentions);
-    const comment = await Comment.create({ post: postId, author: userId, text: t, mentions });
+    const comment = await Comment.create({ post: postId, author: userId, text: t, mentions, articleMentions: extractArticleMentions(t).map((r) => r.key) });
     const updatedPost = await Post.findByIdAndUpdate(postId, { $inc: { replyCount: 1 } }, { new: true }).select("replyCount author");
     if (String(post.author) !== String(userId)) {
       afterResponse(() =>
@@ -896,10 +1146,11 @@ export const postService = {
   },
 
   // single endpoint for profile tabs — author / likedBy / repostedBy
-  async list({ author, likedBy, repostedBy, page = 1, limit = 20, viewerId }) {
+  async list({ author, likedBy, repostedBy, kind, page = 1, limit = 20, viewerId }) {
     const lim = Math.max(1, Math.min(50, Number(limit)));
     const skip = (Math.max(1, Number(page)) - 1) * lim;
     let filter = {};
+    if (kind === "article" || kind === "post") filter.kind = kind;
     let sort = { createdAt: -1 };
     let postIds = null;
 
@@ -995,7 +1246,7 @@ export const postService = {
       }
     }
 
-    const cacheKey = author ? CacheKeys.userPosts(author, page, lim) : null;
+    const cacheKey = author && !filter.kind ? CacheKeys.userPosts(author, page, lim) : author && filter.kind === "article" ? CacheKeys.userArticles(author, page, lim) : null;
     if (cacheKey) {
       const cached = cache.get(cacheKey);
       if (cached) return cached;

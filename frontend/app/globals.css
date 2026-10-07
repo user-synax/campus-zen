@@ -1191,3 +1191,29 @@ input[type="number"] {
     @apply bg-background text-foreground;
   }
 }
+
+/* GitHub-like article markdown */
+.cz-markdown { font-size: 15px; line-height: 1.7; color: var(--cz-text-primary); word-break: break-word; }
+.cz-markdown h1, .cz-markdown h2, .cz-markdown h3, .cz-markdown h4 { font-weight: 800; line-height: 1.3; margin: 1.1em 0 0.5em; letter-spacing: -0.01em; }
+.cz-markdown h1 { font-size: 24px; padding-bottom: 0.3em; border-bottom: 1px solid var(--cz-border); }
+.cz-markdown h2 { font-size: 20px; padding-bottom: 0.3em; border-bottom: 1px solid var(--cz-border); }
+.cz-markdown h3 { font-size: 17px; }
+.cz-markdown h4 { font-size: 15px; }
+.cz-markdown p { margin: 0.7em 0; }
+.cz-markdown a { color: var(--cz-accent); text-decoration: none; }
+.cz-markdown a:hover { text-decoration: underline; }
+.cz-markdown ul, .cz-markdown ol { margin: 0.7em 0; padding-left: 1.6em; }
+.cz-markdown ul { list-style: disc; }
+.cz-markdown ol { list-style: decimal; }
+.cz-markdown li { margin: 0.25em 0; }
+.cz-markdown li > input[type="checkbox"] { margin-right: 0.5em; accent-color: var(--cz-accent); }
+.cz-markdown blockquote { margin: 0.8em 0; padding: 0.2em 1em; border-left: 3px solid var(--cz-border-strong); color: var(--cz-text-secondary); }
+.cz-markdown code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; background: var(--cz-surface-strong); padding: 0.15em 0.4em; border-radius: 6px; }
+.cz-markdown pre { margin: 0.8em 0; padding: 12px 14px; border-radius: 12px; background: var(--cz-surface-strong); border: 1px solid var(--cz-border); overflow-x: auto; }
+.cz-markdown pre code { background: transparent; padding: 0; font-size: 13px; line-height: 1.6; }
+.cz-markdown table { display: block; width: 100%; overflow-x: auto; margin: 0.8em 0; border-collapse: collapse; font-size: 14px; }
+.cz-markdown th, .cz-markdown td { border: 1px solid var(--cz-border); padding: 6px 12px; }
+.cz-markdown th { font-weight: 700; background: var(--cz-surface-strong); }
+.cz-markdown img { max-width: 100%; border-radius: 12px; border: 1px solid var(--cz-border); }
+.cz-markdown hr { margin: 1.2em 0; border: none; border-top: 1px solid var(--cz-border); }
+.cz-markdown del { color: var(--cz-text-secondary); }

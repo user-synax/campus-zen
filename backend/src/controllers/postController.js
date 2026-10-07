@@ -3,9 +3,9 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 
 export const postController = {
   list: asyncHandler(async (req, res) => {
-    const { author, likedBy, repostedBy, page, limit } = req.query;
+    const { author, likedBy, repostedBy, kind, page, limit } = req.query;
     const viewerId = req.user?._id || null;
-    const result = await postService.list({ author, likedBy, repostedBy, page, limit, viewerId });
+    const result = await postService.list({ author, likedBy, repostedBy, kind, page, limit, viewerId });
     res.json({ success: true, data: result });
   }),
 
@@ -48,6 +48,64 @@ export const postController = {
     }
     const post = await postService.create(req.user._id, req.body.text, mediaInput, poll);
     res.status(201).json({ success: true, data: { post } });
+  }),
+
+  createArticle: asyncHandler(async (req, res) => {
+    let meta = req.body.mediaMeta;
+    if (typeof meta === "string") {
+      try {
+        meta = JSON.parse(meta);
+      } catch {
+        meta = undefined;
+      }
+    }
+    if (!Array.isArray(meta)) meta = undefined;
+    const filesObj = req.files || null;
+    let mediaInput = null;
+    if (filesObj && (filesObj.media?.length || filesObj.image?.length)) {
+      mediaInput = {
+        files: [...(filesObj.media || []), ...(filesObj.image || [])].slice(0, 4),
+        posters: filesObj.posters || [],
+        meta,
+      };
+    } else if (req.file) {
+      mediaInput = req.file;
+    }
+    const { post } = await postService.createArticle(
+      req.user._id,
+      { title: req.body.title, description: req.body.description, body: req.body.body },
+      mediaInput,
+    );
+    res.status(201).json({ success: true, data: { post } });
+  }),
+
+  updateArticle: asyncHandler(async (req, res) => {
+    const post = await postService.updateArticle(req.params.id, req.user._id, {
+      title: req.body.title,
+      description: req.body.description,
+      body: req.body.body,
+    });
+    res.json({ success: true, data: { post } });
+  }),
+
+  getArticleBySlug: asyncHandler(async (req, res) => {
+    const viewerId = req.user?._id || null;
+    const post = await postService.getArticleBySlug(req.params.username, req.params.slug, viewerId);
+    res.json({ success: true, data: { post } });
+  }),
+
+  listArticles: asyncHandler(async (req, res) => {
+    const viewerId = req.user?._id || null;
+    const { page, limit } = req.query;
+    const result = await postService.listArticles({ page, limit }, viewerId);
+    res.json({ success: true, data: result });
+  }),
+
+  lookupArticles: asyncHandler(async (req, res) => {
+    const viewerId = req.user?._id || null;
+    const refs = Array.isArray(req.body?.refs) ? req.body.refs : [];
+    const result = await postService.lookupArticles(refs, viewerId);
+    res.json({ success: true, data: result });
   }),
 
   getById: asyncHandler(async (req, res) => {

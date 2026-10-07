@@ -452,6 +452,7 @@ const SocialLinks = memo(function SocialLinks({ entries }) {
 export function ProfileTabs({ active = "posts", onChange }) {
   const tabs = [
     { id: "posts", label: "Posts" },
+    { id: "articles", label: "Articles" },
     { id: "replies", label: "Replies" },
     { id: "media", label: "Media" },
     { id: "likes", label: "Likes" },

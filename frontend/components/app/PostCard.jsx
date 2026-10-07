@@ -3,6 +3,7 @@
 import {
   Bookmark,
   Check,
+  FileText,
   Flag,
   Heart,
   Loader2,
@@ -35,6 +36,7 @@ import { useAutogrowTextarea } from "@/components/app/useAutogrowTextarea";
 import { Button } from "@/components/ui/button";
 import { UserBadge } from "@/components/ui/verified-badge";
 import { api } from "@/lib/api";
+import { articleUrl, excerptOf } from "@/lib/articles";
 import { withAvatarRing } from "@/lib/avatar";
 import { hidePostId, isHiddenPost } from "@/lib/hiddenPosts";
 import { cn } from "@/lib/utils";
@@ -110,7 +112,7 @@ function OverflowMenu({
             )}
             {isPinned ? "Unpin from profile" : "Pin to profile"}
           </button>
-          {post.text ? (
+          {post.kind !== "article" && post.text ? (
             <button role="menuitem" onClick={onEdit} className={menuItemClass}>
               <Pencil className="h-[18px] w-[18px] shrink-0" aria-hidden />
               Edit post
@@ -379,7 +381,10 @@ export function PostCard({
   };
 
   const handleShare = async () => {
-    const url = `${window.location.origin}/app/p/${post._id}`;
+    const path = post.kind === "article" && post.author?.username && post.slug
+      ? articleUrl(post.author.username, post.slug)
+      : `/app/p/${post._id}`;
+    const url = `${window.location.origin}${path}`;
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
         await navigator.share({
@@ -436,6 +441,8 @@ export function PostCard({
   };
 
   const author = post.author || {};
+  const isArticle = post.kind === "article";
+  const articlePath = isArticle && author.username && post.slug ? articleUrl(author.username, post.slug) : `/app/p/${post._id}`;
 
   // reported (hidden for me) or blocked content never renders
   if (isHidden) return null;
@@ -459,7 +466,7 @@ export function PostCard({
                 </Link>
                 <UserBadge user={author} size="sm" />
                 <span className="shrink-0 whitespace-nowrap text-[15px] text-[var(--cz-text-secondary)]">
-                  <Link href={`/app/p/${post._id}`} className="hover:underline">
+                  <Link href={articlePath} className="hover:underline">
                     · {timeAgo(post.createdAt)}
                     {post.edited ? " · edited" : ""}
                   </Link>
@@ -502,7 +509,31 @@ export function PostCard({
             </div>
 
             {/* body */}
-            {editing ? (
+            {post.kind === "article" ? (
+              <div className="mt-1">
+                <Link
+                  href={post.author?.username && post.slug ? articleUrl(post.author.username, post.slug) : `/app/p/${post._id}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="block rounded-[12px] border border-[var(--cz-border)] bg-[var(--cz-surface)] p-3 transition-colors hover:bg-[var(--cz-surface-strong)]"
+                >
+                  <span className="flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-wide text-[var(--cz-accent)]">
+                    <FileText className="h-3.5 w-3.5" aria-hidden /> Article · {post.author?.username}/{post.slug}
+                  </span>
+                  <span className="mt-1 block text-[16px] font-extrabold leading-[22px] text-[var(--cz-text-primary)]">
+                    {post.title || "Untitled article"}
+                  </span>
+                  <span className="mt-0.5 line-clamp-3 block text-[14px] leading-[20px] text-[var(--cz-text-secondary)]">
+                    {excerptOf(post, 220)}
+                  </span>
+                  <span className="mt-1 block text-[13px] font-bold text-[var(--cz-accent)]">Read article →</span>
+                </Link>
+                {post.text && !post.description ? (
+                  <p className="mt-1 whitespace-pre-wrap break-words text-[13px] leading-[18px] text-[var(--cz-text-secondary)]">
+                    <RichText text={post.text} articleCompact />
+                  </p>
+                ) : null}
+              </div>
+            ) : editing ? (
               <form onSubmit={handleEdit} className="mt-2">
                 <div className="relative">
                   <textarea
@@ -595,7 +626,7 @@ export function PostCard({
             there rather than expanding anything in the feed. */}
         <div className="ml-[52px] mt-1 flex max-w-[425px] items-center justify-between">
           <button
-            onClick={() => router.push(`/app/p/${post._id}`)}
+            onClick={() => router.push(articlePath)}
             aria-label={
               replyCount > 0
                 ? `Reply — ${replyCount} ${replyCount === 1 ? "reply" : "replies"}`

@@ -3,6 +3,12 @@ import mongoose from "mongoose";
 const postSchema = new mongoose.Schema(
   {
     author: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    kind: { type: String, enum: ["post", "article"], default: "post", index: true },
+    title: { type: String, trim: true, maxlength: 120, default: null },
+    description: { type: String, trim: true, maxlength: 200, default: null },
+    body: { type: String, default: null },
+    slug: { type: String, default: null, index: true },
+    articleMentions: { type: [String], default: [], index: true },
     text: {
       type: String,
       trim: true,
@@ -66,6 +72,9 @@ const postSchema = new mongoose.Schema(
 
 postSchema.index({ createdAt: -1 });
 postSchema.index({ author: 1, createdAt: -1 });
+// article slug is unique per author — enforced in service with retry, indexed for lookup
+postSchema.index({ author: 1, slug: 1 }, { unique: true, partialFilterExpression: { kind: "article" } });
+postSchema.index({ kind: 1, createdAt: -1 });
 // for feed pagination
 postSchema.index({ createdAt: -1, _id: -1 });
 // for hashtag feeds

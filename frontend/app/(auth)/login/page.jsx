@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  AlertCircle,
-  Eye,
-  EyeOff,
-  Loader2,
-  LogIn,
-} from "lucide-react";
+import { AlertCircle, Eye, EyeOff, Loader2, LogIn } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
@@ -102,7 +96,10 @@ export default function LoginPage() {
         <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
           {serverMsg ? (
             <div className="flex items-start gap-2 rounded-[4px] bg-[color-mix(in_srgb,var(--cz-error)_10%,transparent)] px-3 py-2.5 text-[15px] leading-[20px] text-[var(--cz-error)]">
-              <AlertCircle className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden />
+              <AlertCircle
+                className="mt-0.5 h-[18px] w-[18px] shrink-0"
+                aria-hidden
+              />
               <span>{serverMsg.text}</span>
             </div>
           ) : null}
@@ -138,6 +135,7 @@ export default function LoginPage() {
             <FloatingInput
               ref={pwRef}
               id="password"
+              prefix="&#8226;"
               label="Password"
               type={showPw ? "text" : "password"}
               autoComplete="current-password"

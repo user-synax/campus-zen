@@ -9,12 +9,14 @@ import {
   PostSkeleton,
 } from "@/components/app/EmptyState";
 import { PostComposer } from "@/components/app/PostComposer";
+import { ArticleComposer } from "@/components/app/ArticleComposer";
 import { PostCard } from "@/components/app/PostCard";
 import { api } from "@/lib/api";
-import { useMe, useFeed } from "@/lib/hooks/queries";
+import { useArticlesInfinite, useMe, useFeed } from "@/lib/hooks/queries";
 
 export default function AppHome() {
   const [tab, setTab] = useState("discovery");
+  const isArticlesTab = tab === "articles";
   const [pending, setPending] = useState([]);
   const [pullDy, setPullDy] = useState(0);
   const [pulling, setPulling] = useState(false);
@@ -31,6 +33,8 @@ export default function AppHome() {
   const { data: meData } = useMe();
   const user = meData?.data?.user || null;
 
+  const feedQuery = useFeed(isArticlesTab ? "discovery" : tab);
+  const articlesQuery = useArticlesInfinite();
   const {
     data,
     fetchNextPage,
@@ -40,7 +44,7 @@ export default function AppHome() {
     isError,
     error,
     refetch,
-  } = useFeed(tab);
+  } = isArticlesTab ? articlesQuery : feedQuery;
 
   // Dedupe by _id — offset pages shift when new posts land mid-scroll, so
   // page N+1 can repeat page N's tail. First occurrence wins (newest).
@@ -78,7 +82,8 @@ export default function AppHome() {
 
   const handleCreated = (newPost) => {
     // Optimistically prepend to feed cache
-    queryClient.setQueryData(["feed", tab], (old) => {
+    const key = isArticlesTab ? ["articles-feed"] : ["feed", tab];
+    queryClient.setQueryData(key, (old) => {
       if (!old) return old;
       const newPages = [...old.pages];
       if (newPages.length > 0) {
@@ -101,6 +106,7 @@ export default function AppHome() {
   const checkForNew = useCallback(async () => {
     if (checkingRef.current || document.hidden) return;
     if (typeof navigator !== "undefined" && !navigator.onLine) return;
+    if (tab === "articles") return;
     checkingRef.current = true;
     try {
       const fn = tab === "following" ? api.getFeed : api.getPublicFeed;
@@ -145,7 +151,8 @@ export default function AppHome() {
 
   const showNewPosts = () => {
     // Prepend pending posts to cache
-    queryClient.setQueryData(["feed", tab], (old) => {
+    const key = isArticlesTab ? ["articles-feed"] : ["feed", tab];
+    queryClient.setQueryData(key, (old) => {
       if (!old) return old;
       const newPages = [...old.pages];
       if (newPages.length > 0) {
@@ -203,7 +210,8 @@ export default function AppHome() {
   };
 
   const handleDelete = (id) => {
-    queryClient.setQueryData(["feed", tab], (old) => {
+    const key = isArticlesTab ? ["articles-feed"] : ["feed", tab];
+    queryClient.setQueryData(key, (old) => {
       if (!old) return old;
       return {
         ...old,
@@ -219,7 +227,8 @@ export default function AppHome() {
   };
 
   const handleUpdate = (updated) => {
-    queryClient.setQueryData(["feed", tab], (old) => {
+    const key = isArticlesTab ? ["articles-feed"] : ["feed", tab];
+    queryClient.setQueryData(key, (old) => {
       if (!old) return old;
       return {
         ...old,
@@ -261,6 +270,7 @@ export default function AppHome() {
           {[
             { id: "following", label: "Following" },
             { id: "discovery", label: "For you" },
+            { id: "articles", label: "Articles" },
           ].map((t) => (
             <button
               key={t.id}
@@ -285,7 +295,11 @@ export default function AppHome() {
         </div>
       </div>
 
-      <PostComposer user={user} onCreated={handleCreated} />
+      {isArticlesTab ? (
+        <ArticleComposer user={user} onCreated={handleCreated} />
+      ) : (
+        <PostComposer user={user} onCreated={handleCreated} />
+      )}
 
       {pending.length > 0 && !isPending ? (
         <div role="status" aria-live="polite" className="sticky top-[117px] z-10 flex justify-center pt-3 md:top-[105px]">

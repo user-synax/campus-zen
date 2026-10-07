@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/app/EmptyState";
 import { FollowModal } from "@/components/app/FollowModal";
 import { ProfileHeader, ProfileTabs } from "@/components/app/ProfileHeader";
 import {
+  TabArticles,
   TabGitHub,
   TabLikes,
   TabMedia,
@@ -84,6 +85,8 @@ export default function OwnProfilePage() {
             handleSaved({ ...user, pinnedPost: p })
           }
         />
+      ) : tab === "articles" ? (
+        <TabArticles username={user.username} currentUser={user} />
       ) : tab === "replies" ? (
         <TabReplies username={user.username} isOwn />
       ) : tab === "media" ? (

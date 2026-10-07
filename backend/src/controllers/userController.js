@@ -19,13 +19,14 @@ export const userController = {
 
   getUserPosts: asyncHandler(async (req, res) => {
     const viewerId = req.user?._id || null;
-    const { page, limit } = req.query;
+    const { page, limit, kind } = req.query;
     const user = await userService.getByUsername(req.params.username, viewerId);
     if (user.privateHidden) {
       const { AppError } = await import("../utils/AppError.js");
       throw new AppError("This account is private. Follow to see their posts.", 403, "PRIVATE_ACCOUNT");
     }
-    const result = await postService.list({ author: user._id, page, limit, viewerId });
+    const cleanKind = kind === "article" || kind === "post" ? kind : undefined;
+    const result = await postService.list({ author: user._id, kind: cleanKind, page, limit, viewerId });
     res.json({ success: true, data: result });
   }),
 

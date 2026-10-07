@@ -6,6 +6,7 @@ import {
   Heart,
   Loader2,
   MessageCircle,
+  Newspaper,
   Repeat2,
 } from "lucide-react";
 import Link from "next/link";
@@ -119,6 +120,40 @@ export function TabPosts({ username, currentUser, pinnedPost, onPinChange }) {
           onDelete={onDelete}
           onUpdate={onUpdate}
         />
+      ))}
+    </div>
+  );
+}
+
+export function TabArticles({ username, currentUser }) {
+  const { items: posts, setItems: setPosts, loading } = useTabList(
+    api.getUserArticles,
+    username,
+    pickPosts,
+  );
+
+  if (loading) return <TabLoader />;
+  if (posts.length === 0)
+    return (
+      <EmptyState
+        icon={Newspaper}
+        title="No articles yet"
+        description={
+          currentUser
+            ? "Long-form markdown articles will show here. Publish the first one."
+            : "This student hasn't published any articles yet."
+        }
+        {...(currentUser ? { actionLabel: "Write an article", actionHref: "/app/create" } : {})}
+      />
+    );
+
+  const onDelete = (id) => setPosts((prev) => prev.filter((x) => x._id !== id));
+  const onUpdate = (u) => setPosts((prev) => prev.map((x) => (x._id === u._id ? u : x)));
+
+  return (
+    <div>
+      {posts.map((p) => (
+        <PostCard key={p._id} post={p} currentUser={currentUser} onDelete={onDelete} onUpdate={onUpdate} />
       ))}
     </div>
   );

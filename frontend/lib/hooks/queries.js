@@ -27,6 +27,9 @@ export const queryKeys = {
   hashtagPosts: (tag, page) => ["hashtagPosts", tag, page],
   bookmarks: (page) => ["bookmarks", page],
   search: (q, type) => ["search", q, type],
+  article: (username, slug) => ["article", username?.toLowerCase(), slug?.toLowerCase()],
+  articles: (page) => ["articles", page],
+  userArticles: (username, page) => ["userArticles", username, page],
   suggestions: ["suggestions"],
   followers: (id, page) => ["followers", id, page],
   following: (id, page) => ["following", id, page],
@@ -83,6 +86,54 @@ export function usePost(postId) {
     queryFn: () => api.getPost(postId),
     staleTime: 30_000,
     enabled: !!postId,
+  });
+}
+
+export function useArticle(username, slug) {
+  return useQuery({
+    queryKey: queryKeys.article(username, slug),
+    queryFn: () => api.getArticle(username, slug),
+    staleTime: 30_000,
+    enabled: Boolean(username && slug),
+  });
+}
+
+export function useArticles(page = 1) {
+  return useQuery({
+    queryKey: queryKeys.articles(page),
+    queryFn: () => api.getArticles({ page }),
+    staleTime: 15_000,
+  });
+}
+
+export function useArticlesInfinite() {
+  return useInfiniteQuery({
+    queryKey: ["articles-feed"],
+    queryFn: ({ pageParam = 1 }) => api.getArticles({ page: pageParam }),
+    getNextPageParam: (lastPage) =>
+      lastPage.data?.hasMore ? (lastPage.data?.page || 1) + 1 : undefined,
+    initialPageParam: 1,
+    staleTime: 15_000,
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useUserArticles(username, page = 1) {
+  return useQuery({
+    queryKey: queryKeys.userArticles(username, page),
+    queryFn: () => api.getUserArticles(username, { page }),
+    staleTime: 15_000,
+    enabled: !!username,
+  });
+}
+
+export function useArticleLookups(refs) {
+  const key = (refs || []).map((r) => `${r.username}/${r.slug}`.toLowerCase()).sort().join(",");
+  return useQuery({
+    queryKey: ["article-lookups", key],
+    queryFn: () => api.lookupArticles(refs),
+    staleTime: 60_000,
+    enabled: Boolean(refs && refs.length),
   });
 }
 

@@ -10,6 +10,7 @@ import { FollowModal } from "@/components/app/FollowModal";
 import { PrivateProfile } from "@/components/app/PrivateProfile";
 import { ProfileHeader, ProfileTabs } from "@/components/app/ProfileHeader";
 import {
+  TabArticles,
   TabGitHub,
   TabLikes,
   TabMedia,
@@ -222,6 +223,8 @@ export default function UserProfilePage() {
               pinnedPost={user.pinnedPost}
               onPinChange={(p) => setUser((u) => ({ ...u, pinnedPost: p }))}
             />
+          ) : tab === "articles" ? (
+            <TabArticles username={user.username} currentUser={me} />
           ) : tab === "replies" ? (
             <TabReplies username={user.username} />
           ) : tab === "media" ? (

@@ -110,6 +110,9 @@ export const CacheKeys = {
   comments: (postId, page, limit) => `comments:${postId}:${page}:${limit}`,
   bookmarks: (userId, page, limit) => `bookmarks:${userId}:${page}:${limit}`,
   repliesByUser: (authorId, page, limit) => `replies:${authorId}:${page}:${limit}`,
+  article: (username, slug) => `article:${username.toLowerCase()}:${slug.toLowerCase()}`,
+  articleList: (page, limit) => `articles:${page}:${limit}`,
+  userArticles: (authorId, page, limit) => `userArticles:${authorId}:${page}:${limit}`,
 };
 
 // ─── TTL constants (milliseconds) ─────────────────────────────────────────────

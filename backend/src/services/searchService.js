@@ -139,12 +139,13 @@ export const searchService = {
           return { posts, total };
         }
         // use regex for now — text index exists but regex is predictable for small data; use text when query >=2
+        // articles: match title/description/body too
         let filter;
         if (query.length >= 2) {
           // try text search, fallback to regex if no results? For now use regex for consistency
-          filter = { text: re };
+          filter = { $or: [{ text: re }, { title: re }, { description: re }, { body: re }] };
         } else {
-          filter = { text: re };
+          filter = { $or: [{ text: re }, { title: re }, { description: re }, { body: re }] };
         }
         // hide posts by blocked + private + deactivated authors
         {

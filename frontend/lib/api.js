@@ -368,6 +368,49 @@ export const api = {
     }
     return request("/api/posts", { method: "POST", body: { text, poll } });
   },
+  createArticle: ({ title, description, body }, media, extra = {}) => {
+    const files = Array.isArray(media) ? media : media ? [media] : [];
+    const posters = extra?.posters || [];
+    const meta = extra?.meta;
+    if (files.length) {
+      const form = new FormData();
+      form.append("title", title);
+      if (description) form.append("description", description);
+      form.append("body", body);
+      files.forEach((f) => form.append("media", f));
+      posters.forEach((p) => {
+        if (p) form.append("posters", p, "poster.jpg");
+      });
+      if (meta) form.append("mediaMeta", JSON.stringify(meta));
+      return request("/api/posts/articles", { method: "POST", form });
+    }
+    return request("/api/posts/articles", { method: "POST", body: { title, description, body } });
+  },
+  updateArticle: (id, payload) =>
+    request(`/api/posts/articles/${encodeURIComponent(id)}`, { method: "PATCH", body: payload }),
+  getArticle: (username, slug) =>
+    request(`/api/posts/articles/${encodeURIComponent(username)}/${encodeURIComponent(slug)}`, { method: "GET" }),
+  getArticles: (params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "")
+        qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(`/api/posts/articles${q ? `?${q}` : ""}`, { method: "GET" });
+  },
+  lookupArticles: (refs) =>
+    request("/api/posts/articles/lookup", { method: "POST", body: { refs } }),
+  getUserArticles: (username, params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "")
+        qs.set(k, String(v));
+    });
+    qs.set("kind", "article");
+    const q = qs.toString();
+    return request(`/api/users/${encodeURIComponent(username)}/posts${q ? `?${q}` : ""}`, { method: "GET" });
+  },
   votePoll: (id, optionIndex) =>
     request(`/api/posts/${encodeURIComponent(id)}/vote`, {
       method: "POST",

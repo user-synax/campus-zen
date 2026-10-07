@@ -2,14 +2,18 @@
 
 import Link from "next/link";
 import { Fragment } from "react";
+import { ArticleMentionCard } from "@/components/app/ArticleMentionCard";
+import { extractArticleMentionsForRender } from "@/lib/articles";
 
-// combined splitter: urls + hashtags + mentions in one pass, preserving order.
-// URL-first so https://x.com/#tag stays a link, not a hashtag.
+// combined splitter: article-mentions + urls + hashtags + mentions in one pass.
+// Article-first so ${user/slug} never splits into fragments.
 // - https?://... , www.... , bare campuszen.tech / something.vercel.app
 // - bare domains need a dot + 2+ letter TLD, blocked after @/:. so emails
 //   like test@gmail.com never linkify.
 const RICH_SPLIT_REGEX =
-  /(https?:\/\/[^\s<>()\[\]{}"']+|www\.[^\s<>()\[\]{}"']+|(?<![\w@/:.])(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?(?:\/[^\s<>()\[\]{}"']*)?|#[\p{L}\p{M}\p{N}_]+|(?<!\w)@[a-z0-9_]{3,20}\b)/giu;
+  /(\$\{[a-z0-9_]{3,20}\/[a-z0-9-]{1,100}\}|https?:\/\/[^\s<>()\[\]{}"']+|www\.[^\s<>()\[\]{}"']+|(?<![\w@/:.])(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?(?:\/[^\s<>()\[\]{}"']*)?|#[\p{L}\p{M}\p{N}_]+|(?<!\w)@[a-z0-9_]{3,20}\b)/giu;
+
+const ARTICLE_REF_RE = /^\$\{([a-z0-9_]{3,20})\/([a-z0-9-]{1,100})\}$/i;
 
 export function extractTagsForRender(text) {
   if (!text) return [];
@@ -21,6 +25,10 @@ export function extractMentionsForRender(text) {
   if (!text) return [];
   const matches = text.match(/(?<!\w)@[a-z0-9_]{3,20}\b/gi) || [];
   return [...new Set(matches.map((m) => m.slice(1).toLowerCase()))];
+}
+
+export function extractArticleMentions(text) {
+  return extractArticleMentionsForRender(text);
 }
 
 // DESIGN.md: "Use #1d9bf0 exclusively for actionable elements: ... links".
@@ -49,7 +57,7 @@ function normalizeUrl(core) {
   return `https://${core}`;
 }
 
-export function RichText({ text, className = "" }) {
+export function RichText({ text, className = "", articleCompact = false }) {
   if (!text) return null;
   const parts = text.split(RICH_SPLIT_REGEX);
   if (parts.length === 1) return <span className={className}>{text}</span>;
@@ -58,6 +66,16 @@ export function RichText({ text, className = "" }) {
     <span className={className}>
       {parts.map((part, i) => {
         if (!part) return null;
+        const am = part.match(ARTICLE_REF_RE);
+        if (am) {
+          const username = am[1].toLowerCase();
+          const slug = am[2].toLowerCase();
+          return (
+            <span key={i} className="block" onClick={(e) => e.stopPropagation()}>
+              <ArticleMentionCard username={username} slug={slug} compact={articleCompact} />
+            </span>
+          );
+        }
         // URLs first — keeps #fragments and @ in paths inside the link.
         if (isUrlLike(part)) {
           const [core, trail] = splitTrailingPunct(part);
