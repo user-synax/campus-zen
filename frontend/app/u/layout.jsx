@@ -1,6 +1,9 @@
-"use client";
-
 import { AppShell } from "@/components/app/AppShell";
+
+export const metadata = {
+  title: "Students",
+  description: "Discover students across colleges on CampusZen.",
+};
 
 /**
  * /u renders in the same frame as every other tab. The directory and
