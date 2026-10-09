@@ -7,7 +7,7 @@
 - [x] **Email delivery (PRD §7, §21)** — Done 2026-09-26 via Gmail SMTP + nodemailer (`utils/email.js`).
   - OTP emails (verify/reset) + welcome email, fail-closed sends, no dev console/debug leaks.
   - Template: verification vs reset, 6-digit, 10m expiry. Note: email HTML uses its own `#ffcead` on `#0c122c` theme for inbox contrast — this is email-only, not the app accent (`#1d9bf0` per `DESIGN.md`).
-  - Env: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM=noreply@campuszen.app`.
+  - Env: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM=noreply@campuszen.tech`.
 - [x] **Avatar upload** — Done: Multer + Appwrite storage, 5MB limit, jpg/png/webp.
 - [x] **Hashtags** — Done: `hashtagRoutes`, `hashtagService` with trending and posts-by-hashtag.
 - [x] **Bookmarks** — Done: `Bookmark` model, bookmark/unbookmark endpoints, user bookmarks list.

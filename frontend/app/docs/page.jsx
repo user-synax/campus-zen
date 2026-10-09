@@ -11,7 +11,7 @@ export const metadata = {
     title: "CampusZen Docs",
     description:
       "What CampusZen is, how it works, what you can do, and where it's headed.",
-    url: "https://campuszen.app/docs",
+    url: "https://campuszen.tech/docs",
   },
 };
 

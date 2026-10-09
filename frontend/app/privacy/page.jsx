@@ -137,10 +137,10 @@ export default function PrivacyPage() {
               <li>
                 Request export or deletion via{" "}
                 <a
-                  href="mailto:privacy@campuszen.app"
+                  href="mailto:privacy@campuszen.tech"
                   className="text-[var(--cz-accent)] hover:underline"
                 >
-                  privacy@campuszen.app
+                  privacy@campuszen.tech
                 </a>
                 .
               </li>

@@ -29,7 +29,7 @@ export const metadata = {
   creator: "CampusZen",
   publisher: "CampusZen",
   category: "social",
-  metadataBase: new URL("https://campuszen.app"),
+  metadataBase: new URL("https://campuszen.tech"),
   alternates: {
     canonical: "/",
   },
@@ -42,7 +42,7 @@ export const metadata = {
   openGraph: {
     type: "website",
     locale: "en_IN",
-    url: "https://campuszen.app",
+    url: "https://campuszen.tech",
     siteName: "CampusZen",
     title: "CampusZen — Student Social Network",
     description:
@@ -86,8 +86,8 @@ const orgJsonLd = {
   "@context": "https://schema.org",
   "@type": "Organization",
   name: "CampusZen",
-  url: "https://campuszen.app",
-  logo: "https://campuszen.app/campusZen.png",
+  url: "https://campuszen.tech",
+  logo: "https://campuszen.tech/campusZen.png",
 };
 
 export default async function RootLayout({ children }) {

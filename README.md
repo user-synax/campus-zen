@@ -161,7 +161,7 @@ bun run dev            # node --watch src/server.js
 | `FRONTEND_URL` | `http://localhost:3000` |
 | `COOKIE_SECURE` | `false` locally, `true` in prod |
 | `SMTP_HOST/PORT/USER/PASS` | Gmail SMTP + App Password |
-| `EMAIL_FROM` | `noreply@campuszen.app` |
+| `EMAIL_FROM` | `noreply@campuszen.tech` |
 | `APPWRITE_ENDPOINT/PROJECT_ID/API_KEY/BUCKET_ID` | avatar storage (server-side only) |
 | `APPWRITE_BUCKET.COVER_ID` | cover image storage bucket |
 

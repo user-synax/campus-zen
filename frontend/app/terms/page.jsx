@@ -130,10 +130,10 @@ export default function TermsPage() {
               bookmarks, media uploads). Continued use after an update means you
               accept the new terms. Questions? Contact{" "}
               <a
-                href="mailto:support@campuszen.app"
+                href="mailto:support@campuszen.tech"
                 className="text-[var(--cz-accent)] hover:underline"
               >
-                support@campuszen.app
+                support@campuszen.tech
               </a>
               .
             </p>
