@@ -1,6 +1,7 @@
 export const metadata = {
   title: "Search",
-  description: "Search students, posts, and colleges on CampusZen.",
+  description:
+    "Search CampusZen for students, posts, and colleges by name, course, or keyword. Find your classmates in seconds.",
 };
 
 export default function SearchLayout({ children }) {

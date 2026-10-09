@@ -1,6 +1,7 @@
 export const metadata = {
   title: "Analytics",
-  description: "Insights on your posts and profile on CampusZen.",
+  description:
+    "See how your CampusZen posts perform — impressions, likes, replies, and reposts over 24 hours and 7 days. Publish to get started.",
 };
 
 export default function AnalyticsLayout({ children }) {

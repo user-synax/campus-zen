@@ -1,6 +1,7 @@
 export const metadata = {
   title: "Forgot password",
-  description: "Reset your CampusZen password with a code sent to your email.",
+  description:
+    "Locked out of CampusZen? Enter your email and we will send a code to reset your password.",
 };
 
 export default function ForgotPasswordLayout({ children }) {

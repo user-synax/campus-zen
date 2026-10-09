@@ -6,7 +6,7 @@ export async function generateMetadata({ params }) {
     .trim();
   return {
     title: headline ? `${headline} by @${username}` : `Article by @${username}`,
-    description: `Read an article by @${username} on CampusZen.`,
+    description: `Read an article by @${username} on CampusZen. Log in to reply and share it with your followers.`,
   };
 }
 

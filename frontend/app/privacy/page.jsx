@@ -3,7 +3,8 @@ import { BrandMark } from "@/components/BrandLogo";
 
 export const metadata = {
   title: "Privacy",
-  description: "CampusZen Privacy Policy for the student social network MVP.",
+  description:
+    "The CampusZen Privacy Policy explains what data we collect, how we use it, and your choices. Your data is never sold.",
 };
 
 function Section({ title, children }) {

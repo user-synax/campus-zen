@@ -2,7 +2,8 @@ import { AppShell } from "@/components/app/AppShell";
 
 export const metadata = {
   title: "Students",
-  description: "Discover students across colleges on CampusZen.",
+  description:
+    "Discover students across colleges on CampusZen. Search by name, college, or course and follow your classmates.",
 };
 
 /**

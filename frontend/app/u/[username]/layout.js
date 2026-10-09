@@ -2,7 +2,7 @@ export async function generateMetadata({ params }) {
   const { username } = await params;
   return {
     title: `@${username}`,
-    description: `View @${username} on CampusZen.`,
+    description: `View @${username}'s posts and activity on CampusZen. Follow them to see more in your feed.`,
   };
 }
 

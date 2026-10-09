@@ -2,7 +2,8 @@ import Link from "next/link";
 
 export const metadata = {
   title: "404 - Page Not Found",
-  description: "The page you are looking for does not exist.",
+  description:
+    "The page you are looking for does not exist. Head back to your feed or the CampusZen home page.",
 };
 
 export default function NotFound() {

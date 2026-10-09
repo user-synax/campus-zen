@@ -5,7 +5,7 @@ import { DocsRedirect } from "./DocsRedirect";
 export const metadata = {
   title: "Docs",
   description:
-    "CampusZen docs — what it is, how it works, features, safety, roadmap, and design. A student-first social network for campus life in India.",
+    "Learn what CampusZen is, how it works, and what you can do — posts, profiles, colleges, and safety. Start with the guide, then join free.",
   alternates: { canonical: "/docs" },
   openGraph: {
     title: "CampusZen Docs",

@@ -3,7 +3,8 @@ import { BrandMark } from "@/components/BrandLogo";
 
 export const metadata = {
   title: "Terms",
-  description: "CampusZen Terms of Service for the student social network MVP.",
+  description:
+    "The CampusZen Terms of Service explain who can join, what is allowed, and how moderation works. Please read them before creating your account.",
 };
 
 function Section({ title, children }) {

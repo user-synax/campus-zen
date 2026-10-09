@@ -9,6 +9,11 @@ import { LandingRedirect } from "@/components/landing/LandingRedirect";
 import { Scope } from "@/components/landing/Scope";
 import { TrustSafety } from "@/components/landing/TrustSafety";
 
+export const metadata = {
+  description:
+    "CampusZen is a student-first social network to discover students, share thoughts, and stay connected to campus life across India. Join free today.",
+};
+
 export default function Home() {
   return (
     <div className="relative flex min-h-dvh flex-col bg-[var(--cz-bg)] text-[var(--cz-text-primary)]">

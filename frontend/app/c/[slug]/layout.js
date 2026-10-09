@@ -3,7 +3,7 @@ export async function generateMetadata({ params }) {
   const name = String(slug || "").replace(/-/g, " ").trim() || "College";
   return {
     title: name,
-    description: `Students and posts from ${name} on CampusZen.`,
+    description: `Meet students from ${name} and read their posts on CampusZen. Follow your classmates to fill your feed.`,
   };
 }
 
