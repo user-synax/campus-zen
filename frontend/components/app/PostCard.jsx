@@ -165,6 +165,7 @@ export function PostCard({
   const [likeCount, setLikeCount] = useState(initialPost.likeCount || 0);
   const [repostCount, setRepostCount] = useState(initialPost.repostCount || 0);
   const [replyCount, setReplyCount] = useState(initialPost.replyCount || 0);
+  const [viewCount, setViewCount] = useState(initialPost.viewCount ?? null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [isHidden, setIsHidden] = useState(() => isHiddenPost(initialPost._id));
@@ -175,6 +176,7 @@ export function PostCard({
   const [copied, setCopied] = useState(false);
   const copyTimer = useRef(null);
   const menuWrapRef = useRef(null);
+  const cardRef = useRef(null);
 
   useEffect(
     () => () => {
@@ -219,8 +221,42 @@ export function PostCard({
     setReposted(Boolean(initialPost.isReposted));
     setRepostCount(initialPost.repostCount || 0);
     setSaved(Boolean(initialPost.isBookmarked));
+    if (initialPost.viewCount != null) setViewCount(initialPost.viewCount);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialPost._id, initialPost.isLiked, initialPost.likeCount, initialPost.isReposted, initialPost.repostCount, initialPost.isBookmarked]);
+  }, [initialPost._id, initialPost.isLiked, initialPost.likeCount, initialPost.isReposted, initialPost.repostCount, initialPost.isBookmarked, initialPost.viewCount]);
+
+  // Deduped impression tracking — feed cards count after ~1.5s visible,
+  // detail cards count immediately (parent also fires; the once-per-day
+  // guard in lib/postViews.js makes the double-call harmless).
+  useEffect(() => {
+    const el = cardRef.current;
+    const id = initialPost?._id;
+    if (!el || !id || !currentUser) return;
+    let cancelled = false;
+    let cleanup = () => {};
+    if (isDetail) {
+      import("@/lib/postViews").then(({ recordPostViewOnce }) => {
+        if (cancelled) return;
+        recordPostViewOnce(api, id, { isGuest: false }).then((data) => {
+          if (!cancelled && data?.viewCount != null) setViewCount(data.viewCount);
+        });
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+    import("@/lib/postViews").then(({ observePostView }) => {
+      if (cancelled) return;
+      // Re-read the live DOM node — cardRef may have attached after first render.
+      const live = cardRef.current || el;
+      cleanup = observePostView(live, id, { api, isGuest: false }) || (() => {});
+    });
+    return () => {
+      cancelled = true;
+      cleanup();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialPost?._id, isDetail, currentUser?._id]);
 
   const editRef = useRef(null);
   const editMention = useMentionAutocomplete({
@@ -449,7 +485,7 @@ export function PostCard({
 
   return (
     <>
-      <article className="cz-row group relative px-4 py-3">
+      <article ref={cardRef} className="cz-row group relative px-4 py-3">
         <div className="flex gap-3">
           <Link href={`/u/${author.username}`} className="shrink-0">
             <Avatar author={author} />
@@ -675,10 +711,10 @@ export function PostCard({
 
           {/* Views only appears when the API actually reports a count —
               no dead affordances in the action bar. */}
-          {post.viewCount != null ? (
+          {viewCount != null ? (
             <span className="-ml-2 flex items-center gap-1 px-2 py-1 text-[13px] font-medium text-[var(--cz-text-secondary)]">
               <BarChartIcon />
-              <AnimatedNumber value={post.viewCount} />
+              <AnimatedNumber value={viewCount} />
             </span>
           ) : null}
 
@@ -717,6 +753,19 @@ export function PostCard({
             )}
           </button>
         </div>
+
+        {/* Author-only reach line — only the author sees per-post views here.
+            Links to the full insights dashboard. */}
+        {isOwn && viewCount != null ? (
+          <div className="ml-[52px] mt-0.5">
+            <Link
+              href="/app/analytics"
+              className="text-[13px] font-medium text-[var(--cz-text-secondary)] hover:text-[var(--cz-accent)] hover:underline"
+            >
+              Viewed by {Number(viewCount).toLocaleString("en-IN")} · See insights
+            </Link>
+          </div>
+        ) : null}
       </article>
 
       <ReportDialog

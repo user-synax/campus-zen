@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  BarChart3,
   Bell,
   Bookmark,
   Home,
@@ -36,6 +37,7 @@ const items = [
   { href: "/u", label: "Students", icon: Users, exact: true },
   { href: "/c", label: "Colleges", icon: School, exact: true },
   { href: "/app/bookmarks", label: "Bookmarks", icon: Bookmark },
+  { href: "/app/analytics", label: "Analytics", icon: BarChart3 },
   {
     href: "/app/notifications",
     label: "Notifications",

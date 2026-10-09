@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   Bookmark,
   BadgeCheck,
+  BarChart3,
   ChevronRight,
   FileText,
   Loader2,
@@ -213,6 +214,12 @@ export default function MenuPage() {
               Icon: Bookmark,
               title: "Bookmarks",
               sub: "Private to you",
+            },
+            {
+              href: "/app/analytics",
+              Icon: BarChart3,
+              title: "Analytics",
+              sub: "Views, likes and top posts",
             },
           ].map(({ href, Icon, title, sub }) => (
             <Link key={href} href={href} className={rowBase}>

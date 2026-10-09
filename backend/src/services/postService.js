@@ -651,6 +651,7 @@ export const postService = {
       Repost.deleteMany({ post: postId }),
       Bookmark.deleteMany({ post: postId }),
       PollVote.deleteMany({ post: postId }),
+      (await import("../models/PostView.js")).PostView.deleteMany({ post: postId }),
     ]);
     // clamp
     await User.updateOne({ _id: userId, postCount: { $lt: 0 } }, { $set: { postCount: 0 } });
@@ -994,6 +995,45 @@ export const postService = {
     cache.del(CacheKeys.post(postId));
     cache.delPattern(`bookmarks:${userId}:*`);
     return { bookmarked: true };
+  },
+
+  // Deduped impression: one increment per viewer per UTC day. Race-safe —
+  // the unique (post, viewer, dayKey) insert is the arbiter; only the winner
+  // $incs, exactly like likePost. Self-views never count (author checking
+  // their own post must not inflate feedback). Blocked / private-hidden
+  // posts behave like interactions: assertNoBlock + assertCanSeePost.
+  // Returns { viewed, viewCount } — viewed=false means deduped (already
+  // counted today) or self-view.
+  async recordView(viewerId, postId) {
+    const post = await Post.findById(postId).select("author viewCount");
+    if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
+    await blockService.assertNoBlock(viewerId, post.author, "You can't interact with this account's posts.");
+    await assertCanSeePost(viewerId, post.author);
+    // Author's own views don't count — feedback must reflect real reach.
+    if (String(post.author) === String(viewerId)) {
+      const fresh = await Post.findById(postId).select("viewCount").lean();
+      return { viewed: false, viewCount: fresh?.viewCount || 0 };
+    }
+    const dayKey = new Date().toISOString().slice(0, 10);
+    let inserted = false;
+    try {
+      const { PostView } = await import("../models/PostView.js");
+      await PostView.create({ post: postId, viewer: viewerId, dayKey });
+      inserted = true;
+    } catch (e) {
+      if (e.code !== 11000) throw e;
+    }
+    let updated;
+    if (inserted) {
+      updated = await Post.findByIdAndUpdate(postId, { $inc: { viewCount: 1 } }, { new: true }).select("viewCount author");
+      afterResponse(() =>
+        pushPostUpdate(post.author, { postId: String(postId), viewCount: updated.viewCount }),
+      );
+    } else {
+      updated = await Post.findById(postId).select("viewCount").lean();
+    }
+    invalidatePostCounts(postId);
+    return { viewed: inserted, viewCount: updated.viewCount || 0 };
   },
 
   // single-choice poll vote, changeable until expiry. No feed invalidation —

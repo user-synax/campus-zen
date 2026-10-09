@@ -113,6 +113,7 @@ export const CacheKeys = {
   article: (username, slug) => `article:${username.toLowerCase()}:${slug.toLowerCase()}`,
   articleList: (page, limit) => `articles:${page}:${limit}`,
   userArticles: (authorId, page, limit) => `userArticles:${authorId}:${page}:${limit}`,
+  analyticsOverview: (authorId, range) => `analytics:${authorId}:${range}`,
 };
 
 // ─── TTL constants (milliseconds) ─────────────────────────────────────────────
@@ -130,4 +131,5 @@ export const TTL = {
   COMMENTS: 30_000,
   BOOKMARKS: 30_000,
   REPLIES: 30_000,
+  ANALYTICS: 60_000, // 1min — aggregations are expensive, views trickle in
 };

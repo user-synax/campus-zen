@@ -447,6 +447,10 @@ export const api = {
     request(`/api/posts/${encodeURIComponent(id)}/like`, { method: "POST" }),
   unlikePost: (id) =>
     request(`/api/posts/${encodeURIComponent(id)}/like`, { method: "DELETE" }),
+  recordPostView: (id) =>
+    request(`/api/posts/${encodeURIComponent(id)}/view`, { method: "POST" }),
+  getAnalyticsOverview: (range = "24h") =>
+    request(`/api/posts/analytics/overview?range=${encodeURIComponent(range)}`, { method: "GET" }),
   repostPost: (id) =>
     request(`/api/posts/${encodeURIComponent(id)}/repost`, { method: "POST" }),
   unrepostPost: (id) =>

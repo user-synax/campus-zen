@@ -121,6 +121,7 @@ export const adminService = {
       Repost.deleteMany({ post: postId }),
       Bookmark.deleteMany({ post: postId }),
       PollVote.deleteMany({ post: postId }),
+      (await import("../models/PostView.js")).PostView.deleteMany({ post: postId }),
       Report.updateMany({ targetType: "post", targetId: postId, status: "open" }, { $set: { status: "actioned" } }),
     ]);
     await User.updateOne({ _id: authorId, postCount: { $lt: 0 } }, { $set: { postCount: 0 } });

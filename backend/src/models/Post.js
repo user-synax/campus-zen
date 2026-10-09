@@ -41,6 +41,9 @@ const postSchema = new mongoose.Schema(
     likeCount: { type: Number, default: 0, min: 0 },
     replyCount: { type: Number, default: 0, min: 0 },
     repostCount: { type: Number, default: 0, min: 0 },
+    // deduped impressions (per-user-per-day, auth-only). Denormalized total
+    // of PostView rows; incremented only on first view per viewer per day.
+    viewCount: { type: Number, default: 0, min: 0 },
     edited: { type: Boolean, default: false },
     hashtags: { type: [String], default: [], index: true },
     mentions: { type: [String], default: [], index: true },

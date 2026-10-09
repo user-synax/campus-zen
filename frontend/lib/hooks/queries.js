@@ -37,6 +37,7 @@ export const queryKeys = {
   collegeMembers: (slug, page) => ["collegeMembers", slug, page],
   collegePosts: (slug, page) => ["collegePosts", slug, page],
   replies: (postId, page) => ["replies", postId, page],
+  analyticsOverview: (range) => ["analytics", "overview", range],
 };
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
@@ -364,6 +365,15 @@ export function useFollowing(userId, page = 1) {
 }
 
 // ─── Colleges ────────────────────────────────────────────────────────────────
+
+export function useAnalyticsOverview(range = "24h") {
+  const safe = range === "7d" ? "7d" : "24h";
+  return useQuery({
+    queryKey: queryKeys.analyticsOverview(safe),
+    queryFn: () => api.getAnalyticsOverview(safe),
+    staleTime: 30_000,
+  });
+}
 
 export function useCollege(slug) {
   return useQuery({

@@ -12,7 +12,7 @@ import { api } from "../api";
  * Events:
  * - notification -> prepend to notifications cache
  * - unread-count -> patch badge
- * - post:update { postId, likeCount?, repostCount?, replyCount? } -> patch all post caches
+ * - post:update { postId, likeCount?, repostCount?, replyCount?, viewCount? } -> patch all post caches
  * - follow:update { userId, followersCount?, isFollowing? } -> patch user caches
  */
 
@@ -98,6 +98,7 @@ export function useSSE() {
           if (data.likeCount != null) patch.likeCount = data.likeCount;
           if (data.repostCount != null) patch.repostCount = data.repostCount;
           if (data.replyCount != null) patch.replyCount = data.replyCount;
+          if (data.viewCount != null) patch.viewCount = data.viewCount;
           if (Object.keys(patch).length === 0) return;
           patchPostEverywhere(clientRef.current, data.postId, patch);
         } catch {}

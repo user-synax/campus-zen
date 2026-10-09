@@ -1,7 +1,18 @@
 import { postService } from "../services/postService.js";
+import { analyticsService } from "../services/analyticsService.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 export const postController = {
+  // Author-only insights overview — totals + top posts over 24h / 7d.
+  overview: asyncHandler(async (req, res) => {
+    const result = await analyticsService.overview(req.user._id, req.query.range);
+    res.json({ success: true, data: result });
+  }),
+
+  recordView: asyncHandler(async (req, res) => {
+    const result = await postService.recordView(req.user._id, req.params.id);
+    res.json({ success: true, data: result });
+  }),
   list: asyncHandler(async (req, res) => {
     const { author, likedBy, repostedBy, kind, page, limit } = req.query;
     const viewerId = req.user?._id || null;

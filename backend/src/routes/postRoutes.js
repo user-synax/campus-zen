@@ -66,6 +66,12 @@ router.get("/feed", protect, feedLimiter, validate(paginationQuery, "query"), po
 // public discovery — optional auth for isLiked flags
 router.get("/public", optionalAuth, feedLimiter, validate(paginationQuery, "query"), postController.publicFeed);
 
+// author insights — must sit before /:id so "analytics" isn't parsed as an id
+const analyticsQuery = z.object({
+  range: z.enum(["24h", "7d"]).optional().default("24h"),
+});
+router.get("/analytics/overview", protect, feedLimiter, validate(analyticsQuery, "query"), postController.overview);
+
 // single post — optional auth
 router.get("/:id", optionalAuth, validate(idParam, "params"), postController.getById);
 router.patch("/:id", protect, validate(idParam, "params"), validate(textSchema), postController.update);
@@ -78,6 +84,9 @@ router.post("/:id/repost", protect, interactionLimiter, validate(idParam, "param
 router.delete("/:id/repost", protect, interactionLimiter, validate(idParam, "params"), postController.toggleRepost);
 router.post("/:id/bookmark", protect, interactionLimiter, validate(idParam, "params"), postController.toggleBookmark);
 router.delete("/:id/bookmark", protect, interactionLimiter, validate(idParam, "params"), postController.toggleBookmark);
+
+// deduped impression — auth-only, one increment per viewer per UTC day
+router.post("/:id/view", protect, interactionLimiter, validate(idParam, "params"), postController.recordView);
 
 // polls — single-choice, changeable until expiry
 const voteSchema = z.object({ optionIndex: z.coerce.number().int().min(0).max(3) });
