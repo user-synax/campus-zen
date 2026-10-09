@@ -49,19 +49,19 @@ export const metadata = {
       "CampusZen is a student-first social network to discover students, share thoughts, and stay connected to campus life across India.",
     images: [
       {
-        url: "/campusZen.png",
-        width: 512,
-        height: 512,
-        alt: "CampusZen logo",
+        url: "/og.png",
+        width: 1200,
+        height: 630,
+        alt: "CampusZen — Student Social Network",
       },
     ],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "CampusZen — Student Social Network",
     description:
       "CampusZen is a student-first social network to discover students, share thoughts, and stay connected to campus life across India.",
-    images: ["/campusZen.png"],
+    images: ["/og.png"],
   },
   robots: {
     index: true,
