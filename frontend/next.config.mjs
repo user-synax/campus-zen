@@ -133,6 +133,7 @@ const nextConfig = {
   // ─── Bundle Optimization ─────────────────────────────────────────────────
   experimental: {
     optimizePackageImports: ["lucide-react", "date-fns"],
+    globalNotFound: true,
   },
 
   // ─── Compression ─────────────────────────────────────────────────────────
