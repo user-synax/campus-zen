@@ -9,18 +9,19 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/user-synax/campus-zen"><img src="https://img.shields.io/badge/status-MVP-complete-blue?style=flat-square" alt="status" /></a>
+  <a href="https://github.com/user-synax/campus-zen"><img src="https://img.shields.io/badge/status-MVP_complete-blue?style=flat-square" alt="status" /></a>
   <img src="https://img.shields.io/badge/frontend-Next.js_16-black?style=flat-square&logo=next.js" alt="Next.js" />
   <img src="https://img.shields.io/badge/backend-Express_4-green?style=flat-square&logo=express" alt="Express" />
   <img src="https://img.shields.io/badge/database-MongoDB-47A248?style=flat-square&logo=mongodb" alt="MongoDB" />
   <img src="https://img.shields.io/badge/package_manager-Bun-fbf0df?style=flat-square&logo=bun" alt="Bun" />
-  <img src="https://img.shields.io/badge/license-unlicensed-lightgrey?style=flat-square" alt="license" />
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue?style=flat-square" alt="license" /></a>
 </p>
 
 <p align="center">
   <a href="#-quickstart">Quickstart</a> ·
   <a href="#-features">Features</a> ·
   <a href="#-api-reference">API</a> ·
+  <a href="#-license">License</a> ·
   <a href="docs.md">Developer docs</a> ·
   <a href="PRD.md">PRD</a> ·
   <a href="DESIGN.md">Design</a>
@@ -101,6 +102,7 @@ Browser → Next.js (:3000) → Express API (:4000) → MongoDB
 ```
 campus-zen/
 ├── README.md            # this file
+├── LICENSE              # GNU AGPL-3.0
 ├── PRD.md               # product requirements (see file for scope and non-goals)
 ├── DESIGN.md            # design tokens & guidelines
 ├── docs.md              # full developer guide
@@ -275,6 +277,15 @@ Out of MVP by design: DMs, stories, marketplace, premium, AI, mobile apps — se
 3. Backend: put logic in `services/`, keep controllers thin, validate with Zod, use `AppError` + `asyncHandler`.
 4. Never commit `.env`; update `backend/.env.example` when adding vars.
 5. Open a PR describing the user flow tested (signup → post → interact).
+6. By submitting a contribution, you agree that it is licensed under the same [AGPL-3.0](LICENSE) license as the project.
+
+## 📄 License
+
+Copyright (C) 2026 Ayush.
+
+CampusZen is free software licensed under the [GNU Affero General Public License v3.0](LICENSE). You may use, study, and modify the code. If you distribute a modified version, or run one as a network service, you must release your complete source code under the same license and preserve copyright and license notices (see section 13 of the license).
+
+**Trademark.** The CampusZen name, logo, and branding are not covered by the AGPL license and may not be used without permission. Forks and derivative works must use their own name and branding.
 
 ## 📚 Docs
 
