@@ -2,9 +2,20 @@ import { verifyAccessToken } from "../utils/jwt.js";
 import { AppError } from "../utils/AppError.js";
 import { User } from "../models/User.js";
 
+function bearerToken(req) {
+  const h = req.headers?.authorization || "";
+  const [scheme, token] = h.split(" ");
+  if (/^Bearer$/i.test(scheme) && token) return token;
+  return null;
+}
+
+function accessTokenFrom(req) {
+  return bearerToken(req) || req.cookies?.accessToken || null;
+}
+
 export async function protect(req, res, next) {
   try {
-    const token = req.cookies?.accessToken;
+    const token = accessTokenFrom(req);
     if (!token) throw new AppError("Not authenticated. Please log in.", 401, "UNAUTHENTICATED");
 
     let decoded;
@@ -30,7 +41,7 @@ export async function protect(req, res, next) {
 // Optional auth — sets req.user if valid token, else null, never throws
 export async function optionalAuth(req, res, next) {
   try {
-    const token = req.cookies?.accessToken;
+    const token = accessTokenFrom(req);
     if (!token) {
       req.user = null;
       return next();

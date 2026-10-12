@@ -9,7 +9,9 @@ export const authController = {
     res.status(201).json({
       success: true,
       message: "Account created.",
-      data: { user },
+      // Web keeps using the httpOnly cookies above; native clients
+      // (Expo) cannot read cookies, so tokens are also in the body.
+      data: { user, accessToken, refreshToken },
     });
   }),
 
@@ -30,20 +32,21 @@ export const authController = {
     res.json({
       success: true,
       message: "Logged in",
-      data: { user },
+      // Tokens duplicated in body for native clients; web uses cookies.
+      data: { user, accessToken, refreshToken },
     });
   }),
 
   refresh: asyncHandler(async (req, res) => {
-    const raw = req.cookies?.refreshToken;
+    const raw = req.body?.refreshToken || req.cookies?.refreshToken;
     const { accessToken, refreshToken, user } = await authService.refresh({ refreshToken: raw });
     // keep original remember window 7d for simplicity
     setAuthCookies(res, { accessToken, refreshToken, remember: true });
-    res.json({ success: true, message: "Token refreshed", data: { user } });
+    res.json({ success: true, message: "Token refreshed", data: { user, accessToken, refreshToken } });
   }),
 
   logout: asyncHandler(async (req, res) => {
-    const refreshRaw = req.cookies?.refreshToken;
+    const refreshRaw = req.body?.refreshToken || req.cookies?.refreshToken;
     // req.user may exist if access still valid, else use refresh token
     const userId = req.user?._id || null;
     await authService.logout(userId, refreshRaw);
