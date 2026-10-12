@@ -112,6 +112,63 @@ interface AuthResponse {
   data: { user: AuthUser; accessToken?: string; refreshToken?: string };
 }
 
+export interface FeedAuthor {
+  _id: string;
+  username: string;
+  fullName?: string;
+  avatarUrl?: string | null;
+  email?: string;
+  isOwner?: boolean;
+  isFounder?: boolean;
+  isCofounder?: boolean;
+  isPro?: boolean;
+  isVerified?: boolean;
+}
+
+export interface PostMediaItem {
+  url: string;
+  kind: "image" | "gif" | "video";
+  posterUrl?: string;
+  width?: number;
+  height?: number;
+  duration?: number;
+}
+
+export interface PostPoll {
+  options: { text: string; votes: number }[];
+  totalVotes: number;
+  expiresAt?: string;
+  closed?: boolean;
+}
+
+export interface FeedPost {
+  _id: string;
+  kind?: "post" | "article";
+  text?: string;
+  title?: string;
+  slug?: string;
+  description?: string;
+  createdAt: string;
+  edited?: boolean;
+  author: FeedAuthor;
+  likeCount: number;
+  repostCount: number;
+  replyCount: number;
+  viewCount?: number | null;
+  isLiked?: boolean;
+  isReposted?: boolean;
+  isBookmarked?: boolean;
+  imageUrl?: string;
+  media?: PostMediaItem[];
+  poll?: PostPoll;
+  myVote?: number | null;
+}
+
+interface FeedResponse {
+  success: boolean;
+  data: { posts: FeedPost[]; page: number; limit: number; hasMore: boolean };
+}
+
 export const api = {
   base: BASE,
   checkUsername: (username: string) =>
@@ -128,4 +185,52 @@ export const api = {
       method: "POST",
       body: { refreshToken: tokens.refresh },
     }),
+  getFeed: (params: { page?: number; limit?: number } = {}) =>
+    request<FeedResponse>(
+      `/api/posts/feed?page=${params.page ?? 1}&limit=${params.limit ?? 20}`,
+    ),
+  getPublicFeed: (params: { page?: number; limit?: number } = {}) =>
+    request<FeedResponse>(
+      `/api/posts/public?page=${params.page ?? 1}&limit=${params.limit ?? 20}`,
+    ),
+  likePost: (id: string) =>
+    request<{ success: boolean; data: { liked: boolean; likeCount: number } }>(
+      `/api/posts/${encodeURIComponent(id)}/like`,
+      { method: "POST" },
+    ),
+  unlikePost: (id: string) =>
+    request<{ success: boolean; data: { liked: boolean; likeCount: number } }>(
+      `/api/posts/${encodeURIComponent(id)}/like`,
+      { method: "DELETE" },
+    ),
+  repostPost: (id: string) =>
+    request<{ success: boolean; data: { reposted: boolean; repostCount: number } }>(
+      `/api/posts/${encodeURIComponent(id)}/repost`,
+      { method: "POST" },
+    ),
+  unrepostPost: (id: string) =>
+    request<{ success: boolean; data: { reposted: boolean; repostCount: number } }>(
+      `/api/posts/${encodeURIComponent(id)}/repost`,
+      { method: "DELETE" },
+    ),
+  bookmarkPost: (id: string) =>
+    request<{ success: boolean; data: { bookmarked: boolean } }>(
+      `/api/posts/${encodeURIComponent(id)}/bookmark`,
+      { method: "POST" },
+    ),
+  unbookmarkPost: (id: string) =>
+    request<{ success: boolean; data: { bookmarked: boolean } }>(
+      `/api/posts/${encodeURIComponent(id)}/bookmark`,
+      { method: "DELETE" },
+    ),
+  votePoll: (id: string, optionIndex: number) =>
+    request<{ success: boolean; data: { poll: PostPoll; myVote: number } }>(
+      `/api/posts/${encodeURIComponent(id)}/vote`,
+      { method: "POST", body: { optionIndex } },
+    ),
+  recordPostView: (id: string) =>
+    request<{ success: boolean; data: { viewed: boolean; viewCount: number } }>(
+      `/api/posts/${encodeURIComponent(id)}/view`,
+      { method: "POST" },
+    ),
 };
