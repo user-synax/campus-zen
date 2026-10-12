@@ -289,6 +289,39 @@
   --modal-scale-close: 0.96;
   --modal-ease: cubic-bezier(0.22, 1, 0.36, 1);
 
+  /* card hover tilt (transitions-dev 19) */
+  --tilt-perspective: 1000px;
+  --tilt-return: 1000ms;
+  --tilt-return-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --tilt-follow: 400ms;
+  --tilt-follow-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --tilt-glare-opacity: 0.32;
+  --tilt-glare-fade: 300ms;
+  --tilt-glare-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* tabs sliding (transitions-dev 16) — cz-mapped so light/dark follow tokens */
+  --tabs-dur: 250ms;
+  --tabs-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --tabs-text-muted: var(--cz-text-secondary);
+  --tabs-text-active: var(--cz-text-primary);
+  --tabs-bar-bg: var(--cz-surface-strong);
+  --tabs-pill-bg: var(--cz-surface);
+
+  /* avatar group hover (transitions-dev 11) */
+  --avatar-lift: -4px;
+  --avatar-dur: 320ms;
+  --avatar-scale: 1.05;
+  --avatar-falloff: 0.45;
+  --avatar-ease-in: cubic-bezier(0.22, 1, 0.36, 1);
+  --avatar-ease-out: cubic-bezier(0.34, 3.85, 0.64, 1);
+
+  /* learn more hover (transitions-dev 24) */
+  --learn-shift: 2px;
+  --learn-spread: 8deg;
+  --learn-in: 350ms;
+  --learn-out: 350ms;
+  --learn-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
   /* shadcn bridge — kept in the X palette so stragglers stay on-system */
   --background: #ffffff;
   --foreground: #0f1419;
@@ -999,6 +1032,140 @@ body {
   .t-like-icon,
   .t-like-particles i {
     animation: none !important;
+  }
+}
+
+/* ── Transitions-dev 19 · card hover tilt (verbatim) ── */
+.t-tilt {
+  touch-action: none;
+}
+.t-tilt-card {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  transform: perspective(var(--tilt-perspective)) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg));
+  transform-style: preserve-3d;
+  transition: transform var(--tilt-return) var(--tilt-return-ease);
+  will-change: transform;
+}
+.t-tilt-card.is-tilting {
+  transition: transform var(--tilt-follow) var(--tilt-follow-ease);
+}
+.t-tilt-glare {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  mix-blend-mode: screen;
+  background:
+    radial-gradient(circle 95px at var(--tilt-gx, 50%) var(--tilt-gy, 50%), rgba(255, 255, 255, 0.48), rgba(255, 255, 255, 0.06) 52%, rgba(255, 255, 255, 0) 84%),
+    radial-gradient(circle 200px at var(--tilt-gx, 50%) var(--tilt-gy, 50%), rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.04) 58%, rgba(255, 255, 255, 0) 78%),
+    radial-gradient(circle 360px at var(--tilt-gx, 50%) var(--tilt-gy, 50%), rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 88%);
+  transition: opacity var(--tilt-glare-fade) var(--tilt-glare-ease);
+}
+.t-tilt.is-hover .t-tilt-glare {
+  opacity: var(--tilt-glare-opacity);
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-tilt-card {
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+/* ── Transitions-dev 16 · tabs sliding (verbatim, colors via cz vars) ── */
+.t-tabs {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 48px;
+  background: var(--tabs-bar-bg);
+}
+.t-tab {
+  position: relative;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  height: 30px;
+  padding: 4px 12px;
+  color: var(--tabs-text-muted);
+  cursor: pointer;
+  border-radius: 48px;
+  z-index: 1;
+  transition: color var(--tabs-dur) var(--tabs-ease);
+}
+.t-tab:not([aria-selected="true"]):hover,
+.t-tab[aria-selected="true"] {
+  color: var(--tabs-text-active);
+}
+.t-tabs-pill {
+  position: absolute;
+  top: 3px;
+  left: 0;
+  height: 30px;
+  width: 0;
+  background: var(--tabs-pill-bg);
+  border-radius: 48px;
+  transform: translateX(0);
+  transition:
+    transform var(--tabs-dur) var(--tabs-ease),
+    width var(--tabs-dur) var(--tabs-ease);
+  will-change: transform, width;
+  z-index: 0;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-tabs-pill,
+  .t-tab {
+    transition: none !important;
+  }
+}
+
+/* ── Transitions-dev 11 · avatar group hover (verbatim) ── */
+.t-avatar {
+  transform-origin: center;
+  transform: translateY(var(--shift, 0px)) scale(var(--scale-active, 1));
+  transition: transform var(--avatar-dur) var(--avatar-ease-in);
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-avatar {
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
+/* ── Transitions-dev 24 · learn more hover (verbatim) ── */
+.t-learn-chevron {
+  display: inline-flex;
+  transform: translateX(0);
+  transition: transform var(--learn-out) var(--learn-ease);
+}
+.t-learn-arm {
+  transform-box: view-box;
+  transform-origin: 10px 8px;
+  vector-effect: non-scaling-stroke;
+  transition: transform var(--learn-out) var(--learn-ease);
+}
+.t-learn:hover .t-learn-chevron {
+  transform: translateX(var(--learn-shift));
+  transition-duration: var(--learn-in);
+}
+.t-learn:hover .t-learn-arm {
+  transition-duration: var(--learn-in);
+}
+.t-learn:hover .t-learn-arm-top {
+  transform: rotate(var(--learn-spread));
+}
+.t-learn:hover .t-learn-arm-bot {
+  transform: rotate(calc(var(--learn-spread) * -1));
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-learn-chevron,
+  .t-learn-arm {
+    transition: none !important;
   }
 }
 

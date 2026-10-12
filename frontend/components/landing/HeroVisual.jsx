@@ -1,229 +1,434 @@
 "use client";
 
 import {
-  motion,
-  useMotionTemplate,
-  useMotionValue,
-  useReducedMotion,
-  useSpring,
-  useTransform,
-} from "framer-motion";
-import { useRef, useState } from "react";
+  BarChart2,
+  Bookmark,
+  FileText,
+  Heart,
+  MessageCircle,
+  Repeat2,
+  Share2,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 /**
- * A live-looking slice of the product: a student at the centre, four
- * classmates around them, edges lighting up on hover. Achromatic except
- * the X Blue that marks the active edge — one accent, used for the thing
- * you are currently touching.
+ * Feed mock — the landing hero demo (per landing IA: feed mock).
+ * transitions-dev:
+ *  19 card-tilt on the outer card · 16 tabs sliding for
+ *  Following/Discovery · 11 avatar-group-hover for the online row ·
+ *  23 like-button + 02 number-pop-in for the interactive like.
+ * Pure CSS motion + tiny orchestration, cz tokens only (light/dark aware).
  */
-const NODES = [
-  { i: "P", h: "@priya_cs", s: "CSE · 2nd yr", x: 20, y: 24 },
-  { i: "A", h: "@arjun_ece", s: "ECE · 3rd yr", x: 76, y: 24 },
-  { i: "S", h: "@sana_des", s: "Design · 2nd yr", x: 72, y: 72 },
-  { i: "K", h: "@kabir_bca", s: "BCA · 3rd yr", x: 26, y: 72 },
+const AVATARS = [
+  { i: "P", label: "Priya" },
+  { i: "A", label: "Arjun" },
+  { i: "S", label: "Sana" },
+  { i: "K", label: "Kabir" },
+  { i: "+", label: "2.4k more" },
 ];
 
-function tipPlacement(n) {
-  const vertical = n.y > 60 ? "bottom-full mb-2" : "top-full mt-2";
-  const horizontal =
-    n.x < 26 ? "left-0" : n.x > 74 ? "right-0" : "left-1/2 -translate-x-1/2";
-  return `${vertical} ${horizontal}`;
-}
+const PARTICLE_VECTORS = [
+  ["12px", "-14px"],
+  ["18px", "2px"],
+  ["10px", "14px"],
+  ["-12px", "12px"],
+  ["-18px", "-2px"],
+  ["-8px", "-16px"],
+  ["0px", "-20px"],
+  ["6px", "18px"],
+];
 
 export function HeroVisual() {
-  const ref = useRef(null);
-  const reduce = useReducedMotion();
-  const [active, setActive] = useState(null);
+  const tiltRef = useRef(null);
+  const cardRef = useRef(null);
+  const tabsRef = useRef(null);
+  const pillRef = useRef(null);
+  const avatarGroupRef = useRef(null);
+  const likeBtnRef = useRef(null);
+  const [tab, setTab] = useState(0);
+  const [liked, setLiked] = useState(true);
+  const [likeCount, setLikeCount] = useState(128);
+  const burstTimer = useRef(null);
 
-  const mx = useMotionValue(0);
-  const my = useMotionValue(0);
-  const px = useMotionValue(-400);
-  const py = useMotionValue(-400);
-  const sx = useSpring(mx, { stiffness: 70, damping: 22, mass: 0.6 });
-  const sy = useSpring(my, { stiffness: 70, damping: 22, mass: 0.6 });
-
-  const rotateX = useTransform(sy, [-0.5, 0.5], [4.5, -4.5]);
-  const rotateY = useTransform(sx, [-0.5, 0.5], [-4.5, 4.5]);
-  const layerX = useTransform(sx, (v) => v * 10);
-  const layerY = useTransform(sy, (v) => v * 10);
-  const gridX = useTransform(sx, (v) => v * -8);
-  const gridY = useTransform(sy, (v) => v * -8);
-  const glow = useMotionTemplate`radial-gradient(220px circle at ${px}px ${py}px, rgba(29,155,240,0.09), transparent 70%)`;
-
-  function onMove(e) {
-    const el = ref.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    const cx = e.clientX - r.left;
-    const cy = e.clientY - r.top;
-    mx.set(cx / r.width - 0.5);
-    my.set(cy / r.height - 0.5);
-    px.set(cx);
-    py.set(cy);
-
-    let best = null;
-    let bestDist = 100;
-    for (let k = 0; k < NODES.length; k++) {
-      const n = NODES[k];
-      const dist = Math.hypot(
-        (n.x / 100) * r.width - cx,
-        (n.y / 100) * r.height - cy,
+  // 19 · card tilt — track pointer on the flat outer .t-tilt
+  useEffect(() => {
+    const tilt = tiltRef.current;
+    const card = cardRef.current;
+    if (!tilt || !card) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const MAX = 7;
+    const reset = () => {
+      tilt.classList.remove("is-hover");
+      card.classList.remove("is-tilting");
+      card.style.setProperty("--tilt-rx", "0deg");
+      card.style.setProperty("--tilt-ry", "0deg");
+    };
+    const track = (e) => {
+      if (reduce.matches) return;
+      const r = tilt.getBoundingClientRect();
+      const px = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+      const py = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
+      tilt.classList.add("is-hover");
+      card.classList.add("is-tilting");
+      card.style.setProperty(
+        "--tilt-ry",
+        ((px - 0.5) * MAX).toFixed(2) + "deg",
       );
-      if (dist < bestDist) {
-        bestDist = dist;
-        best = k;
-      }
-    }
-    setActive((prev) => (prev === best ? prev : best));
-  }
+      card.style.setProperty(
+        "--tilt-rx",
+        ((0.5 - py) * MAX).toFixed(2) + "deg",
+      );
+      card.style.setProperty("--tilt-gx", (px * 100).toFixed(1) + "%");
+      card.style.setProperty("--tilt-gy", (py * 100).toFixed(1) + "%");
+    };
+    tilt.addEventListener("pointermove", track);
+    tilt.addEventListener("pointerleave", reset);
+    tilt.addEventListener("pointercancel", reset);
+    return () => {
+      tilt.removeEventListener("pointermove", track);
+      tilt.removeEventListener("pointerleave", reset);
+      tilt.removeEventListener("pointercancel", reset);
+    };
+  }, []);
 
-  function onLeave() {
-    mx.set(0);
-    my.set(0);
-    px.set(-400);
-    py.set(-400);
-    setActive(null);
-  }
+  // 16 · tabs sliding pill
+  useEffect(() => {
+    const bar = tabsRef.current;
+    const pill = pillRef.current;
+    if (!bar || !pill) return;
+    const tabs = [...bar.querySelectorAll(".t-tab")];
+    const active = tabs[tab] || tabs[0];
+    const moveTo = (el, animate) => {
+      if (!el) return;
+      if (!animate) {
+        const prev = pill.style.transition;
+        pill.style.transition = "none";
+        pill.style.transform = `translateX(${el.offsetLeft}px)`;
+        pill.style.width = `${el.offsetWidth}px`;
+        void pill.offsetWidth;
+        pill.style.transition = prev;
+      } else {
+        pill.style.transform = `translateX(${el.offsetLeft}px)`;
+        pill.style.width = `${el.offsetWidth}px`;
+      }
+    };
+    requestAnimationFrame(() => moveTo(active, false));
+    moveTo(active, true);
+    const onResize = () => moveTo(tabs[tab] || tabs[0], false);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [tab]);
+
+  // 11 · avatar group hover — direction-aware easing set inline first
+  const setShifts = (activeIdx, phase) => {
+    const root = avatarGroupRef.current;
+    if (!root) return;
+    const cs = getComputedStyle(document.documentElement);
+    const num = (n, fb) => {
+      const v = parseFloat(cs.getPropertyValue(n));
+      return Number.isFinite(v) ? v : fb;
+    };
+    const ease = (n, fb) => cs.getPropertyValue(n).trim() || fb;
+    const lift = num("--avatar-lift", -4);
+    const falloff = num("--avatar-falloff", 0.45);
+    const scale = num("--avatar-scale", 1.05);
+    const tf =
+      phase === "out"
+        ? ease("--avatar-ease-out", "cubic-bezier(0.34, 3.85, 0.64, 1)")
+        : ease("--avatar-ease-in", "cubic-bezier(0.22, 1, 0.36, 1)");
+    root.querySelectorAll(".t-avatar").forEach((el, i) => {
+      el.style.transitionTimingFunction = tf;
+      if (activeIdx == null) {
+        el.style.setProperty("--shift", "0px");
+        el.style.setProperty("--scale-active", "1");
+        return;
+      }
+      const d = Math.abs(i - activeIdx);
+      el.style.setProperty("--shift", (lift * falloff ** d).toFixed(3) + "px");
+      el.style.setProperty(
+        "--scale-active",
+        i === activeIdx ? String(scale) : "1",
+      );
+    });
+  };
+
+  const fireLikeBurst = () => {
+    const btn = likeBtnRef.current;
+    if (!btn) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const dots = btn.querySelectorAll(".t-like-particles i");
+    dots.forEach((dot, i) => {
+      const [px, py] = PARTICLE_VECTORS[i % PARTICLE_VECTORS.length];
+      dot.style.setProperty("--px", px);
+      dot.style.setProperty("--py", py);
+      dot.style.setProperty("--psize", i % 3 === 0 ? "1.4" : "1");
+      dot.style.setProperty("--pdelay", `${i * 18}ms`);
+      dot.style.setProperty("--p-end-scale", "0.6");
+    });
+    btn.classList.remove("is-bursting");
+    void btn.offsetWidth;
+    btn.classList.add("is-bursting");
+    if (burstTimer.current) clearTimeout(burstTimer.current);
+    burstTimer.current = setTimeout(
+      () => btn.classList.remove("is-bursting"),
+      700,
+    );
+  };
+
+  const toggleLike = () => {
+    const next = !liked;
+    setLiked(next);
+    setLikeCount((c) => (next ? c + 1 : c - 1));
+    if (next) fireLikeBurst();
+  };
+
+  useEffect(
+    () => () => {
+      if (burstTimer.current) clearTimeout(burstTimer.current);
+    },
+    [],
+  );
 
   return (
-    <div style={{ perspective: 1000 }} className="w-full">
-      <motion.div
-        ref={ref}
-        onMouseMove={reduce ? undefined : onMove}
-        onMouseLeave={reduce ? undefined : onLeave}
-        role="img"
-        aria-label="Interactive preview of your campus network. Move your cursor to explore students."
-        style={reduce ? undefined : { rotateX, rotateY }}
-        className="relative h-[340px] w-full overflow-hidden rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-surface)] sm:h-[400px] lg:h-[440px] [@media(hover:hover)]:cursor-crosshair"
+    <div ref={tiltRef} className="t-tilt w-full" style={{ perspective: 1000 }}>
+      <div
+        ref={cardRef}
+        className="t-tilt-card border border-[var(--cz-border)] bg-[var(--cz-surface)] shadow-[var(--shadow-sm)]"
       >
-        {/* back grid — Mist Gray hairlines, never a colour */}
-        <motion.div
-          aria-hidden
-          style={reduce ? undefined : { x: gridX, y: gridY }}
-          className="absolute inset-[-20px] opacity-60"
-        >
-          <div
-            className="h-full w-full"
-            style={{
-              backgroundImage:
-                "linear-gradient(var(--cz-border) 1px, transparent 1px), linear-gradient(90deg, var(--cz-border) 1px, transparent 1px)",
-              backgroundSize: "32px 32px",
-              maskImage:
-                "radial-gradient(70% 70% at 50% 45%, black, transparent)",
-              WebkitMaskImage:
-                "radial-gradient(70% 70% at 50% 45%, black, transparent)",
-            }}
-          />
-        </motion.div>
-
-        {/* cursor glow — X Blue, because it tracks your pointer */}
-        {!reduce && (
-          <motion.div
-            aria-hidden
-            style={{ background: glow }}
-            className="pointer-events-none absolute inset-0"
-          />
-        )}
-
-        {/* network */}
-        <motion.div
-          style={reduce ? undefined : { x: layerX, y: layerY }}
-          className="absolute inset-0"
-        >
-          <svg
-            aria-hidden
-            focusable="false"
-            className="absolute inset-0 h-full w-full"
-            preserveAspectRatio="none"
-            viewBox="0 0 100 100"
-          >
-            <title>Network edges</title>
-            {NODES.map((n, k) => (
-              <line
-                key={n.h}
-                x1="50"
-                y1="50"
-                x2={n.x}
-                y2={n.y}
-                stroke={
-                  active === k ? "var(--cz-accent)" : "var(--cz-border-strong)"
-                }
-                strokeWidth={active === k ? 0.5 : 0.3}
-                style={{ transition: "stroke 250ms ease" }}
-              />
-            ))}
-          </svg>
-
-          {/* centre — the one filled control in the composition */}
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
-            <span className="grid h-10 w-10 place-items-center rounded-full bg-[var(--cz-accent)] text-[13px] font-bold text-[var(--cz-text-inverse)]">
-              Y
-            </span>
-            <span className="mt-1.5 block text-[13px] font-bold text-[var(--cz-text-primary)]">
-              You
-            </span>
-          </div>
-
-          {NODES.map((n, k) => {
-            const isActive = active === k;
-            return (
-              <button
-                key={n.h}
-                type="button"
-                onMouseEnter={() => setActive(k)}
-                onFocus={() => setActive(k)}
-                onBlur={() => setActive(null)}
-                onClick={() => setActive(isActive ? null : k)}
-                aria-label={`${n.h}, ${n.s}`}
-                aria-expanded={isActive}
-                className="group absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer border-0 bg-transparent p-2 outline-none"
-                style={{ left: `${n.x}%`, top: `${n.y}%` }}
-              >
-                <span
-                  className={`grid h-8 w-8 place-items-center rounded-full border text-[12px] font-bold transition-transform duration-200 ease-out ${
-                    isActive
-                      ? "scale-125 border-[var(--cz-accent)] bg-[var(--cz-accent)] text-[var(--cz-text-inverse)]"
-                      : "border-[var(--cz-border-strong)] bg-[var(--cz-bg)] text-[var(--cz-text-primary)] group-hover:scale-110"
-                  }`}
-                >
-                  {n.i}
-                </span>
-                <span
-                  aria-hidden={!isActive}
-                  className={`pointer-events-none absolute z-10 max-w-[160px] rounded-[4px] border border-[var(--cz-border)] bg-[var(--cz-elevated)] px-2 py-1 text-left shadow-[var(--shadow-sm)] transition-all duration-200 ease-out ${tipPlacement(n)} ${
-                    isActive
-                      ? "translate-y-0 opacity-100"
-                      : "translate-y-1 opacity-0"
-                  }`}
-                >
-                  <span className="block truncate text-[13px] font-bold text-[var(--cz-text-primary)]">
-                    {n.h}
-                  </span>
-                  <span className="block whitespace-nowrap text-[13px] text-[var(--cz-text-secondary)]">
-                    {n.s}
-                  </span>
-                </span>
-              </button>
-            );
-          })}
-        </motion.div>
-
-        {/* header + footer */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between px-4 pt-3.5 text-[13px] sm:px-5 sm:pt-4">
-          <span className="inline-flex items-center gap-2 font-bold text-[var(--cz-text-primary)]">
+        <div className="t-tilt-glare" aria-hidden />
+        {/* header */}
+        <div className="flex items-center justify-between border-b border-[var(--cz-border)] px-4 py-3">
+          <span className="inline-flex items-center gap-2 text-[13px] font-bold text-[var(--cz-text-primary)]">
             <span
-              className="h-2 w-2 animate-pulse rounded-full bg-[var(--cz-accent)]"
+              className="h-2 w-2 animate-pulse rounded-full bg-[var(--cz-success)]"
               aria-hidden
             />
-            Your network
+            Live preview
           </span>
-          <span className="text-[var(--cz-text-tertiary)]">4 nearby</span>
+          <div
+            ref={tabsRef}
+            className="t-tabs"
+            role="tablist"
+            aria-label="Feed preview tabs"
+          >
+            <span ref={pillRef} className="t-tabs-pill" aria-hidden />
+            {["Following", "Discovery"].map((t, i) => (
+              <button
+                key={t}
+                type="button"
+                role="tab"
+                aria-selected={tab === i ? "true" : "false"}
+                onClick={() => setTab(i)}
+                className="t-tab text-[13px] font-bold"
+              >
+                {t}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between px-4 pb-3.5 text-[13px] text-[var(--cz-text-tertiary)] sm:px-5 sm:pb-4">
-          <span>Discover → Follow → Post → Interact</span>
-          <span className="hidden sm:inline">Hover to explore</span>
+
+        {/* post 1 */}
+        <div className="border-b border-[var(--cz-border)] px-4 py-3">
+          <div className="flex gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[var(--cz-accent)] text-[13px] font-bold text-[var(--cz-text-inverse)]">
+              P
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="flex items-center gap-1 text-[15px] leading-[20px]">
+                <span className="truncate font-bold text-[var(--cz-text-primary)]">
+                  Priya
+                </span>
+                <span
+                  className="grid h-4 w-4 place-items-center rounded-full bg-[var(--cz-accent)] text-[9px] font-bold text-white"
+                  aria-label="Verified"
+                >
+                  ✓
+                </span>
+                <span className="truncate text-[var(--cz-text-secondary)]">
+                  · 2m
+                </span>
+              </p>
+              <p className="mt-0.5 text-[15px] leading-[20px] text-[var(--cz-text-primary)]">
+                Hackathon team formation tonight? Need one design + one backend.{" "}
+                <span className="font-medium text-[var(--cz-accent)]">
+                  #BuildNight
+                </span>{" "}
+                <span className="font-medium text-[var(--cz-accent)]">
+                  @arjun_ece
+                </span>
+              </p>
+              <div className="mt-2 overflow-hidden rounded-[12px] border border-[var(--cz-border)]">
+                <div className="flex items-center gap-1.5 border-b border-[var(--cz-border)] px-3 py-1.5 text-[12px] font-bold text-[var(--cz-text-secondary)]">
+                  <BarChart2 className="h-3.5 w-3.5" aria-hidden /> Poll · ends
+                  in 1d
+                </div>
+                <div className="space-y-1.5 p-3">
+                  {[
+                    ["I can design", "68%"],
+                    ["I can backend", "32%"],
+                  ].map(([label, pct]) => (
+                    <div
+                      key={label}
+                      className="relative h-[32px] overflow-hidden rounded-[8px] bg-[var(--cz-surface-strong)]"
+                    >
+                      <div
+                        className="absolute inset-y-0 left-0 bg-[var(--cz-accent-soft)]"
+                        style={{ width: pct }}
+                        aria-hidden
+                      />
+                      <div className="relative flex h-full items-center justify-between px-2.5 text-[13px] font-bold">
+                        <span className="text-[var(--cz-text-primary)]">
+                          {label}
+                        </span>
+                        <span className="text-[var(--cz-text-secondary)]">
+                          {pct}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="mt-1 flex max-w-[340px] items-center justify-between text-[var(--cz-text-secondary)]">
+                <span className="flex items-center gap-1 px-2 py-1 text-[13px]">
+                  <MessageCircle
+                    className="h-[18px] w-[18px]"
+                    strokeWidth={1.8}
+                    aria-hidden
+                  />{" "}
+                  24
+                </span>
+                <span className="flex items-center gap-1 px-2 py-1 text-[13px]">
+                  <Repeat2
+                    className="h-[18px] w-[18px]"
+                    strokeWidth={1.8}
+                    aria-hidden
+                  />{" "}
+                  12
+                </span>
+                <button
+                  ref={likeBtnRef}
+                  type="button"
+                  onClick={toggleLike}
+                  data-liked={liked ? "true" : "false"}
+                  aria-pressed={liked}
+                  aria-label={
+                    liked ? "Unlike preview post" : "Like preview post"
+                  }
+                  className="t-like relative flex items-center gap-1 rounded-full px-2 py-1 text-[13px] font-medium transition-colors hover:bg-[color-mix(in_srgb,var(--cz-like)_12%,transparent)] hover:text-[var(--cz-like)] data-[liked=true]:text-[var(--cz-like)]"
+                >
+                  <span className="t-like-icon grid place-items-center">
+                    <Heart
+                      className="t-like-heart h-[18px] w-[18px]"
+                      strokeWidth={1.8}
+                      aria-hidden
+                    />
+                  </span>
+                  <span
+                    className="t-digit-group is-animating tabular-nums"
+                    key={likeCount}
+                  >
+                    {String(likeCount)
+                      .split("")
+                      .map((ch, i, arr) => (
+                        <span
+                          key={`${likeCount}-${i}`}
+                          className="t-digit"
+                          data-stagger={i === arr.length - 1 ? "1" : undefined}
+                        >
+                          {ch}
+                        </span>
+                      ))}
+                  </span>
+                  <span className="t-like-particles" aria-hidden>
+                    {Array.from({ length: 8 }).map((_, i) => (
+                      <i key={i} />
+                    ))}
+                  </span>
+                </button>
+                <span className="grid place-items-center rounded-full p-2">
+                  <Bookmark
+                    className="h-[18px] w-[18px]"
+                    strokeWidth={1.8}
+                    aria-hidden
+                  />
+                </span>
+                <span className="grid place-items-center rounded-full p-2">
+                  <Share2
+                    className="h-[18px] w-[18px]"
+                    strokeWidth={1.8}
+                    aria-hidden
+                  />
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
-      </motion.div>
+
+        {/* post 2 — article */}
+        <div className="px-4 py-3">
+          <div className="block rounded-[12px] border border-[var(--cz-border)] bg-[var(--cz-surface)] p-3 transition-colors hover:bg-[var(--cz-surface-strong)]">
+            <span className="flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-wide text-[var(--cz-accent)]">
+              <FileText className="h-3.5 w-3.5" aria-hidden /> Article ·
+              @sana_des/placement-notes
+            </span>
+            <span className="mt-1 block text-[16px] font-extrabold leading-[22px] text-[var(--cz-text-primary)]">
+              Placement notes: 30 days of DSA
+            </span>
+            <span className="mt-0.5 line-clamp-2 block text-[14px] leading-[20px] text-[var(--cz-text-secondary)]">
+              What actually worked — sheets, mocks, and revision loops. 12 min
+              read with code blocks.
+            </span>
+            <span className="t-learn mt-1 inline-flex items-center gap-1 text-[13px] font-bold text-[var(--cz-accent)]">
+              Read article
+              <span className="t-learn-chevron" aria-hidden>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path className="t-learn-arm t-learn-arm-top" d="M6 4L10 8" />
+                  <path
+                    className="t-learn-arm t-learn-arm-bot"
+                    d="M10 8L6 12"
+                  />
+                </svg>
+              </span>
+            </span>
+          </div>
+        </div>
+
+        {/* footer — online row */}
+        <div className="flex items-center justify-between border-t border-[var(--cz-border)] bg-[var(--cz-surface-strong)]/40 px-4 py-3">
+          <div
+            ref={avatarGroupRef}
+            className="t-avatar-group flex items-center"
+            onMouseLeave={() => setShifts(null, "out")}
+          >
+            {AVATARS.map((a, i) => (
+              <span
+                key={a.label}
+                onMouseEnter={() => setShifts(i, "in")}
+                title={a.label}
+                className={`t-avatar -ml-2 grid h-8 w-8 place-items-center rounded-full border-2 border-[var(--cz-surface)] text-[12px] font-bold first:ml-0 ${
+                  i === AVATARS.length - 1
+                    ? "bg-[var(--cz-surface-strong)] text-[var(--cz-text-secondary)]"
+                    : "bg-[var(--cz-accent)] text-[var(--cz-text-inverse)]"
+                }`}
+              >
+                {a.i}
+              </span>
+            ))}
+          </div>
+          <span className="text-[13px] font-medium text-[var(--cz-text-secondary)]">
+            2.4k students online
+          </span>
+        </div>
+      </div>
     </div>
   );
 }

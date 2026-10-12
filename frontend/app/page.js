@@ -11,7 +11,7 @@ import { TrustSafety } from "@/components/landing/TrustSafety";
 
 export const metadata = {
   description:
-    "CampusZen is a student-first social network to discover students, share thoughts, and stay connected to campus life across India. Join free today.",
+    "CampusZen is a student-first social network: 500-char posts with photos, video & polls, 50k Markdown articles, college feeds, realtime notifications, author analytics & merit verification. Join free.",
 };
 
 export default function Home() {
@@ -20,7 +20,7 @@ export default function Home() {
       <LandingCloudscape />
       <LandingRedirect />
       <LandingNav />
-      <main className="relative z-10 mx-auto w-full max-w-[990px] flex-1 px-4">
+      <main className="relative z-10 mx-auto w-full max-w-[1080px] flex-1 px-4">
         <Hero />
         <HowItWorks />
         <Features />
