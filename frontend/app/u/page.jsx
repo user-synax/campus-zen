@@ -4,8 +4,10 @@ import { Loader2, Search, Users } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { EmptyState } from "@/components/app/EmptyState";
 import { UserCard } from "@/components/app/UserCard";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { api } from "@/lib/api";
-import { useRequireSession } from "@/lib/hooks/useRequireSession";
+import { useCurrentUser } from "@/lib/hooks/useRequireSession";
 
 export default function UsersDirectoryPage() {
   const [users, setUsers] = useState([]);
@@ -17,7 +19,8 @@ export default function UsersDirectoryPage() {
   const observerRef = useRef(null);
   const sentinelRef = useRef(null);
 
-  const { user: me, checking } = useRequireSession();
+  const { user: me, loading: checking } = useCurrentUser();
+  const isGuest = !me;
 
   const fetchPage = useCallback(async (p, query, reset = false) => {
     if (reset) setLoading(true);
@@ -67,12 +70,11 @@ export default function UsersDirectoryPage() {
     return () => observerRef.current?.disconnect();
   }, [hasMore, loading, loadingMore, page, q, fetchPage]);
 
-  // Signed out: useRequireSession is already redirecting to /login.
-  if (checking || !me) {
+  if (checking) {
     return (
       <div className="flex items-center gap-2 px-4 py-10 text-[15px] text-[var(--cz-text-secondary)]">
         <Loader2 className="h-[18px] w-[18px] animate-spin" aria-hidden />
-        Redirecting to sign in…
+        Loading students…
       </div>
     );
   }
@@ -114,6 +116,22 @@ export default function UsersDirectoryPage() {
         </div>
       </div>
 
+      {isGuest ? (
+        <div className="mx-4 mb-3 flex flex-col items-start gap-2 rounded-[16px] border border-[var(--cz-border)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[14px] leading-[20px] text-[var(--cz-text-secondary)]">
+            Join CampusZen to follow students and see their posts in your feed.
+          </p>
+          <div className="flex shrink-0 items-center gap-2">
+            <Link href="/login">
+              <Button variant="secondary">Log in</Button>
+            </Link>
+            <Link href="/signup">
+              <Button>Sign up</Button>
+            </Link>
+          </div>
+        </div>
+      ) : null}
+
       {loading ? (
         <div className="grid gap-3 p-4 sm:grid-cols-2">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -150,8 +168,8 @@ export default function UsersDirectoryPage() {
             <UserCard
               key={u._id}
               user={u}
-              isOwn={me.username === u.username}
-              isGuest={false}
+              isOwn={me?.username === u.username}
+              isGuest={isGuest}
             />
           ))}
         </div>

@@ -8,7 +8,7 @@ import { PostCard } from "@/components/app/PostCard";
 import { UserCard } from "@/components/app/UserCard";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
-import { useRequireSession } from "@/lib/hooks/useRequireSession";
+import { useCurrentUser } from "@/lib/hooks/useRequireSession";
 
 export default function CollegePage() {
   const { slug } = useParams();
@@ -22,7 +22,8 @@ export default function CollegePage() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
 
-  const { user: me, checking } = useRequireSession();
+  const { user: me, loading: checking } = useCurrentUser();
+  const isGuest = !me;
 
   useEffect(() => {
     let cancelled = false;
@@ -77,7 +78,7 @@ export default function CollegePage() {
     fetchTab(tab, 1, false);
   }, [tab, slug, fetchTab]);
 
-  if (loading || checking || !me)
+  if (loading || checking)
     return (
       <div className="grid place-items-center py-20">
         <Loader2
@@ -181,7 +182,7 @@ export default function CollegePage() {
                   key={u._id}
                   user={u}
                   isOwn={me?.username === u.username}
-                  isGuest={false}
+                  isGuest={isGuest}
                 />
               ))}
             </div>
