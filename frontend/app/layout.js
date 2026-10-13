@@ -1,9 +1,10 @@
 import { Inter } from "next/font/google";
 import { cookies } from "next/headers";
 import "./globals.css";
+import { Analytics } from "@vercel/analytics/next";
+import { PushRegistrar } from "@/components/app/PushRegistrar";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { CzToaster } from "@/components/ui/sonner";
-import { PushRegistrar } from "@/components/app/PushRegistrar";
 import { readThemeCookie } from "@/lib/theme";
 
 // TwitterChirp is proprietary — Inter is the documented substitute.
@@ -101,12 +102,11 @@ export default async function RootLayout({ children }) {
       className={`${inter.variable} ${theme === "dark" ? "dark" : ""} h-full antialiased`}
     >
       <body className="min-h-dvh flex flex-col">
-        <script type="application/ld+json">
-          {JSON.stringify(orgJsonLd)}
-        </script>
+        <script type="application/ld+json">{JSON.stringify(orgJsonLd)}</script>
         <PushRegistrar />
         <QueryProvider>{children}</QueryProvider>
         <CzToaster />
+        <Analytics />
       </body>
     </html>
   );
