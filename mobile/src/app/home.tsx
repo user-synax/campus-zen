@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { router } from "expo-router";
 import { ApiError, api, type FeedPost } from "../lib/api";
 import { PostCard } from "../components/PostCard";
 import { PillButton } from "../components/PillButton";
@@ -156,7 +157,12 @@ export default function Home() {
   };
 
   const renderItem = useCallback(
-    ({ item }: { item: FeedPost }) => <PostCard initial={item} />,
+    ({ item }: { item: FeedPost }) => (
+      <PostCard
+        initial={item}
+        onReply={() => router.push({ pathname: "/post/[id]", params: { id: item._id } })}
+      />
+    ),
     [],
   );
 

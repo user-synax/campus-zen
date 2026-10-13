@@ -18,6 +18,7 @@ function RootNavigator() {
       <Stack.Protected guard={authed}>
         <Stack.Screen name="index" />
         <Stack.Screen name="home" />
+        <Stack.Screen name="post/[id]" options={{ animation: "slide_from_right" }} />
       </Stack.Protected>
       <Stack.Protected guard={!authed}>
         <Stack.Screen name="login" />

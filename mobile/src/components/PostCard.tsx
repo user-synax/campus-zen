@@ -93,7 +93,15 @@ function Action({
  * article card, media grid, poll, and the 5-group action bar with
  * optimistic like/repost/bookmark. Counts hide at zero.
  */
-export const PostCard = memo(function PostCard({ initial }: { initial: FeedPost }) {
+export const PostCard = memo(function PostCard({
+  initial,
+  detail,
+  onReply,
+}: {
+  initial: FeedPost;
+  detail?: boolean;
+  onReply?: () => void;
+}) {
   const t = useTheme();
   const [post, setPost] = useState(initial);
   const viewed = useRef(false);
@@ -161,6 +169,11 @@ export const PostCard = memo(function PostCard({ initial }: { initial: FeedPost 
                 color={badgeColors[badge]}
               />
             ) : null}
+            {detail ? (
+              <Text style={[styles.handle, { color: t.secondary }]} numberOfLines={1}>
+                @{a.username}
+              </Text>
+            ) : null}
             <Text style={[styles.time, { color: t.secondary }]} numberOfLines={1}>
               · {timeAgo(post.createdAt)}
               {post.edited ? " · edited" : ""}
@@ -197,6 +210,7 @@ export const PostCard = memo(function PostCard({ initial }: { initial: FeedPost 
               count={post.replyCount}
               color={t.secondary}
               label={`${post.replyCount} replies`}
+              onPress={onReply}
             />
             <Action
               icon="repeat"
@@ -270,6 +284,7 @@ const styles = StyleSheet.create({
   content: { flex: 1, minWidth: 0 },
   header: { flexDirection: "row", alignItems: "center", gap: 4 },
   name: { fontSize: 15, lineHeight: 20, fontWeight: "700", flexShrink: 1 },
+  handle: { fontSize: 15, lineHeight: 20, flexShrink: 1 },
   time: { fontSize: 15, lineHeight: 20, flexShrink: 1 },
   body: { marginTop: 2, fontSize: 15, lineHeight: 20 },
   article: { marginTop: 4, borderRadius: 12, borderWidth: 1, padding: 12 },

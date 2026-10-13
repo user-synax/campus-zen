@@ -169,6 +169,15 @@ interface FeedResponse {
   data: { posts: FeedPost[]; page: number; limit: number; hasMore: boolean };
 }
 
+export interface PostComment {
+  _id: string;
+  post: string;
+  author: FeedAuthor;
+  text: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export const api = {
   base: BASE,
   checkUsername: (username: string) =>
@@ -232,5 +241,25 @@ export const api = {
     request<{ success: boolean; data: { viewed: boolean; viewCount: number } }>(
       `/api/posts/${encodeURIComponent(id)}/view`,
       { method: "POST" },
+    ),
+  getPost: (id: string) =>
+    request<{ success: boolean; data: { post: FeedPost } }>(
+      `/api/posts/${encodeURIComponent(id)}`,
+    ),
+  getReplies: (id: string, params: { page?: number; limit?: number } = {}) =>
+    request<{
+      success: boolean;
+      data: {
+        comments: PostComment[];
+        total: number;
+        page: number;
+        limit: number;
+        hasMore: boolean;
+      };
+    }>(`/api/posts/${encodeURIComponent(id)}/replies?page=${params.page ?? 1}&limit=${params.limit ?? 20}`),
+  createReply: (id: string, text: string) =>
+    request<{ success: boolean; data: { comment: PostComment; replyCount: number } }>(
+      `/api/posts/${encodeURIComponent(id)}/replies`,
+      { method: "POST", body: { text } },
     ),
 };
