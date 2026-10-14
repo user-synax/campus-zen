@@ -21,6 +21,7 @@ export function ArticleComposer({ user, onCreated }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [isSensitive, setIsSensitive] = useState(false);
   const fileInputRef = useRef(null);
 
   const slugPreview = useMemo(() => slugifyArticleClient(title || "untitled"), [title]);
@@ -113,13 +114,14 @@ export function ArticleComposer({ user, onCreated }) {
       const res = await api.createArticle(
         { title: title.trim(), description: description.trim(), body: body.trim() },
         files.length ? files : undefined,
-        files.length ? { posters, meta: hasMeta ? meta : undefined } : {},
+        files.length ? { posters, meta: hasMeta ? meta : undefined, isSensitive } : { isSensitive },
       );
       setTitle("");
       setDescription("");
       setBody("");
       setPreview(false);
       setItems([]);
+      setIsSensitive(false);
       onCreated?.(res.data?.post);
     } catch (err) {
       setError(err.data?.message || err.message || "Failed to publish article");
@@ -217,11 +219,31 @@ export function ArticleComposer({ user, onCreated }) {
           ) : null}
 
           {error ? <p role="alert" className="mt-2 text-[13px] text-[var(--cz-error)]">{error}</p> : null}
+          {isSensitive ? (
+            <p className="mt-2 text-[13px] font-bold text-[var(--cz-error)]">
+              Marked 18+ — cover media will be blurred unless viewers enable Show 18+.
+            </p>
+          ) : null}
 
           <div className="mt-2 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <button type="button" onClick={() => fileInputRef.current?.click()} disabled={items.length >= MEDIA_LIMITS.MAX_FILES} className="text-[13px] font-bold text-[var(--cz-accent)] hover:underline disabled:opacity-40">
                 {items.length ? `${items.length}/${MEDIA_LIMITS.MAX_FILES} cover media` : "Add cover media"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsSensitive((v) => !v)}
+                aria-pressed={isSensitive}
+                aria-label={isSensitive ? "Unmark as 18+" : "Mark as 18+"}
+                title="Mark cover media as 18+"
+                className={cn(
+                  "grid h-[32px] min-w-[48px] place-items-center rounded-full border px-2 text-[13px] font-extrabold tracking-wide transition-colors",
+                  isSensitive
+                    ? "border-[var(--cz-error)] bg-[var(--cz-error)] text-white"
+                    : "border-[var(--cz-border-strong)] text-[var(--cz-text-secondary)] hover:bg-[var(--cz-surface-strong)]",
+                )}
+              >
+                18+
               </button>
               <input ref={fileInputRef} type="file" accept={ACCEPT_POST_MEDIA} multiple onChange={handleFilesSelect} className="hidden" />
               <span className="text-[12px] text-[var(--cz-text-secondary)] tabular-nums">{body.trim().length}/{ARTICLE_BODY_MAX}</span>

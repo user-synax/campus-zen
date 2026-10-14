@@ -150,6 +150,8 @@ export const api = {
     request("/api/users/me", { method: "PATCH", body: payload }),
   updatePrivacy: (payload) =>
     request("/api/users/me/privacy", { method: "PATCH", body: payload }),
+  setDobOnce: (dob) =>
+    request("/api/users/me/dob", { method: "POST", body: { dob } }),
   getIncomingRequests: (params = {}) => {
     const qs = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => {
@@ -348,13 +350,14 @@ export const api = {
   },
   createPost: (text, media, poll, extra = {}) => {
     // media: File | File[] | undefined (images, GIFs, videos).
-    // extra: { posters?: Blob[], meta?: [{ width, height, duration }] } —
+    // extra: { posters?: Blob[], meta?: [{ width, height, duration }], isSensitive?: boolean } —
     // meta aligned by file index; posters[0] is the single video's poster.
     // Old (text, imageFile, poll) calls keep working: a lone File sends as
     // one "media" part.
     const files = Array.isArray(media) ? media : media ? [media] : [];
     const posters = extra?.posters || [];
     const meta = extra?.meta;
+    const isSensitive = Boolean(extra?.isSensitive);
     if (files.length) {
       const form = new FormData();
       if (text) form.append("text", text);
@@ -364,14 +367,16 @@ export const api = {
       });
       if (meta) form.append("mediaMeta", JSON.stringify(meta));
       if (poll) form.append("poll", JSON.stringify(poll));
+      if (isSensitive) form.append("isSensitive", "true");
       return request("/api/posts", { method: "POST", form });
     }
-    return request("/api/posts", { method: "POST", body: { text, poll } });
+    return request("/api/posts", { method: "POST", body: { text, poll, isSensitive: isSensitive || undefined } });
   },
   createArticle: ({ title, description, body }, media, extra = {}) => {
     const files = Array.isArray(media) ? media : media ? [media] : [];
     const posters = extra?.posters || [];
     const meta = extra?.meta;
+    const isSensitive = Boolean(extra?.isSensitive);
     if (files.length) {
       const form = new FormData();
       form.append("title", title);
@@ -382,9 +387,10 @@ export const api = {
         if (p) form.append("posters", p, "poster.jpg");
       });
       if (meta) form.append("mediaMeta", JSON.stringify(meta));
+      if (isSensitive) form.append("isSensitive", "true");
       return request("/api/posts/articles", { method: "POST", form });
     }
-    return request("/api/posts/articles", { method: "POST", body: { title, description, body } });
+    return request("/api/posts/articles", { method: "POST", body: { title, description, body, isSensitive: isSensitive || undefined } });
   },
   updateArticle: (id, payload) =>
     request(`/api/posts/articles/${encodeURIComponent(id)}`, { method: "PATCH", body: payload }),

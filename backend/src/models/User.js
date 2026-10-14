@@ -98,6 +98,14 @@ const userSchema = new mongoose.Schema(
     isDeactivated: { type: Boolean, default: false, index: true },
     deactivatedAt: { type: Date, default: null },
     scheduledDeletionAt: { type: Date, default: null, index: true },
+    // 18+ content preference (Reddit-style). When false, sensitive posts
+    // render blurred and require opt-in to reveal.
+    showSensitive: { type: Boolean, default: false },
+    // Date of birth for 18+ gating — settable exactly once, never editable.
+    // Saved even if under 18 (one-shot lock); showSensitive may only turn
+    // on when age >= 18. Only ever exposed on own /me payload.
+    dob: { type: Date, default: null },
+    dobSetAt: { type: Date, default: null },
 
     // dual-token: hashed refresh token (sha256 hex)
     refreshTokenHash: { type: String, default: null, select: false },

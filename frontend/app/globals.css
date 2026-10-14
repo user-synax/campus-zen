@@ -1384,3 +1384,66 @@ input[type="number"] {
 .cz-markdown img { max-width: 100%; border-radius: 12px; border: 1px solid var(--cz-border); }
 .cz-markdown hr { margin: 1.2em 0; border: none; border-top: 1px solid var(--cz-border); }
 .cz-markdown del { color: var(--cz-text-secondary); }
+
+/* ── 18+ sensitive media ─────────────────────────────────────
+   Blurred placeholder with a moving sweep; tap reveals with a
+   click-origin radial wipe (clip-path transition on the overlay).
+   Blocked taps show a popover + full-screen red flash. */
+.cz-sensitive-wrap {
+  isolation: isolate;
+}
+.cz-sensitive-blurred {
+  filter: blur(22px) saturate(0.85) brightness(0.92);
+  transform: scale(1.08);
+  user-select: none;
+}
+.cz-sensitive-blurred > * {
+  margin-top: 0 !important;
+}
+.cz-sensitive-overlay {
+  transition: clip-path 600ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: clip-path;
+}
+.cz-sensitive-sweep {
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.16) 44%,
+    rgba(255, 255, 255, 0.07) 56%,
+    transparent 70%
+  );
+  background-size: 250% 100%;
+  animation: cz-sensitive-pan 2.8s linear infinite;
+  pointer-events: none;
+}
+@keyframes cz-sensitive-pan {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -30% 0;
+  }
+}
+.cz-red-flash {
+  background: rgba(244, 33, 46, 0.5);
+  animation: cz-red-flash 450ms ease-out forwards;
+}
+@keyframes cz-red-flash {
+  0% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cz-sensitive-sweep {
+    animation: none !important;
+  }
+  .cz-sensitive-overlay {
+    transition: none !important;
+  }
+  .cz-red-flash {
+    animation-duration: 150ms !important;
+  }
+}

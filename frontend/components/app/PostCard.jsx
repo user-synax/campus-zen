@@ -501,6 +501,11 @@ export function PostCard({
                   {author.fullName || author.username}
                 </Link>
                 <UserBadge user={author} size="sm" />
+                {post?.isSensitive ? (
+                  <span className="inline-flex shrink-0 items-center rounded-full bg-[var(--cz-error)] px-2 py-0.5 text-[11px] font-extrabold tracking-wide text-white">
+                    18+
+                  </span>
+                ) : null}
                 <span className="shrink-0 whitespace-nowrap text-[15px] text-[var(--cz-text-secondary)]">
                   <Link href={articlePath} className="hover:underline">
                     · {timeAgo(post.createdAt)}
@@ -641,7 +646,7 @@ export function PostCard({
               </div>
             )}
 
-            <PostMedia post={post} />
+            <PostMedia post={post} viewerShowSensitive={currentUser?.showSensitive} />
 
             {post.poll?.options?.length ? (
               <PollBlock

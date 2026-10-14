@@ -4,6 +4,32 @@ import { blockService } from "./blockService.js";
 import { privacyService } from "./privacyService.js";
 import { cache, CacheKeys, TTL } from "../utils/cache.js";
 
+// ── DOB / age gate (one-shot, immutable) ─────────────────────────────
+// DOB is stored even when under 18 (locked forever); showSensitive may
+// only transition false→true when age >= 18. Grandfathered users who
+// already have showSensitive=true keep it without a DOB.
+export function calcAgeYears(dob) {
+  const d = new Date(dob);
+  if (Number.isNaN(d.getTime())) return -1;
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age -= 1;
+  return age;
+}
+
+export function parseDobInput(input) {
+  if (typeof input !== "string") throw new AppError("Date of birth required (YYYY-MM-DD)", 400, "INVALID_DOB");
+  const s = input.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) throw new AppError("Date of birth must be YYYY-MM-DD", 400, "INVALID_DOB");
+  const d = new Date(`${s}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) throw new AppError("Invalid date of birth", 400, "INVALID_DOB");
+  if (d.getTime() > Date.now()) throw new AppError("Date of birth can't be in the future", 400, "INVALID_DOB");
+  const age = calcAgeYears(d);
+  if (age > 120) throw new AppError("Invalid date of birth", 400, "INVALID_DOB");
+  return d;
+}
+
 export const userService = {
   async listUsers({ q, college, course, academicYear, page = 1, limit = 20, viewerId }) {
     const filter = { isDeactivated: { $ne: true } };
@@ -51,7 +77,7 @@ export const userService = {
     }
 
     const safe = users.map((u) => {
-      const { passwordHash, refreshTokenHash, __v, ...rest } = u;
+      const { passwordHash, refreshTokenHash, __v, dob, dobSetAt, ...rest } = u;
       const isFollowing = followingSet.has(String(u._id));
       const withVis = privacyService.applyProfileVisibility(rest, viewerId, isFollowing);
       return { ...withVis, isFollowing };
@@ -178,6 +204,11 @@ export const userService = {
       }
     }
     let safe = user.toSafeObject();
+    // DOB is own-only — never leak to other viewers (directory, profiles).
+    if (String(viewerId || "") !== String(user._id)) {
+      delete safe.dob;
+      delete safe.dobSetAt;
+    }
     let isFollowing = false;
     if (viewerId && String(viewerId) !== String(user._id)) {
       const { Follow } = await import("../models/Follow.js");
@@ -260,12 +291,23 @@ export const userService = {
   },
 
   async updateMe(userId, data) {
-    const allowed = ["fullName", "bio", "college", "course", "academicYear", "avatarUrl", "coverUrl", "accent", "isPrivate", "replyPolicy", "mentionPolicy", "profileVisibility"];
+    if (data?.dob !== undefined) throw new AppError("Date of birth can only be set once via /me/dob", 400, "DOB_IMMUTABLE");
+    const allowed = ["fullName", "bio", "college", "course", "academicYear", "avatarUrl", "coverUrl", "accent", "isPrivate", "replyPolicy", "mentionPolicy", "profileVisibility", "showSensitive"];
     const update = {};
     for (const k of allowed) if (data[k] !== undefined) update[k] = data[k];
 
     // ── Privacy validation ─────────────────────────────────────
     if (update.isPrivate !== undefined) update.isPrivate = Boolean(update.isPrivate);
+    if (update.showSensitive !== undefined) update.showSensitive = Boolean(update.showSensitive);
+    // Same 18+ gate as updatePrivacy — DOB + 18+ required for false→true.
+    if (update.showSensitive === true) {
+      const cur = await User.findById(userId).select("showSensitive dob").lean();
+      if (!cur) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+      if (cur.showSensitive !== true) {
+        if (!cur.dob) throw new AppError("Date of birth required to enable 18+ posts", 400, "DOB_REQUIRED");
+        if (calcAgeYears(cur.dob) < 18) throw new AppError("You must be 18 or older to enable 18+ posts", 403, "UNDERAGE");
+      }
+    }
     if (update.replyPolicy !== undefined && !["everyone", "followers", "none"].includes(update.replyPolicy)) {
       throw new AppError("Invalid reply policy", 400, "VALIDATION_ERROR");
     }
@@ -403,6 +445,7 @@ export const userService = {
   async updatePrivacy(userId, data) {
     const update = {};
     if (data.isPrivate !== undefined) update.isPrivate = Boolean(data.isPrivate);
+    if (data.showSensitive !== undefined) update.showSensitive = Boolean(data.showSensitive);
     if (data.replyPolicy !== undefined) {
       if (!["everyone", "followers", "none"].includes(data.replyPolicy)) throw new AppError("Invalid reply policy", 400, "VALIDATION_ERROR");
       update.replyPolicy = data.replyPolicy;
@@ -411,6 +454,19 @@ export const userService = {
       if (!["everyone", "followers", "none"].includes(data.mentionPolicy)) throw new AppError("Invalid mention policy", 400, "VALIDATION_ERROR");
       update.mentionPolicy = data.mentionPolicy;
     }
+    // 18+ gate: enabling showSensitive (false→true) requires a saved DOB
+    // proving age >= 18. Grandfathered users already ON stay on. Turning
+    // off is always allowed. DOB itself can never be changed here.
+    if (update.showSensitive === true) {
+      const cur = await User.findById(userId).select("showSensitive dob").lean();
+      if (!cur) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+      const alreadyOn = cur.showSensitive === true;
+      if (!alreadyOn) {
+        if (!cur.dob) throw new AppError("Date of birth required to enable 18+ posts", 400, "DOB_REQUIRED");
+        if (calcAgeYears(cur.dob) < 18) throw new AppError("You must be 18 or older to enable 18+ posts", 403, "UNDERAGE");
+      }
+    }
+    if (data.dob !== undefined) throw new AppError("Date of birth can't be changed here", 400, "DOB_IMMUTABLE");
     const pvSet = {};
     if (data.profileVisibility && typeof data.profileVisibility === "object") {
       for (const f of ["college", "course", "academicYear"]) {
@@ -458,6 +514,25 @@ export const userService = {
     return user.toSafeObject();
   },
 
+  // One-shot DOB entry — saved even when under 18 (permanent lock).
+  // Throws DOB_ALREADY_SET when dob already present. Never updates.
+  async setDobOnce(userId, dobInput) {
+    const dob = parseDobInput(dobInput);
+    const cur = await User.findById(userId).select("dob username").lean();
+    if (!cur) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+    if (cur.dob) throw new AppError("Date of birth is already set and can't be changed", 403, "DOB_ALREADY_SET");
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { $set: { dob, dobSetAt: new Date() } },
+      { new: true, runValidators: true },
+    );
+    if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+    cache.del(CacheKeys.userProfile(user.username));
+    cache.delPattern("user:*");
+    const safe = user.toSafeObject();
+    return { user: safe, age: calcAgeYears(dob), isAdult: calcAgeYears(dob) >= 18 };
+  },
+
   // Full data export for GDPR-style download: profile + content + graph.
   async exportData(userId) {
     const [user, posts, comments, likes, reposts, bookmarks, follows, followers, blocks, reports] = await Promise.all([
@@ -482,6 +557,7 @@ export const userService = {
         replyPolicy: user.replyPolicy,
         mentionPolicy: user.mentionPolicy,
         profileVisibility: user.profileVisibility,
+        showSensitive: user.showSensitive,
       },
       posts,
       comments,

@@ -29,6 +29,7 @@ function MediaTile({ item, onOpen }) {
   const count = normalizePostMedia(item).length;
   const src = first?.posterUrl || first?.url || item.imageUrl;
   const isVideo = first?.kind === "video";
+  const isSensitive = Boolean(item?.isSensitive);
   return (
     <button
       type="button"
@@ -40,12 +41,25 @@ function MediaTile({ item, onOpen }) {
       }
       className="group relative block w-full overflow-hidden bg-[var(--cz-surface-strong)] text-left"
     >
-      <CzImage
-        src={src}
-        alt={item.text || (isVideo ? "Post video" : "Post photo")}
-        className="aspect-square w-full"
-        imgClassName="aspect-square w-full transition-opacity duration-200 group-hover:opacity-90"
-      />
+      <span className={isSensitive ? "cz-sensitive-blurred block" : "block"}>
+        <CzImage
+          src={src}
+          alt={item.text || (isVideo ? "Post video" : "Post photo")}
+          className="aspect-square w-full"
+          imgClassName="aspect-square w-full transition-opacity duration-200 group-hover:opacity-90"
+        />
+      </span>
+      {isSensitive ? (
+        <>
+          <span aria-hidden className="cz-sensitive-sweep absolute inset-0" />
+          <span aria-hidden className="absolute inset-0 bg-black/45" />
+          <span className="absolute inset-0 grid place-items-center">
+            <span className="rounded-full bg-[var(--cz-error)] px-2 py-0.5 text-[11px] font-extrabold tracking-wide text-white">
+              18+
+            </span>
+          </span>
+        </>
+      ) : null}
       {isVideo ? (
         <span className="absolute top-2 right-2 flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[11px] font-bold text-white">
           <span aria-hidden>▶</span>

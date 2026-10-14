@@ -2,13 +2,19 @@ import { postService } from "../services/postService.js";
 import { analyticsService } from "../services/analyticsService.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
+function parseSensitiveFlag(v) {
+  if (v === true) return true;
+  if (v === false || v === undefined || v === null) return false;
+  const s = String(v).trim().toLowerCase();
+  return s === "true" || s === "1" || s === "yes" || s === "on";
+}
+
 export const postController = {
   // Author-only insights overview — totals + top posts over 24h / 7d.
   overview: asyncHandler(async (req, res) => {
     const result = await analyticsService.overview(req.user._id, req.query.range);
     res.json({ success: true, data: result });
   }),
-
   recordView: asyncHandler(async (req, res) => {
     const result = await postService.recordView(req.user._id, req.params.id);
     res.json({ success: true, data: result });
@@ -57,7 +63,8 @@ export const postController = {
     } else if (req.file) {
       mediaInput = req.file;
     }
-    const post = await postService.create(req.user._id, req.body.text, mediaInput, poll);
+    const isSensitive = parseSensitiveFlag(req.body.isSensitive ?? req.body.sensitive);
+    const post = await postService.create(req.user._id, req.body.text, mediaInput, poll, { isSensitive });
     res.status(201).json({ success: true, data: { post } });
   }),
 
@@ -82,10 +89,12 @@ export const postController = {
     } else if (req.file) {
       mediaInput = req.file;
     }
+    const isSensitive = parseSensitiveFlag(req.body.isSensitive ?? req.body.sensitive);
     const { post } = await postService.createArticle(
       req.user._id,
       { title: req.body.title, description: req.body.description, body: req.body.body },
       mediaInput,
+      { isSensitive },
     );
     res.status(201).json({ success: true, data: { post } });
   }),

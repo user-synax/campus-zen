@@ -332,7 +332,7 @@ async function uploadMediaFiles(files, posters, meta) {
 }
 
 export const postService = {
-  async create(authorId, text, mediaInput, pollInput) {
+  async create(authorId, text, mediaInput, pollInput, opts = {}) {
     const t = text?.trim() || "";
     if (t.length > 500) throw new AppError("Post must be 1-500 characters", 400, "INVALID_TEXT");
     const poll = buildPoll(pollInput);
@@ -343,6 +343,7 @@ export const postService = {
     await assertMentionsAllowed(authorId, extractMentions(t));
     const { media, imageUrl } = await uploadMediaFiles(files, posters, meta);
     const articleRefs = extractArticleMentions(t).map((r) => r.key);
+    const isSensitive = Boolean(opts?.isSensitive);
 
     const post = await Post.create({
       author: authorId,
@@ -354,6 +355,7 @@ export const postService = {
       hashtags: extractHashtags(t),
       mentions: extractMentions(t),
       articleMentions: articleRefs,
+      isSensitive,
     });
     // Invalidate caches that include this post
     await User.findByIdAndUpdate(authorId, { $inc: { postCount: 1 } });
@@ -439,7 +441,7 @@ export const postService = {
     return populated;
   },
 
-  async createArticle(authorId, { title, description, body }, mediaInput) {
+  async createArticle(authorId, { title, description, body }, mediaInput, opts = {}) {
     const t = String(title || "").trim();
     const d = String(description || "").trim();
     const b = String(body || "").trim();
@@ -455,6 +457,7 @@ export const postService = {
     const slug = await ensureUniqueArticleSlug(authorId, baseSlug);
     const teaser = buildArticleTeaser(d, b);
     const articleRefs = extractArticleMentions(combined).map((r) => r.key);
+    const isSensitive = Boolean(opts?.isSensitive);
     const post = await Post.create({
       author: authorId,
       kind: "article",
@@ -468,6 +471,7 @@ export const postService = {
       hashtags: extractHashtags(combined),
       mentions: extractMentions(combined),
       articleMentions: articleRefs,
+      isSensitive,
     });
     await User.findByIdAndUpdate(authorId, { $inc: { postCount: 1 } });
     await notifyMentions(authorId, extractMentions(combined), post._id);
@@ -1347,7 +1351,7 @@ export const postService = {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(lim)
-        .select("_id imageUrl media text createdAt likeCount replyCount repostCount")
+        .select("_id imageUrl media isSensitive text createdAt likeCount replyCount repostCount")
         .lean(),
       Post.countDocuments(filter),
     ]);

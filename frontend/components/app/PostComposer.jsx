@@ -87,6 +87,8 @@ export function PostComposer({ user, onCreated }) {
     setValue: setText,
     inputRef: textRef,
   });
+  // 18+ flag — author marks media as sensitive at upload time.
+  const [isSensitive, setIsSensitive] = useState(false);
   // Grow with paste/typing up to 200px, then inner scrollbar so long drafts
   // stay reviewable without pushing the feed away.
   useAutogrowTextarea(textRef, text, 200);
@@ -276,11 +278,12 @@ export function PostComposer({ user, onCreated }) {
         text.trim() || undefined,
         files.length ? files : undefined,
         poll,
-        files.length ? { posters, meta: hasMeta ? meta : undefined } : {},
+        files.length ? { posters, meta: hasMeta ? meta : undefined, isSensitive } : { isSensitive },
       );
       setText("");
       clearItems();
       resetPoll();
+      setIsSensitive(false);
       try {
         window.localStorage.removeItem(draftKey);
       } catch {}
@@ -486,6 +489,11 @@ export function PostComposer({ user, onCreated }) {
           {error ? (
             <p role="alert" className="mt-2 text-[13px] text-[var(--cz-error)]">{error}</p>
           ) : null}
+          {isSensitive ? (
+            <p className="mt-2 text-[13px] font-bold text-[var(--cz-error)]">
+              Marked 18+ — media will be blurred unless viewers enable Show 18+.
+            </p>
+          ) : null}
 
           <div className="mt-2 flex items-center justify-between gap-2">
             <div className="flex items-center gap-1">
@@ -542,6 +550,21 @@ export function PostComposer({ user, onCreated }) {
                 onChange={handleFilesSelect}
                 className="hidden"
               />
+              <button
+                type="button"
+                onClick={() => setIsSensitive((v) => !v)}
+                aria-pressed={isSensitive}
+                aria-label={isSensitive ? "Unmark as 18+" : "Mark as 18+"}
+                title="Mark media as 18+ — blurred unless viewer enables Show 18+"
+                className={cn(
+                  "grid h-[32px] min-w-[48px] place-items-center rounded-full border px-2 text-[13px] font-extrabold tracking-wide transition-colors",
+                  isSensitive
+                    ? "border-[var(--cz-error)] bg-[var(--cz-error)] text-white"
+                    : "border-[var(--cz-border-strong)] text-[var(--cz-text-secondary)] hover:bg-[var(--cz-surface-strong)] hover:text-[var(--cz-text-primary)]",
+                )}
+              >
+                18+
+              </button>
               <span
                 className={cn(
                   "text-[13px] tabular-nums",

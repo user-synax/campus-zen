@@ -83,6 +83,17 @@ export const userController = {
     res.json({ success: true, message: "Privacy settings updated", data: { user } });
   }),
 
+  setDobOnce: asyncHandler(async (req, res) => {
+    const result = await userService.setDobOnce(req.user._id, req.body?.dob);
+    res.status(201).json({
+      success: true,
+      message: result.isAdult
+        ? "Date of birth saved"
+        : "Date of birth saved. You must be 18 or older to enable 18+ posts.",
+      data: result,
+    });
+  }),
+
   exportMe: asyncHandler(async (req, res) => {
     const data = await userService.exportData(req.user._id);
     res.setHeader("Content-Type", "application/json");

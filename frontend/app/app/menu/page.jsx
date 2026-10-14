@@ -23,14 +23,29 @@ import { useEffect, useState } from "react";
 import { CzImage } from "@/components/app/CzImage";
 import { PageHeader } from "@/components/app/PageHeader";
 import { AccountData } from "@/components/app/AccountData";
+import { ContentSettings } from "@/components/app/ContentSettings";
 import { FollowRequests } from "@/components/app/FollowRequests";
 import { PrivacySettings } from "@/components/app/PrivacySettings";
+import { PushSettings } from "@/components/app/PushSettings";
 import { SafetyReports } from "@/components/app/SafetyReports";
 import { UserBadge } from "@/components/ui/verified-badge";
 import { api } from "@/lib/api";
 import { useBlocks, useMe } from "@/lib/hooks/queries";
 import { applyTheme, persistTheme, readTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+
+function SectionHeading({ title, sub }) {
+  return (
+    <div className="mb-2 mt-6">
+      <h2 className="text-[13px] font-extrabold uppercase tracking-wide text-[var(--cz-text-secondary)]">
+        {title}
+      </h2>
+      {sub ? (
+        <p className="mt-0.5 text-[13px] text-[var(--cz-text-secondary)]">{sub}</p>
+      ) : null}
+    </div>
+  );
+}
 
 export default function MenuPage() {
   const router = useRouter();
@@ -109,6 +124,8 @@ export default function MenuPage() {
       <PageHeader title="Menu" />
 
       <div className="p-4">
+        {/* ── Account ─────────────────────────────────────────── */}
+        <SectionHeading title="Account" />
         <Link
           href="/app/profile"
           aria-label="View your profile"
@@ -152,7 +169,7 @@ export default function MenuPage() {
         <Link
           href="/app/verified"
           aria-label="Get verified"
-          className="mt-4 flex items-center gap-3 rounded-[16px] border border-[var(--cz-border)] p-4 transition-colors hover:bg-[var(--cz-surface-strong)]"
+          className="mt-3 flex items-center gap-3 rounded-[16px] border border-[var(--cz-border)] p-4 transition-colors hover:bg-[var(--cz-surface-strong)]"
         >
           <span className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[16px] font-bold text-[var(--cz-text-primary)]">
             {user?.avatarUrl ? (
@@ -186,9 +203,11 @@ export default function MenuPage() {
           <ChevronRight className={chevron} aria-hidden />
         </Link>
 
+        {/* ── Explore ─────────────────────────────────────────── */}
+        <SectionHeading title="Explore" />
         <nav
           aria-label="Menu"
-          className="mt-4 divide-y divide-[var(--cz-border)] overflow-hidden rounded-[16px] border border-[var(--cz-border)]"
+          className="divide-y divide-[var(--cz-border)] overflow-hidden rounded-[16px] border border-[var(--cz-border)]"
         >
           {[
             {
@@ -239,161 +258,184 @@ export default function MenuPage() {
           ))}
         </nav>
 
-        {/* Appearance — the one place the light/dark switch is spelled out */}
-        <div className="mt-4 overflow-hidden rounded-[16px] border border-[var(--cz-border)]">
-          <p className="border-b border-[var(--cz-border)] px-4 py-3 text-[15px] font-bold leading-[20px] text-[var(--cz-text-secondary)]">
-            Appearance
-          </p>
-          <div className="grid grid-cols-2">
-            {[
-              { id: "light", label: "Light", Icon: Sun },
-              { id: "dark", label: "Dark", Icon: Moon },
-            ].map(({ id, label, Icon }, i) => {
-              const on = theme === id;
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setThemeAndApply(id)}
-                  aria-pressed={on}
-                  className={cn(
-                    "flex cursor-pointer items-center justify-center gap-2 py-4 text-[15px] font-bold transition-colors hover:bg-[var(--cz-surface-strong)]",
-                    i === 0 ? "border-r border-[var(--cz-border)]" : null,
-                    on
-                      ? "bg-[var(--cz-accent-soft)] text-[var(--cz-accent)]"
-                      : "text-[var(--cz-text-primary)]",
-                  )}
-                >
-                  <Icon className="h-[18px] w-[18px]" aria-hidden />
-                  {label}
-                </button>
-              );
-            })}
+        {/* ── Preferences: how CampusZen looks, notifies, and what it shows */}
+        <SectionHeading
+          title="Preferences"
+          sub="Appearance, notifications, and content filtering."
+        />
+        <div className="flex flex-col gap-3">
+          <div className="overflow-hidden rounded-[16px] border border-[var(--cz-border)]">
+            <p className="border-b border-[var(--cz-border)] px-4 py-3 text-[15px] font-bold leading-[20px] text-[var(--cz-text-secondary)]">
+              Appearance
+            </p>
+            <div className="grid grid-cols-2">
+              {[
+                { id: "light", label: "Light", Icon: Sun },
+                { id: "dark", label: "Dark", Icon: Moon },
+              ].map(({ id, label, Icon }, i) => {
+                const on = theme === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setThemeAndApply(id)}
+                    aria-pressed={on}
+                    className={cn(
+                      "flex cursor-pointer items-center justify-center gap-2 py-4 text-[15px] font-bold transition-colors hover:bg-[var(--cz-surface-strong)]",
+                      i === 0 ? "border-r border-[var(--cz-border)]" : null,
+                      on
+                        ? "bg-[var(--cz-accent-soft)] text-[var(--cz-accent)]"
+                        : "text-[var(--cz-text-primary)]",
+                    )}
+                  >
+                    <Icon className="h-[18px] w-[18px]" aria-hidden />
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
+
+          <PushSettings />
+          {user ? <ContentSettings user={user} /> : null}
         </div>
 
-        <nav
-          aria-label="Safety and legal"
-          className="mt-4 divide-y divide-[var(--cz-border)] overflow-hidden rounded-[16px] border border-[var(--cz-border)]"
-        >
-          <button
-            type="button"
-            onClick={() => setShowBlocked((v) => !v)}
-            aria-expanded={showBlocked}
-            className={rowBase}
-          >
-            <span className={iconWrap}>
-              <Shield className="h-4 w-4" aria-hidden />
-            </span>
-            <span className="min-w-0 flex-1 text-[15px] font-bold leading-[20px]">
-              Blocked
-            </span>
-            {loadingBlocked ? (
-              <Loader2
-                className="h-4 w-4 animate-spin text-[var(--cz-text-secondary)]"
-                aria-hidden
-              />
-            ) : blocked.length > 0 ? (
-              <span className="grid min-w-[22px] place-items-center rounded-full bg-[var(--cz-accent)] px-1.5 text-[13px] font-bold leading-[22px] text-[var(--cz-text-inverse)]">
-                {blocked.length}
-              </span>
-            ) : (
-              <span className="text-[15px] text-[var(--cz-text-secondary)]">
-                None
-              </span>
-            )}
-            <ChevronRight
-              className={cn(
-                chevron,
-                "transition-transform",
-                showBlocked && "rotate-90",
-              )}
-              aria-hidden
-            />
-          </button>
+        {/* ── Privacy & safety: who sees you, who reaches you, who you blocked */}
+        <SectionHeading
+          title="Privacy & safety"
+          sub="Visibility, interactions, blocked accounts, and reports."
+        />
+        <div className="flex flex-col gap-3">
+          {user ? <PrivacySettings user={user} /> : null}
+          <FollowRequests />
 
-          {showBlocked ? (
-            <div className="bg-[var(--cz-surface-strong)]/50 px-4 py-2">
-              {loadingBlocked ? (
-                <p className="flex items-center gap-2 py-3 text-[15px] text-[var(--cz-text-secondary)]">
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />{" "}
-                  Loading…
-                </p>
-              ) : blocked.length === 0 ? (
-                <p className="py-3 text-[15px] text-[var(--cz-text-secondary)]">
-                  No blocked accounts.
-                </p>
-              ) : (
-                <ul className="divide-y divide-[var(--cz-border)]">
-                  {blocked.map((u) => (
-                    <li key={u._id} className="flex items-center gap-3 py-2.5">
-                      <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[12px] font-bold text-[var(--cz-text-primary)]">
-                        {u.avatarUrl ? (
-                          <CzImage
-                            src={u.avatarUrl}
-                            alt=""
-                            className="h-full w-full rounded-full"
-                            imgClassName="h-full w-full"
-                          />
-                        ) : (
-                          (u.fullName || u.username || "U")
-                            .slice(0, 1)
-                            .toUpperCase()
-                        )}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[15px] font-bold leading-[20px]">
-                          {u.fullName || u.username}
-                        </span>
-                        <span className="block truncate text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">
-                          @{u.username}
-                        </span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => onUnblock(u._id)}
-                        disabled={unblocking === u._id}
-                        className="inline-flex h-[32px] shrink-0 items-center justify-center rounded-full border border-[var(--cz-border-strong)] px-4 text-[14px] font-bold text-[var(--cz-text-primary)] transition-colors hover:bg-[var(--cz-surface-strong)] disabled:opacity-50"
-                      >
-                        {unblocking === u._id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          "Unblock"
-                        )}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          ) : null}
-
-          {[
-            { href: "/privacy", Icon: Lock, title: "Privacy policy" },
-            { href: "/terms", Icon: FileText, title: "Terms of service" },
-          ].map(({ href, Icon, title }) => (
-            <Link key={href} href={href} className={rowBase}>
+          <div className="overflow-hidden rounded-[16px] border border-[var(--cz-border)]">
+            <button
+              type="button"
+              onClick={() => setShowBlocked((v) => !v)}
+              aria-expanded={showBlocked}
+              className={rowBase}
+            >
               <span className={iconWrap}>
-                <Icon className="h-4 w-4" aria-hidden />
+                <Shield className="h-4 w-4" aria-hidden />
               </span>
               <span className="min-w-0 flex-1 text-[15px] font-bold leading-[20px]">
-                {title}
+                Blocked
               </span>
-              <ChevronRight className={chevron} aria-hidden />
-            </Link>
-          ))}
-        </nav>
+              {loadingBlocked ? (
+                <Loader2
+                  className="h-4 w-4 animate-spin text-[var(--cz-text-secondary)]"
+                  aria-hidden
+                />
+              ) : blocked.length > 0 ? (
+                <span className="grid min-w-[22px] place-items-center rounded-full bg-[var(--cz-accent)] px-1.5 text-[13px] font-bold leading-[22px] text-[var(--cz-text-inverse)]">
+                  {blocked.length}
+                </span>
+              ) : (
+                <span className="text-[15px] text-[var(--cz-text-secondary)]">
+                  None
+                </span>
+              )}
+              <ChevronRight
+                className={cn(
+                  chevron,
+                  "transition-transform",
+                  showBlocked && "rotate-90",
+                )}
+                aria-hidden
+              />
+            </button>
 
-        {user ? <PrivacySettings user={user} /> : null}
-        <FollowRequests />
-        <SafetyReports />
-        {user ? <AccountData user={user} /> : null}
+            {showBlocked ? (
+              <div className="bg-[var(--cz-surface-strong)]/50 px-4 py-2">
+                {loadingBlocked ? (
+                  <p className="flex items-center gap-2 py-3 text-[15px] text-[var(--cz-text-secondary)]">
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />{" "}
+                    Loading…
+                  </p>
+                ) : blocked.length === 0 ? (
+                  <p className="py-3 text-[15px] text-[var(--cz-text-secondary)]">
+                    No blocked accounts.
+                  </p>
+                ) : (
+                  <ul className="divide-y divide-[var(--cz-border)]">
+                    {blocked.map((u) => (
+                      <li key={u._id} className="flex items-center gap-3 py-2.5">
+                        <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[12px] font-bold text-[var(--cz-text-primary)]">
+                          {u.avatarUrl ? (
+                            <CzImage
+                              src={u.avatarUrl}
+                              alt=""
+                              className="h-full w-full rounded-full"
+                              imgClassName="h-full w-full"
+                            />
+                          ) : (
+                            (u.fullName || u.username || "U")
+                              .slice(0, 1)
+                              .toUpperCase()
+                          )}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[15px] font-bold leading-[20px]">
+                            {u.fullName || u.username}
+                          </span>
+                          <span className="block truncate text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">
+                            @{u.username}
+                          </span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => onUnblock(u._id)}
+                          disabled={unblocking === u._id}
+                          className="inline-flex h-[32px] shrink-0 items-center justify-center rounded-full border border-[var(--cz-border-strong)] px-4 text-[14px] font-bold text-[var(--cz-text-primary)] transition-colors hover:bg-[var(--cz-surface-strong)] disabled:opacity-50"
+                        >
+                          {unblocking === u._id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            "Unblock"
+                          )}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ) : null}
+          </div>
+
+          <SafetyReports />
+        </div>
+
+        {/* ── Data & legal ────────────────────────────────────── */}
+        <SectionHeading title="Data & legal" sub="Export, policies, and account status." />
+        <div className="flex flex-col gap-3">
+          {user ? <AccountData user={user} /> : null}
+          <nav
+            aria-label="Legal"
+            className="divide-y divide-[var(--cz-border)] overflow-hidden rounded-[16px] border border-[var(--cz-border)]"
+          >
+            {[
+              { href: "/privacy", Icon: Lock, title: "Privacy policy" },
+              { href: "/terms", Icon: FileText, title: "Terms of service" },
+            ].map(({ href, Icon, title }) => (
+              <Link key={href} href={href} className={rowBase}>
+                <span className={iconWrap}>
+                  <Icon className="h-4 w-4" aria-hidden />
+                </span>
+                <span className="min-w-0 flex-1 text-[15px] font-bold leading-[20px]">
+                  {title}
+                </span>
+                <ChevronRight className={chevron} aria-hidden />
+              </Link>
+            ))}
+          </nav>
+        </div>
 
         <button
           type="button"
           onClick={onLogout}
           disabled={loggingOut}
-          className="mt-4 flex min-h-[52px] w-full cursor-pointer items-center justify-center gap-2 rounded-full px-4 py-3 text-[15px] font-bold text-[var(--cz-error)] transition-colors hover:bg-[color-mix(in_srgb,var(--cz-error)_10%,transparent)] disabled:opacity-50"
+          className="mt-6 flex min-h-[52px] w-full cursor-pointer items-center justify-center gap-2 rounded-full px-4 py-3 text-[15px] font-bold text-[var(--cz-error)] transition-colors hover:bg-[color-mix(in_srgb,var(--cz-error)_10%,transparent)] disabled:opacity-50"
         >
           {loggingOut ? (
             <Loader2 className="h-[18px] w-[18px] animate-spin" aria-hidden />

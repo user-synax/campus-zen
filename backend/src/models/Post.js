@@ -45,6 +45,9 @@ const postSchema = new mongoose.Schema(
     // of PostView rows; incremented only on first view per viewer per day.
     viewCount: { type: Number, default: 0, min: 0 },
     edited: { type: Boolean, default: false },
+    // 18+ / sensitive flag (Reddit-style). Set by author at upload time.
+    // Frontend blurs media when true; viewer setting `showSensitive` gates reveal.
+    isSensitive: { type: Boolean, default: false, index: true },
     hashtags: { type: [String], default: [], index: true },
     mentions: { type: [String], default: [], index: true },
     // poll attachment (V1) — counts denormalized here so feeds never aggregate.

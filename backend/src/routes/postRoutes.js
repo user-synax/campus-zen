@@ -18,6 +18,8 @@ const articleBodySchema = z.object({
   title: z.string().trim().min(1, "Title required").max(120, "Max 120 characters"),
   description: z.string().trim().max(200, "Max 200 characters").optional().default(""),
   body: z.string().trim().min(1, "Body required").max(50000, "Max 50000 characters"),
+  // multipart sends booleans as strings — accept both, controller normalizes
+  isSensitive: z.any().optional(),
 });
 const articleUpdateSchema = z.object({
   title: z.string().trim().min(1).max(120).optional(),

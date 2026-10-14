@@ -22,6 +22,7 @@ const updateMeSchema = z.object({
   coverUrl: z.string().url().nullable().optional().or(z.literal("").transform(() => null)),
   accent: z.enum(["peach", "lavender", "mint", "sky", "rose"]).nullable().optional(),
   isPrivate: z.boolean().optional(),
+  showSensitive: z.boolean().optional(),
   replyPolicy: z.enum(["everyone", "followers", "none"]).optional(),
   mentionPolicy: z.enum(["everyone", "followers", "none"]).optional(),
   profileVisibility: z.object({
@@ -48,6 +49,7 @@ const updateMeSchema = z.object({
 
 const privacySchema = z.object({
   isPrivate: z.boolean().optional(),
+  showSensitive: z.boolean().optional(),
   replyPolicy: z.enum(["everyone", "followers", "none"]).optional(),
   mentionPolicy: z.enum(["everyone", "followers", "none"]).optional(),
   profileVisibility: z.object({
@@ -114,6 +116,17 @@ router.post("/me/follow-requests/:requestId/decline", protect, validate(requestI
 
 // privacy + data controls — before /:username to avoid param clash
 router.patch("/me/privacy", meLimiter, protect, validate(privacySchema), userController.updatePrivacy);
+// DOB is one-shot + immutable — dedicated endpoint, strict limiter.
+const dobSchema = z.object({
+  dob: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, "Date of birth must be YYYY-MM-DD"),
+});
+const dobLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+router.post("/me/dob", dobLimiter, protect, validate(dobSchema), userController.setDobOnce);
 router.get("/me/export", protect, userController.exportMe);
 router.post("/me/deactivate", protect, userController.deactivateMe);
 router.post("/me/reactivate", protect, userController.reactivateMe);
