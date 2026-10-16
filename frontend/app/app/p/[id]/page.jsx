@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
+import { Ghost, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { CzImage } from "@/components/app/CzImage";
@@ -16,8 +16,11 @@ import { withAvatarRing } from "@/lib/avatar";
 import { isHiddenPost } from "@/lib/hiddenPosts";
 import { useMe, usePost, useReplies } from "@/lib/hooks/queries";
 
-function timeAgo(date) {
-  const diff = Date.now() - new Date(date).getTime();
+function GhostAnonIcon() {
+  return <Ghost className="h-5 w-5" aria-hidden />;
+}
+
+function timeAgo(date) {  const diff = Date.now() - new Date(date).getTime();
   const s = Math.floor(diff / 1000);
   if (s < 60) return "now";
   const m = Math.floor(s / 60);
@@ -126,6 +129,7 @@ export default function PostDetailPage() {
       <ReplyComposer
         postId={post._id}
         currentUser={me}
+        isAnonymous={Boolean(post.isAnonymous)}
         onCreated={(comment, replyCount) => {
           if (comment) {
             // Splice into the first cached page so the new reply shows up
@@ -210,41 +214,62 @@ export default function PostDetailPage() {
         />
       ) : (
         <div>
-          {replies.map((c) => (
-            <div key={c._id} className="cz-row flex gap-3 px-4 py-3">
-              <Link href={`/u/${c.author?.username}`} className="shrink-0">
-                <span className={withAvatarRing(c.author, "grid h-10 w-10 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[13px] font-bold text-[var(--cz-text-primary)]")}>
-                  {c.author?.avatarUrl ? (
-                    <CzImage
-                      src={c.author.avatarUrl}
-                      alt={c.author.username}
-                      className="h-full w-full rounded-full"
-                      imgClassName="h-full w-full"
-                    />
-                  ) : (
-                    (c.author?.username || "U").slice(0, 1).toUpperCase()
-                  )}
-                </span>
-              </Link>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-x-1 leading-[20px]">
-                  <span className="truncate text-[15px] font-bold text-[var(--cz-text-primary)]">
-                    {c.author?.fullName || c.author?.username}
+          {replies.map((c) => {
+            const cAnon = Boolean(post.isAnonymous) || c.author?.isAnonymousView || c.anonymouse || c.anonAlias;
+            const cIsAnon = Boolean(post.isAnonymous);
+            const cName = cIsAnon ? c.anonAlias || c.author?.fullName || "Anonymous" : c.author?.fullName || c.author?.username;
+            return (
+              <div key={c._id} className="cz-row flex gap-3 px-4 py-3">
+                {cIsAnon ? (
+                  <span role="img" aria-label={cName} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[var(--cz-surface-strong)] text-[var(--cz-text-secondary)]">
+                    <GhostAnonIcon />
                   </span>
-                  <UserBadge user={c.author} size="sm" />
-                  <span className="truncate text-[15px] text-[var(--cz-text-secondary)]">
-                    @{c.author?.username}
-                  </span>
-                  <span className="shrink-0 text-[15px] text-[var(--cz-text-secondary)]">
-                    · {timeAgo(c.createdAt)}
-                  </span>
+                ) : (
+                  <Link href={`/u/${c.author?.username}`} className="shrink-0">
+                    <span className={withAvatarRing(c.author, "grid h-10 w-10 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[13px] font-bold text-[var(--cz-text-primary)]")}>
+                      {c.author?.avatarUrl ? (
+                        <CzImage
+                          src={c.author.avatarUrl}
+                          alt={c.author.username}
+                          className="h-full w-full rounded-full"
+                          imgClassName="h-full w-full"
+                        />
+                      ) : (
+                        (c.author?.username || "U").slice(0, 1).toUpperCase()
+                      )}
+                    </span>
+                  </Link>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-x-1 leading-[20px]">
+                    <span className="truncate text-[15px] font-bold text-[var(--cz-text-primary)]">
+                      {cName}
+                    </span>
+                    {cIsAnon ? (
+                      <>
+                        <span className="inline-flex shrink-0 items-center rounded-full bg-[var(--cz-surface-strong)] px-2 py-0.5 text-[11px] font-extrabold tracking-wide text-[var(--cz-text-secondary)]">
+                          ANON{c.isOp ? " · OP" : ""}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <UserBadge user={c.author} size="sm" />
+                        <span className="truncate text-[15px] text-[var(--cz-text-secondary)]">
+                          @{c.author?.username}
+                        </span>
+                      </>
+                    )}
+                    <span className="shrink-0 text-[15px] text-[var(--cz-text-secondary)]">
+                      · {timeAgo(c.createdAt)}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 whitespace-pre-wrap break-words text-[15px] leading-[20px] text-[var(--cz-text-primary)]">
+                    <RichText text={c.text} />
+                  </p>
                 </div>
-                <p className="mt-0.5 whitespace-pre-wrap break-words text-[15px] leading-[20px] text-[var(--cz-text-primary)]">
-                  <RichText text={c.text} />
-                </p>
               </div>
-            </div>
-          ))}
+            );
+          })}
           {hasMoreReplies ? (
             <div className="p-4">
               <Button

@@ -16,6 +16,7 @@ function invalidatePostCaches(postId, authorId) {
   cache.del(`post:${postId}`);
   cache.delPattern("feed:*");
   cache.delPattern("publicFeed:*");
+  cache.delPattern("anonFeed:*");
   cache.delPattern("trending:*");
   cache.delPattern("hashtag:*");
   if (authorId) {
@@ -112,9 +113,10 @@ export const adminService = {
     const post = await Post.findById(postId);
     if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
     const authorId = post.author;
+    const wasAnon = Boolean(post.isAnonymous);
     await Post.deleteOne({ _id: postId });
     await Promise.all([
-      User.findByIdAndUpdate(authorId, { $inc: { postCount: -1 } }),
+      wasAnon ? Promise.resolve() : User.findByIdAndUpdate(authorId, { $inc: { postCount: -1 } }),
       User.updateOne({ _id: authorId, pinnedPost: postId }, { $unset: { pinnedPost: 1 } }),
       Comment.deleteMany({ post: postId }),
       Like.deleteMany({ post: postId }),
@@ -124,7 +126,7 @@ export const adminService = {
       (await import("../models/PostView.js")).PostView.deleteMany({ post: postId }),
       Report.updateMany({ targetType: "post", targetId: postId, status: "open" }, { $set: { status: "actioned" } }),
     ]);
-    await User.updateOne({ _id: authorId, postCount: { $lt: 0 } }, { $set: { postCount: 0 } });
+    if (!wasAnon) await User.updateOne({ _id: authorId, postCount: { $lt: 0 } }, { $set: { postCount: 0 } });
     invalidatePostCaches(postId, authorId);
     try {
       const { deleteFromAppwrite, extractFileId } = await import("../config/appwrite.js");

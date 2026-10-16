@@ -4,6 +4,10 @@ const postSchema = new mongoose.Schema(
   {
     author: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
     kind: { type: String, enum: ["post", "article"], default: "post", index: true },
+    // anonymous hub — real author kept for moderation, masked in API output.
+    // Anonymous posts never appear in profiles/feeds/search, only in anon hub.
+    isAnonymous: { type: Boolean, default: false, index: true },
+    anonAlias: { type: String, default: null, trim: true, maxlength: 60 },
     title: { type: String, trim: true, maxlength: 120, default: null },
     description: { type: String, trim: true, maxlength: 200, default: null },
     body: { type: String, default: null },
@@ -78,6 +82,7 @@ const postSchema = new mongoose.Schema(
 
 postSchema.index({ createdAt: -1 });
 postSchema.index({ author: 1, createdAt: -1 });
+postSchema.index({ isAnonymous: 1, createdAt: -1 });
 // article slug is unique per author — enforced in service with retry, indexed for lookup
 postSchema.index({ author: 1, slug: 1 }, { unique: true, partialFilterExpression: { kind: "article" } });
 postSchema.index({ kind: 1, createdAt: -1 });

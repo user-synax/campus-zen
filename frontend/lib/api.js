@@ -372,6 +372,30 @@ export const api = {
     }
     return request("/api/posts", { method: "POST", body: { text, poll, isSensitive: isSensitive || undefined } });
   },
+  createAnonymousPost: (text, media, extra = {}) => {
+    // Anonymous hub: text + images only. No polls, no video.
+    const files = Array.isArray(media) ? media : media ? [media] : [];
+    const meta = extra?.meta;
+    const isSensitive = Boolean(extra?.isSensitive);
+    if (files.length) {
+      const form = new FormData();
+      if (text) form.append("text", text);
+      files.forEach((f) => form.append("media", f));
+      if (meta) form.append("mediaMeta", JSON.stringify(meta));
+      if (isSensitive) form.append("isSensitive", "true");
+      return request("/api/posts/anonymous", { method: "POST", form });
+    }
+    return request("/api/posts/anonymous", { method: "POST", body: { text, isSensitive: isSensitive || undefined } });
+  },
+  getAnonymousFeed: (params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "")
+        qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(`/api/posts/anonymous/feed${q ? `?${q}` : ""}`, { method: "GET" });
+  },
   createArticle: ({ title, description, body }, media, extra = {}) => {
     const files = Array.isArray(media) ? media : media ? [media] : [];
     const posters = extra?.posters || [];

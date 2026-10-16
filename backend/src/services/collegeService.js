@@ -245,7 +245,7 @@ export const collegeService = {
       ids = members.filter((m) => !m.isPrivate && !m.isDeactivated).map((m) => m._id);
     }
     if (!ids.length) return { posts: [], total: 0, page: pg, limit: lim, hasMore: false };
-    const filter = { author: { $in: ids } };
+    const filter = { author: { $in: ids }, isAnonymous: { $ne: true } };
     const [posts, total] = await Promise.all([
       Post.find(filter)
         .sort({ createdAt: -1 })

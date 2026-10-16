@@ -134,6 +134,38 @@ export const postController = {
     res.json({ success: true, data: { post } });
   }),
 
+  createAnonymous: asyncHandler(async (req, res) => {
+    let meta = req.body.mediaMeta;
+    if (typeof meta === "string") {
+      try {
+        meta = JSON.parse(meta);
+      } catch {
+        meta = undefined;
+      }
+    }
+    if (!Array.isArray(meta)) meta = undefined;
+    const filesObj = req.files || null;
+    let mediaInput = null;
+    if (filesObj && (filesObj.media?.length || filesObj.image?.length)) {
+      mediaInput = {
+        files: [...(filesObj.media || []), ...(filesObj.image || [])].slice(0, 4),
+        posters: [],
+        meta,
+      };
+    } else if (req.file) {
+      mediaInput = req.file;
+    }
+    const isSensitive = parseSensitiveFlag(req.body.isSensitive ?? req.body.sensitive);
+    const post = await postService.createAnonymous(req.user._id, req.body.text, mediaInput, { isSensitive });
+    res.status(201).json({ success: true, data: { post } });
+  }),
+
+  anonymousFeed: asyncHandler(async (req, res) => {
+    const { page, limit } = req.query;
+    const result = await postService.anonymousFeed(req.user._id, { page, limit });
+    res.json({ success: true, data: result });
+  }),
+
   update: asyncHandler(async (req, res) => {
     const post = await postService.update(req.params.id, req.user._id, req.body.text);
     res.json({ success: true, data: { post } });

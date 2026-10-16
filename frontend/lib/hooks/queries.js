@@ -417,6 +417,28 @@ export function useCreatePost() {
   });
 }
 
+export function useAnonymousFeed() {
+  return useInfiniteQuery({
+    queryKey: ["anon-feed"],
+    queryFn: ({ pageParam = 1 }) => api.getAnonymousFeed({ page: pageParam }),
+    getNextPageParam: (lastPage) =>
+      lastPage.data?.hasMore ? (lastPage.data?.page || 1) + 1 : undefined,
+    initialPageParam: 1,
+    staleTime: 15_000,
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useCreateAnonymousPost() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ text, media, extra }) => api.createAnonymousPost(text, media, extra),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["anon-feed"] });
+    },
+  });
+}
+
 export function useToggleLike() {
   const qc = useQueryClient();
   return useMutation({

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
-import { ArrowUp, FileText, Users } from "lucide-react";
+import { ArrowUp, Check, ChevronDown, FileText, Users } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   EmptyState,
@@ -10,13 +10,45 @@ import {
 } from "@/components/app/EmptyState";
 import { PostComposer } from "@/components/app/PostComposer";
 import { ArticleComposer } from "@/components/app/ArticleComposer";
+import { AnonymousComposer } from "@/components/app/AnonymousComposer";
 import { PostCard } from "@/components/app/PostCard";
 import { api } from "@/lib/api";
-import { useArticlesInfinite, useMe, useFeed } from "@/lib/hooks/queries";
+import { useArticlesInfinite, useMe, useFeed, useAnonymousFeed } from "@/lib/hooks/queries";
 
 export default function AppHome() {
   const [tab, setTab] = useState("discovery");
   const isArticlesTab = tab === "articles";
+  const isAnonTab = tab === "anonymous";
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreWrapRef = useRef(null);
+  const MAIN_TABS = [
+    { id: "following", label: "Following" },
+    { id: "discovery", label: "For you" },
+  ];
+  const MORE_TABS = [
+    { id: "articles", label: "Articles", hint: "Long-form" },
+    { id: "anonymous", label: "Anonymous", hint: "Hub" },
+  ];
+  const activeMore = MORE_TABS.find((t) => t.id === tab) || null;
+
+  // Dismiss the More menu on outside tap or Escape.
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onDown = (e) => {
+      if (moreWrapRef.current && !moreWrapRef.current.contains(e.target)) setMoreOpen(false);
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") setMoreOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("touchstart", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("touchstart", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [moreOpen]);
   const [pending, setPending] = useState([]);
   const [pullDy, setPullDy] = useState(0);
   const [pulling, setPulling] = useState(false);
@@ -33,8 +65,9 @@ export default function AppHome() {
   const { data: meData } = useMe();
   const user = meData?.data?.user || null;
 
-  const feedQuery = useFeed(isArticlesTab ? "discovery" : tab);
+  const feedQuery = useFeed(isArticlesTab || isAnonTab ? "discovery" : tab);
   const articlesQuery = useArticlesInfinite();
+  const anonQuery = useAnonymousFeed();
   const {
     data,
     fetchNextPage,
@@ -44,7 +77,7 @@ export default function AppHome() {
     isError,
     error,
     refetch,
-  } = isArticlesTab ? articlesQuery : feedQuery;
+  } = isArticlesTab ? articlesQuery : isAnonTab ? anonQuery : feedQuery;
 
   // Dedupe by _id — offset pages shift when new posts land mid-scroll, so
   // page N+1 can repeat page N's tail. First occurrence wins (newest).
@@ -82,7 +115,7 @@ export default function AppHome() {
 
   const handleCreated = (newPost) => {
     // Optimistically prepend to feed cache
-    const key = isArticlesTab ? ["articles-feed"] : ["feed", tab];
+    const key = isArticlesTab ? ["articles-feed"] : isAnonTab ? ["anon-feed"] : ["feed", tab];
     queryClient.setQueryData(key, (old) => {
       if (!old) return old;
       const newPages = [...old.pages];
@@ -107,6 +140,7 @@ export default function AppHome() {
     if (checkingRef.current || document.hidden) return;
     if (typeof navigator !== "undefined" && !navigator.onLine) return;
     if (tab === "articles") return;
+    if (tab === "anonymous") return;
     checkingRef.current = true;
     try {
       const fn = tab === "following" ? api.getFeed : api.getPublicFeed;
@@ -151,7 +185,7 @@ export default function AppHome() {
 
   const showNewPosts = () => {
     // Prepend pending posts to cache
-    const key = isArticlesTab ? ["articles-feed"] : ["feed", tab];
+    const key = isArticlesTab ? ["articles-feed"] : isAnonTab ? ["anon-feed"] : ["feed", tab];
     queryClient.setQueryData(key, (old) => {
       if (!old) return old;
       const newPages = [...old.pages];
@@ -210,7 +244,7 @@ export default function AppHome() {
   };
 
   const handleDelete = (id) => {
-    const key = isArticlesTab ? ["articles-feed"] : ["feed", tab];
+    const key = isArticlesTab ? ["articles-feed"] : isAnonTab ? ["anon-feed"] : ["feed", tab];
     queryClient.setQueryData(key, (old) => {
       if (!old) return old;
       return {
@@ -227,7 +261,7 @@ export default function AppHome() {
   };
 
   const handleUpdate = (updated) => {
-    const key = isArticlesTab ? ["articles-feed"] : ["feed", tab];
+    const key = isArticlesTab ? ["articles-feed"] : isAnonTab ? ["anon-feed"] : ["feed", tab];
     queryClient.setQueryData(key, (old) => {
       if (!old) return old;
       return {
@@ -264,20 +298,20 @@ export default function AppHome() {
           </span>
         </div>
       )}
-      {/* Feed tabs only — Search and Post live in the bottom tab bar. */}
+      {/* Feed tabs: Following + For you visible, rest under More — no horizontal scroll. */}
       <div className="sticky top-[53px] z-10 border-b border-[var(--cz-border)] bg-[var(--cz-bg)]/90 backdrop-blur md:top-0">
         <div role="tablist" aria-label="Feed" className="flex min-w-0 flex-1">
-          {[
-            { id: "following", label: "Following" },
-            { id: "discovery", label: "For you" },
-            { id: "articles", label: "Articles" },
-          ].map((t) => (
+          {MAIN_TABS.map((t) => (
             <button
               key={t.id}
+              type="button"
               role="tab"
-              onClick={() => setTab(t.id)}
+              onClick={() => {
+                setTab(t.id);
+                setMoreOpen(false);
+              }}
               aria-selected={tab === t.id}
-              className={`relative h-[53px] flex-1 cursor-pointer px-4 text-center text-[17px] transition-colors ${
+              className={`relative h-[53px] min-w-0 flex-1 cursor-pointer whitespace-nowrap px-4 text-center text-[16px] transition-colors md:text-[17px] ${
                 tab === t.id
                   ? "font-bold text-[var(--cz-text-primary)]"
                   : "font-medium text-[var(--cz-text-secondary)] hover:bg-[var(--cz-surface-strong)] hover:text-[var(--cz-text-primary)]"
@@ -292,11 +326,73 @@ export default function AppHome() {
               ) : null}
             </button>
           ))}
+          <div ref={moreWrapRef} className="relative min-w-0 flex-1">
+            <button
+              type="button"
+              role="tab"
+              onClick={() => setMoreOpen((v) => !v)}
+              aria-selected={Boolean(activeMore)}
+              aria-expanded={moreOpen}
+              aria-haspopup="menu"
+              className={`relative flex h-[53px] w-full cursor-pointer items-center justify-center gap-1 whitespace-nowrap px-4 text-center text-[16px] transition-colors md:text-[17px] ${
+                activeMore
+                  ? "font-bold text-[var(--cz-text-primary)]"
+                  : "font-medium text-[var(--cz-text-secondary)] hover:bg-[var(--cz-surface-strong)] hover:text-[var(--cz-text-primary)]"
+              }`}
+            >
+              {activeMore ? activeMore.label : "More"}
+              <ChevronDown
+                className={`h-4 w-4 transition-transform ${moreOpen ? "rotate-180" : ""}`}
+                aria-hidden
+              />
+              {activeMore ? (
+                <span
+                  aria-hidden
+                  className="absolute inset-x-0 bottom-0 h-[4px] rounded-t-full bg-[var(--cz-accent)]"
+                />
+              ) : null}
+            </button>
+            {moreOpen ? (
+              <div
+                role="menu"
+                aria-label="More feeds"
+                className="absolute right-0 top-[53px] z-20 w-[232px] overflow-hidden rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-elevated)] py-1 shadow-[var(--shadow-sm)]"
+              >
+                {MORE_TABS.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={tab === t.id}
+                    onClick={() => {
+                      setTab(t.id);
+                      setMoreOpen(false);
+                    }}
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[var(--cz-surface-strong)]"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[15px] font-bold leading-[20px] text-[var(--cz-text-primary)]">
+                        {t.label}
+                      </span>
+                      <span className="block text-[13px] leading-[18px] text-[var(--cz-text-secondary)]">
+                        {t.hint}
+                      </span>
+                    </span>
+                    {tab === t.id ? (
+                      <Check className="h-[18px] w-[18px] shrink-0 text-[var(--cz-accent)]" aria-hidden />
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
 
       {isArticlesTab ? (
         <ArticleComposer user={user} onCreated={handleCreated} />
+      ) : isAnonTab ? (
+        <AnonymousComposer user={user} onCreated={handleCreated} />
       ) : (
         <PostComposer user={user} onCreated={handleCreated} />
       )}

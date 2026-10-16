@@ -107,7 +107,7 @@ export const searchService = {
         if (query.startsWith("#")) {
           const rawTag = query.replace(/^#+/, "").toLowerCase().trim().slice(0, 30);
           if (!rawTag) return { posts: [], total: 0 };
-          let filter = { hashtags: rawTag };
+          let filter = { hashtags: rawTag, isAnonymous: { $ne: true } };
           const hide = await privacyService.privateIdsToHide(viewerId || null);
           const blocked = viewerId ? await blockService.blockedIdsFor(viewerId) : [];
           const allHide = new Set([...blocked.map(String), ...hide]);
@@ -140,12 +140,13 @@ export const searchService = {
         }
         // use regex for now — text index exists but regex is predictable for small data; use text when query >=2
         // articles: match title/description/body too
+        // Anonymous hub posts never appear in search — hub-only.
         let filter;
         if (query.length >= 2) {
           // try text search, fallback to regex if no results? For now use regex for consistency
-          filter = { $or: [{ text: re }, { title: re }, { description: re }, { body: re }] };
+          filter = { $or: [{ text: re }, { title: re }, { description: re }, { body: re }], isAnonymous: { $ne: true } };
         } else {
-          filter = { $or: [{ text: re }, { title: re }, { description: re }, { body: re }] };
+          filter = { $or: [{ text: re }, { title: re }, { description: re }, { body: re }], isAnonymous: { $ne: true } };
         }
         // hide posts by blocked + private + deactivated authors
         {

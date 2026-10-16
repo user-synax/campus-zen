@@ -32,7 +32,7 @@ export const analyticsService = {
     if (cached) return cached;
 
     const since = new Date(Date.now() - RANGE_MS[range]);
-    const postIds = await Post.find({ author: authorId }).select("_id").lean().then((rows) => rows.map((r) => r._id));
+    const postIds = await Post.find({ author: authorId, isAnonymous: { $ne: true } }).select("_id").lean().then((rows) => rows.map((r) => r._id));
 
     if (!postIds.length) {
       const empty = {
@@ -53,7 +53,7 @@ export const analyticsService = {
       Repost.countDocuments({ post: { $in: postIds }, createdAt: { $gte: since } }),
       Bookmark.countDocuments({ post: { $in: postIds }, createdAt: { $gte: since } }),
       Post.aggregate([
-        { $match: { author: authorId } },
+        { $match: { author: authorId, isAnonymous: { $ne: true } } },
         { $group: { _id: null, impressions: { $sum: { $ifNull: ["$viewCount", 0] } }, posts: { $sum: 1 } } },
       ]),
       // Top posts by range views — single aggregation, no N+1.
@@ -99,7 +99,7 @@ export const analyticsService = {
     } else {
       // No views in range — fall back to most-viewed all-time so the
       // section is never empty for authors with older posts.
-      const fallback = await Post.find({ author: authorId })
+      const fallback = await Post.find({ author: authorId, isAnonymous: { $ne: true } })
         .sort({ viewCount: -1, createdAt: -1 })
         .limit(5)
         .select("_id kind title slug text createdAt viewCount likeCount replyCount repostCount")

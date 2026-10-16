@@ -5,6 +5,7 @@ import {
   Check,
   FileText,
   Flag,
+  Ghost,
   Heart,
   Loader2,
   MessageCircle,
@@ -55,6 +56,10 @@ function timeAgo(date) {
   return d.toLocaleDateString("en-IN", { month: "short", day: "numeric" });
 }
 
+function GhostIcon() {
+  return <Ghost className="h-5 w-5" aria-hidden />;
+}
+
 function Avatar({ author }) {
   const initials = (author.fullName || author.username || "U")
     .slice(0, 1)
@@ -99,19 +104,21 @@ function OverflowMenu({
     >
       {isOwn ? (
         <>
-          <button
-            role="menuitem"
-            onClick={onPin}
-            disabled={pinLoading}
-            className={menuItemClass}
-          >
-            {isPinned ? (
-              <PinOff className="h-[18px] w-[18px] shrink-0" aria-hidden />
-            ) : (
-              <Pin className="h-[18px] w-[18px] shrink-0" aria-hidden />
-            )}
-            {isPinned ? "Unpin from profile" : "Pin to profile"}
-          </button>
+          {post.isAnonymous ? null : (
+            <button
+              role="menuitem"
+              onClick={onPin}
+              disabled={pinLoading}
+              className={menuItemClass}
+            >
+              {isPinned ? (
+                <PinOff className="h-[18px] w-[18px] shrink-0" aria-hidden />
+              ) : (
+                <Pin className="h-[18px] w-[18px] shrink-0" aria-hidden />
+              )}
+              {isPinned ? "Unpin from profile" : "Pin to profile"}
+            </button>
+          )}
           {post.kind !== "article" && post.text ? (
             <button role="menuitem" onClick={onEdit} className={menuItemClass}>
               <Pencil className="h-[18px] w-[18px] shrink-0" aria-hidden />
@@ -270,8 +277,12 @@ export function PostCard({
   useAutogrowTextarea(editRef, editText, 200);
 
   const isOwn =
-    currentUser &&
-    String(currentUser._id) === String(post.author?._id || post.author);
+    typeof post.isOwn === "boolean"
+      ? post.isOwn && Boolean(currentUser)
+      : Boolean(
+          currentUser &&
+            String(currentUser._id) === String(post.author?._id || post.author),
+        );
 
   const handleLike = async () => {
     const wasLiked = liked;
@@ -480,6 +491,8 @@ export function PostCard({
   };
 
   const author = post.author || {};
+  const isAnon = Boolean(post.isAnonymous);
+  const anonName = post.anonAlias || author.fullName || "Anonymous";
   const isArticle = post.kind === "article";
   const articlePath = isArticle && author.username && post.slug ? articleUrl(author.username, post.slug) : `/app/p/${post._id}`;
 
@@ -490,20 +503,36 @@ export function PostCard({
     <>
       <article ref={cardRef} className="cz-row group relative px-4 py-3">
         <div className="flex gap-3">
-          <Link href={`/u/${author.username}`} className="shrink-0">
-            <Avatar author={author} />
-          </Link>
+          {isAnon ? (
+            <span role="img" aria-label={anonName} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[var(--cz-surface-strong)] text-[var(--cz-text-secondary)]">
+              <GhostIcon />
+            </span>
+          ) : (
+            <Link href={`/u/${author.username}`} className="shrink-0">
+              <Avatar author={author} />
+            </Link>
+          )}
           <div className="min-w-0 flex-1">
             {/* header + overflow */}
             <div className="flex items-start gap-2">
               <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1 leading-[20px]">
-                <Link
-                  href={`/u/${author.username}`}
-                  className="truncate text-[15px] font-bold text-[var(--cz-text-primary)] hover:underline"
-                >
-                  {author.fullName || author.username}
-                </Link>
-                <UserBadge user={author} size="sm" />
+                {isAnon ? (
+                  <span className="truncate text-[15px] font-bold text-[var(--cz-text-primary)]">{anonName}</span>
+                ) : (
+                  <Link
+                    href={`/u/${author.username}`}
+                    className="truncate text-[15px] font-bold text-[var(--cz-text-primary)] hover:underline"
+                  >
+                    {author.fullName || author.username}
+                  </Link>
+                )}
+                {isAnon ? (
+                  <span className="inline-flex shrink-0 items-center rounded-full bg-[var(--cz-surface-strong)] px-2 py-0.5 text-[11px] font-extrabold tracking-wide text-[var(--cz-text-secondary)]">
+                    ANON
+                  </span>
+                ) : (
+                  <UserBadge user={author} size="sm" />
+                )}
                 {post?.isSensitive ? (
                   <span className="inline-flex shrink-0 items-center rounded-full bg-[var(--cz-error)] px-2 py-0.5 text-[11px] font-extrabold tracking-wide text-white">
                     18+
@@ -688,20 +717,22 @@ export function PostCard({
             {replyCount > 0 ? <AnimatedNumber value={replyCount} /> : null}
           </button>
 
-          <button
-            onClick={handleRepost}
-            data-reposted={reposted ? "true" : "false"}
-            aria-label={reposted ? "Undo repost" : "Repost"}
-            aria-pressed={reposted}
-            className="group/act -ml-2 flex items-center gap-1 rounded-full px-2 py-1 text-[13px] font-medium transition-colors data-[reposted=false]:text-[var(--cz-text-secondary)] hover:cursor-pointer hover:bg-[color-mix(in_srgb,var(--cz-repost)_12%,transparent)] hover:text-[var(--cz-repost)] data-[reposted=true]:text-[var(--cz-repost)]"
-          >
-            <Repeat2
-              className="h-[18.75px] w-[18.75px] transition-transform group-hover/act:scale-110"
-              strokeWidth={1.8}
-              aria-hidden
-            />
-            {repostCount > 0 ? <AnimatedNumber value={repostCount} /> : null}
-          </button>
+          {isAnon ? null : (
+            <button
+              onClick={handleRepost}
+              data-reposted={reposted ? "true" : "false"}
+              aria-label={reposted ? "Undo repost" : "Repost"}
+              aria-pressed={reposted}
+              className="group/act -ml-2 flex items-center gap-1 rounded-full px-2 py-1 text-[13px] font-medium transition-colors data-[reposted=false]:text-[var(--cz-text-secondary)] hover:cursor-pointer hover:bg-[color-mix(in_srgb,var(--cz-repost)_12%,transparent)] hover:text-[var(--cz-repost)] data-[reposted=true]:text-[var(--cz-repost)]"
+            >
+              <Repeat2
+                className="h-[18.75px] w-[18.75px] transition-transform group-hover/act:scale-110"
+                strokeWidth={1.8}
+                aria-hidden
+              />
+              {repostCount > 0 ? <AnimatedNumber value={repostCount} /> : null}
+            </button>
+          )}
 
           <button
             onClick={handleLike}
@@ -728,20 +759,22 @@ export function PostCard({
             </span>
           ) : null}
 
-          <button
-            onClick={handleBookmark}
-            data-saved={saved ? "true" : "false"}
-            aria-label={saved ? "Remove bookmark" : "Bookmark"}
-            aria-pressed={saved}
-            className="group/act -ml-2 grid place-items-center rounded-full p-2 transition-colors data-[saved=false]:text-[var(--cz-text-secondary)] hover:cursor-pointer hover:bg-[var(--cz-accent-soft)] hover:text-[var(--cz-accent)] data-[saved=true]:text-[var(--cz-accent)]"
-          >
-            <Bookmark
-              className="h-[18.75px] w-[18.75px] transition-transform group-hover/act:scale-110"
-              strokeWidth={1.8}
-              fill={saved ? "currentColor" : "none"}
-              aria-hidden
-            />
-          </button>
+          {isAnon ? null : (
+            <button
+              onClick={handleBookmark}
+              data-saved={saved ? "true" : "false"}
+              aria-label={saved ? "Remove bookmark" : "Bookmark"}
+              aria-pressed={saved}
+              className="group/act -ml-2 grid place-items-center rounded-full p-2 transition-colors data-[saved=false]:text-[var(--cz-text-secondary)] hover:cursor-pointer hover:bg-[var(--cz-accent-soft)] hover:text-[var(--cz-accent)] data-[saved=true]:text-[var(--cz-accent)]"
+            >
+              <Bookmark
+                className="h-[18.75px] w-[18.75px] transition-transform group-hover/act:scale-110"
+                strokeWidth={1.8}
+                fill={saved ? "currentColor" : "none"}
+                aria-hidden
+              />
+            </button>
+          )}
 
           <button
             onClick={handleShare}
@@ -764,9 +797,8 @@ export function PostCard({
           </button>
         </div>
 
-        {/* Author-only reach line — only the author sees per-post views here.
-            Links to the full insights dashboard. */}
-        {isOwn && viewCount != null ? (
+        {/* Author-only reach line — hidden for anon hub (analytics excludes anon). */}
+        {isOwn && !isAnon && viewCount != null ? (
           <div className="ml-[52px] mt-0.5">
             <Link
               href="/app/analytics"
@@ -782,7 +814,7 @@ export function PostCard({
         open={reportOpen}
         targetType="post"
         targetId={post._id}
-        targetLabel={`@${author.username || "user"}`}
+        targetLabel={isAnon ? anonName : `@${author.username || "user"}`}
         onClose={() => setReportOpen(false)}
         onSubmitted={() => {
           hidePostId(post._id);

@@ -44,6 +44,11 @@ const interactionLimiter = rateLimit({ windowMs: 60 * 1000, max: 60, standardHea
 // create — accepts JSON (text only) or multipart/form-data (text + media[] + posters[] + mediaMeta)
 router.post("/", protect, createLimiter, postMediaFields, postController.create);
 
+// anonymous hub — login-only, text + images only, hub-only (never in profiles)
+// must sit before /:id so Express matches them first
+router.post("/anonymous", protect, createLimiter, postMediaFields, postController.createAnonymous);
+router.get("/anonymous/feed", protect, feedLimiter, validate(paginationQuery, "query"), postController.anonymousFeed);
+
 // articles — must sit before /:id so Express matches them first
 router.post("/articles", protect, createLimiter, postMediaFields, validate(articleBodySchema), postController.createArticle);
 router.get("/articles", optionalAuth, feedLimiter, validate(paginationQuery, "query"), postController.listArticles);

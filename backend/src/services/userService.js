@@ -281,8 +281,9 @@ export const userService = {
       return user.toSafeObject();
     }
     const { Post } = await import("../models/Post.js");
-    const post = await Post.findById(postId).select("author").lean();
+    const post = await Post.findById(postId).select("author isAnonymous").lean();
     if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
+    if (post.isAnonymous) throw new AppError("Anonymous posts can't be pinned", 403, "ANON_ACTION_NOT_ALLOWED");
     if (String(post.author) !== String(userId)) throw new AppError("You can only pin your own posts", 403, "FORBIDDEN");
     const user = await User.findByIdAndUpdate(userId, { $set: { pinnedPost: postId } }, { new: true, runValidators: true });
     if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");

@@ -22,8 +22,60 @@ import {
 import { AppError } from "../utils/AppError.js";
 import { cache, CacheKeys, TTL } from "../utils/cache.js";
 import { pushPostUpdate } from "../routes/sseRoutes.js";
+import { generateAnonAlias, aliasForThreadMember, maskAnonAuthor } from "../utils/anon.js";
 
 const EDIT_WINDOW_MS = 5 * 60 * 1000;
+
+// ─── Anonymous hub helpers ──────────────────────────────────────────────
+// Real author ObjectId is always stored for moderation/abuse handling.
+// API output masks it: author replaced with alias, isOwn computed for the viewer.
+function sanitizeAnonPost(post, viewerId) {
+  if (!post || !post.isAnonymous) return post;
+  const realAuthorId = post.author?._id || post.author;
+  const isOwn = viewerId ? String(viewerId) === String(realAuthorId) : false;
+  const alias = post.anonAlias || "Anonymous";
+  return {
+    ...post,
+    author: maskAnonAuthor(alias),
+    anonAlias: alias,
+    isOwn,
+    // hub supports like + reply + view only — never surface repost/bookmark
+    isReposted: false,
+    isBookmarked: false,
+    repostCount: 0,
+    poll: null,
+    myVote: null,
+  };
+}
+
+function sanitizeAnonPosts(posts, viewerId) {
+  if (!posts?.length) return posts;
+  return posts.map((p) => sanitizeAnonPost(p, viewerId));
+}
+
+function maskAnonComment(comment, post, viewerId) {
+  if (!comment) return comment;
+  const realAuthorId = comment.author?._id || comment.author;
+  const isOp = String(realAuthorId) === String(post.author?._id || post.author);
+  const alias = isOp
+    ? `${post.anonAlias || "Anonymous"} · OP`
+    : aliasForThreadMember(post._id, realAuthorId);
+  return {
+    ...comment,
+    author: maskAnonAuthor(alias),
+    anonAlias: alias,
+    isOp,
+    isOwn: viewerId ? String(viewerId) === String(realAuthorId) : false,
+  };
+}
+
+function maskAnonComments(comments, post, viewerId) {
+  if (!comments?.length) return comments;
+  return comments.map((c) => maskAnonComment({ ...c }, post, viewerId));
+}
+
+// Non-anonymous filter — every normal surface must exclude hub posts.
+const NOT_ANON = { isAnonymous: { $ne: true } };
 
 // Fire-and-forget: notifications + live pushes must never block the
 // interaction response. Errors are swallowed (best-effort realtime).
@@ -356,6 +408,7 @@ export const postService = {
       mentions: extractMentions(t),
       articleMentions: articleRefs,
       isSensitive,
+      isAnonymous: false,
     });
     // Invalidate caches that include this post
     await User.findByIdAndUpdate(authorId, { $inc: { postCount: 1 } });
@@ -369,6 +422,79 @@ export const postService = {
     cache.delPattern(`media:${authorId}:*`);
     const populated = await Post.findById(post._id).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isCofounder");
     return populated;
+  },
+
+  // Anonymous hub — text + images only. Same 500-char / image validation as
+  // normal posts, but no polls, no video/gif, no @mentions.
+  // Never touches postCount / profile caches — hub-only by design.
+  async createAnonymous(authorId, text, mediaInput, opts = {}) {
+    const t = text?.trim() || "";
+    if (t.length > 500) throw new AppError("Post must be 1-500 characters", 400, "INVALID_TEXT");
+    if (opts?.poll) throw new AppError("Polls aren't allowed in anonymous posts", 400, "ANON_NO_POLL");
+    const { files, posters, meta } = normalizeMediaInput(mediaInput);
+    if (!t && !files.length) throw new AppError("Post must have text or an image", 400, "EMPTY_POST");
+    validateMediaFiles(files, meta);
+    for (const f of files) {
+      const mime = String(f.mimetype || "");
+      const isImage = mime.startsWith("image/") && mime !== "image/gif";
+      if (!isImage) throw new AppError("Only text and images are allowed in anonymous posts", 400, "INVALID_MEDIA");
+    }
+    const mentions = extractMentions(t);
+    if (mentions.length) throw new AppError("@mentions aren't allowed in anonymous posts", 400, "ANON_NO_MENTIONS");
+    const { media, imageUrl } = await uploadMediaFiles(files, posters, meta);
+    const isSensitive = Boolean(opts?.isSensitive);
+    const alias = generateAnonAlias(`${authorId}:${Date.now()}:${Math.random()}`);
+    const post = await Post.create({
+      author: authorId,
+      kind: "post",
+      text: t || undefined,
+      imageUrl,
+      media,
+      hashtags: extractHashtags(t),
+      mentions: [],
+      articleMentions: extractArticleMentions(t).map((r) => r.key),
+      isSensitive,
+      isAnonymous: true,
+      anonAlias: alias,
+    });
+    cache.delPattern("anonFeed:*");
+    cache.del(CacheKeys.post(post._id));
+    const created = await Post.findById(post._id).populate("author", "fullName username avatarUrl").lean();
+    return sanitizeAnonPost(created, authorId);
+  },
+
+  async anonymousFeed(userId, { page = 1, limit = 20 }) {
+    const lim = Math.max(1, Math.min(50, Number(limit)));
+    const skip = (Math.max(1, Number(page)) - 1) * lim;
+    const cacheKey = CacheKeys.anonFeed(page, lim);
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      const posts = sanitizeAnonPosts(cached.posts.map((p) => ({ ...p })), userId);
+      if (userId && posts.length) {
+        const ids = posts.map((p) => p._id);
+        const likes = await Like.find({ user: userId, post: { $in: ids } }).select("post").lean();
+        const set = new Set(likes.map((l) => String(l.post)));
+        posts.forEach((p) => { p.isLiked = set.has(String(p._id)); });
+      }
+      return { ...cached, posts };
+    }
+    const hiddenSet = await hiddenAuthorFilter(userId);
+    const filter = { isAnonymous: true, kind: "post" };
+    if (hiddenSet.size) filter.author = { $nin: [...hiddenSet] };
+    const raw = await Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim + 1)
+      .populate("author", "fullName username avatarUrl").lean();
+    const hasMore = raw.length > lim;
+    if (hasMore) raw.pop();
+    const posts = sanitizeAnonPosts(raw, userId);
+    if (posts.length && userId) {
+      const ids = posts.map((p) => p._id);
+      const likes = await Like.find({ user: userId, post: { $in: ids } }).select("post").lean();
+      const set = new Set(likes.map((l) => String(l.post)));
+      posts.forEach((p) => { p.isLiked = set.has(String(p._id)); });
+    }
+    const result = { posts, page: Number(page), limit: lim, hasMore };
+    cache.set(cacheKey, { posts: raw, page: Number(page), limit: lim, hasMore }, TTL.FEED);
+    return result;
   },
 
   async getById(postId, viewerId) {
@@ -386,8 +512,9 @@ export const postService = {
       const authorId = post.author?._id || post.author;
       if (await blockService.isBlocked(viewerId, authorId)) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
     }
-    // strict private + deactivated → indistinguishable from deleted
-    {
+    // strict private + deactivated → skipped for anonymous hub (author hidden,
+    // hub is login-gated). Normal posts keep existing behavior.
+    if (!post.isAnonymous) {
       const authorId = post.author?._id || post.author;
       const authorDoc = typeof post.author === "object" ? null : null;
       // Fetch privacy flags (cached post may lack them).
@@ -395,17 +522,23 @@ export const postService = {
     }
     // Clone to avoid mutating cached object
     const result = { ...post };
-    await attachPollVotes([result], viewerId);
+    if (!result.isAnonymous) {
+      await attachPollVotes([result], viewerId);
+    } else {
+      result.poll = null;
+      result.myVote = null;
+    }
     if (viewerId) {
       const [liked, reposted, bookmarked] = await Promise.all([
         Like.exists({ user: viewerId, post: postId }),
-        Repost.exists({ user: viewerId, post: postId }),
-        Bookmark.exists({ user: viewerId, post: postId }),
+        result.isAnonymous ? null : Repost.exists({ user: viewerId, post: postId }),
+        result.isAnonymous ? null : Bookmark.exists({ user: viewerId, post: postId }),
       ]);
       result.isLiked = Boolean(liked);
       result.isReposted = Boolean(reposted);
       result.isBookmarked = Boolean(bookmarked);
     }
+    if (result.isAnonymous) return sanitizeAnonPost(result, viewerId);
     return result;
   },
 
@@ -419,6 +552,19 @@ export const postService = {
     if (Date.now() - new Date(post.createdAt).getTime() > EDIT_WINDOW_MS) throw new AppError("Edit window expired (5 minutes)", 403, "EDIT_WINDOW_EXPIRED");
     const t = text.trim();
     if (!t || t.length > 500) throw new AppError("Post must be 1-500 characters", 400, "INVALID_TEXT");
+    if (post.isAnonymous) {
+      if (extractMentions(t).length) throw new AppError("@mentions aren't allowed in anonymous posts", 400, "ANON_NO_MENTIONS");
+      post.text = t;
+      post.hashtags = extractHashtags(t);
+      post.mentions = [];
+      post.articleMentions = extractArticleMentions(t).map((r) => r.key);
+      post.edited = true;
+      await post.save();
+      cache.del(CacheKeys.post(postId));
+      cache.delPattern("anonFeed:*");
+      const populated = await Post.findById(post._id).populate("author", "fullName username avatarUrl").lean();
+      return sanitizeAnonPost(populated, userId);
+    }
     const oldMentions = new Set((post.mentions || []).map((m) => String(m).toLowerCase()));
     const newMentions = extractMentions(t);
     const added = newMentions.filter((m) => !oldMentions.has(m));
@@ -646,9 +792,10 @@ export const postService = {
     const post = await Post.findById(postId);
     if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
     if (String(post.author) !== String(userId)) throw new AppError("Not authorized to delete this post", 403, "FORBIDDEN");
+    const wasAnon = Boolean(post.isAnonymous);
     await Post.deleteOne({ _id: postId });
     await Promise.all([
-      User.findByIdAndUpdate(userId, { $inc: { postCount: -1 } }),
+      wasAnon ? Promise.resolve() : User.findByIdAndUpdate(userId, { $inc: { postCount: -1 } }),
       User.updateOne({ _id: userId, pinnedPost: postId }, { $unset: { pinnedPost: 1 } }),
       Comment.deleteMany({ post: postId }),
       Like.deleteMany({ post: postId }),
@@ -658,11 +805,12 @@ export const postService = {
       (await import("../models/PostView.js")).PostView.deleteMany({ post: postId }),
     ]);
     // clamp
-    await User.updateOne({ _id: userId, postCount: { $lt: 0 } }, { $set: { postCount: 0 } });
+    if (!wasAnon) await User.updateOne({ _id: userId, postCount: { $lt: 0 } }, { $set: { postCount: 0 } });
     // Invalidate caches
     cache.del(CacheKeys.post(postId));
     cache.delPattern("feed:*");
     cache.delPattern("publicFeed:*");
+    cache.delPattern("anonFeed:*");
     cache.delPattern(`userPosts:${userId}:*`);
     cache.delPattern(`userArticles:${userId}:*`);
     cache.delPattern("articles:*");
@@ -717,7 +865,7 @@ export const postService = {
     const authorFilter = { $in: visibleIds.length ? visibleIds : ["000000000000000000000000"] };
     // limit+1 probe instead of a second countDocuments scan — one query per
     // page instead of two (free-tier Mongo thanks us on every scroll)
-    const posts = await Post.find({ author: authorFilter })
+    const posts = await Post.find({ author: authorFilter, ...NOT_ANON })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(lim + 1)
@@ -792,7 +940,7 @@ export const postService = {
     }
 
     const hiddenSet = await hiddenAuthorFilter(viewerId);
-    const filter = hiddenSet.size ? { author: { $nin: [...hiddenSet] } } : {};
+    const filter = hiddenSet.size ? { author: { $nin: [...hiddenSet] }, ...NOT_ANON } : { ...NOT_ANON };
     // same limit+1 probe as feed — no countDocuments scan per scroll page
     const raw = await Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim + 1).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isCofounder isPrivate").lean();
     const hasMore = raw.length > lim;
@@ -821,10 +969,10 @@ export const postService = {
   // Explicit idempotent like: POST always ensures liked. Safe under burst:
   // unique index makes the insert the arbiter; only the winner $incs.
   async likePost(userId, postId) {
-    const post = await Post.findById(postId).select("author");
+    const post = await Post.findById(postId).select("author isAnonymous");
     if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
     await blockService.assertNoBlock(userId, post.author, "You can't interact with this account's posts.");
-    await assertCanSeePost(userId, post.author);
+    if (!post.isAnonymous) await assertCanSeePost(userId, post.author);
     let inserted = false;
     try {
       await Like.create({ user: userId, post: postId });
@@ -835,7 +983,7 @@ export const postService = {
     let updated;
     if (inserted) {
       updated = await Post.findByIdAndUpdate(postId, { $inc: { likeCount: 1 } }, { new: true }).select("likeCount author");
-      if (String(post.author) !== String(userId)) {
+      if (!post.isAnonymous && String(post.author) !== String(userId)) {
         afterResponse(() =>
           notificationService.create({ recipient: post.author, actor: userId, type: "like", post: postId }),
         );
@@ -875,10 +1023,10 @@ export const postService = {
   // Kept for backward compat (both POST and DELETE /:id/like route here).
   // Race-safe: duplicate-key races return current state instead of 409.
   async toggleLike(userId, postId) {
-    const post = await Post.findById(postId).select("author");
+    const post = await Post.findById(postId).select("author isAnonymous");
     if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
     await blockService.assertNoBlock(userId, post.author, "You can't interact with this account's posts.");
-    await assertCanSeePost(userId, post.author);
+    if (!post.isAnonymous) await assertCanSeePost(userId, post.author);
     const existing = await Like.findOne({ user: userId, post: postId }).select("_id");
     if (existing) return this.unlikePost(userId, postId);
     try {
@@ -890,8 +1038,9 @@ export const postService = {
   },
 
   async repostPost(userId, postId) {
-    const post = await Post.findById(postId).select("author");
+    const post = await Post.findById(postId).select("author isAnonymous");
     if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
+    if (post.isAnonymous) throw new AppError("Reposts aren't allowed for anonymous posts", 403, "ANON_ACTION_NOT_ALLOWED");
     await blockService.assertNoBlock(userId, post.author, "You can't interact with this account's posts.");
     await assertCanSeePost(userId, post.author);
     let inserted = false;
@@ -942,8 +1091,9 @@ export const postService = {
   },
 
   async toggleRepost(userId, postId) {
-    const post = await Post.findById(postId).select("author");
+    const post = await Post.findById(postId).select("author isAnonymous");
     if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
+    if (post.isAnonymous) throw new AppError("Reposts aren't allowed for anonymous posts", 403, "ANON_ACTION_NOT_ALLOWED");
     await blockService.assertNoBlock(userId, post.author, "You can't interact with this account's posts.");
     await assertCanSeePost(userId, post.author);
     const existing = await Repost.findOne({ user: userId, post: postId }).select("_id");
@@ -957,8 +1107,9 @@ export const postService = {
   },
 
   async bookmarkPost(userId, postId) {
-    const post = await Post.findById(postId).select("author");
+    const post = await Post.findById(postId).select("author isAnonymous");
     if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
+    if (post.isAnonymous) throw new AppError("Bookmarks aren't allowed for anonymous posts", 403, "ANON_ACTION_NOT_ALLOWED");
     await blockService.assertNoBlock(userId, post.author, "You can't interact with this account's posts.");
     await assertCanSeePost(userId, post.author);
     try {
@@ -979,8 +1130,9 @@ export const postService = {
   },
 
   async toggleBookmark(userId, postId) {
-    const post = await Post.findById(postId).select("author");
+    const post = await Post.findById(postId).select("author isAnonymous");
     if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
+    if (post.isAnonymous) throw new AppError("Bookmarks aren't allowed for anonymous posts", 403, "ANON_ACTION_NOT_ALLOWED");
     await blockService.assertNoBlock(userId, post.author, "You can't interact with this account's posts.");
     await assertCanSeePost(userId, post.author);
     const existing = await Bookmark.findOne({ user: userId, post: postId }).select("_id");
@@ -1009,10 +1161,10 @@ export const postService = {
   // Returns { viewed, viewCount } — viewed=false means deduped (already
   // counted today) or self-view.
   async recordView(viewerId, postId) {
-    const post = await Post.findById(postId).select("author viewCount");
+    const post = await Post.findById(postId).select("author viewCount isAnonymous");
     if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
     await blockService.assertNoBlock(viewerId, post.author, "You can't interact with this account's posts.");
-    await assertCanSeePost(viewerId, post.author);
+    if (!post.isAnonymous) await assertCanSeePost(viewerId, post.author);
     // Author's own views don't count — feedback must reflect real reach.
     if (String(post.author) === String(viewerId)) {
       const fresh = await Post.findById(postId).select("viewCount").lean();
@@ -1048,6 +1200,7 @@ export const postService = {
     if (!Number.isInteger(idx) || idx < 0 || idx > 3) throw new AppError("Invalid option", 400, "INVALID_POLL_VOTE");
     const post = await Post.findById(postId);
     if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
+    if (post.isAnonymous) throw new AppError("Polls aren't allowed for anonymous posts", 403, "ANON_ACTION_NOT_ALLOWED");
     if (!post.poll?.options?.length) throw new AppError("Post has no poll", 400, "NO_POLL");
     if (idx >= post.poll.options.length) throw new AppError("Invalid option", 400, "INVALID_POLL_VOTE");
     if (pollClosed(post.poll)) throw new AppError("Poll is closed", 400, "POLL_CLOSED");
@@ -1106,11 +1259,12 @@ export const postService = {
       cache.set(cacheKey, result, TTL.BOOKMARKS);
       return result;
     }
-    const posts = await Post.find({ _id: { $in: postIds } })
+    const posts = await Post.find({ _id: { $in: postIds }, ...NOT_ANON })
       .populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isCofounder")
       .lean();
     const map = new Map(posts.map((p) => [String(p._id), p]));
     let ordered = postIds.map((id) => map.get(String(id))).filter(Boolean);
+    ordered = ordered.filter((p) => !p.isAnonymous);
     ordered = await withoutBlockedAuthors(ordered, userId);
     if (ordered.length) {
       const ids = ordered.map((p) => p._id);
@@ -1133,9 +1287,27 @@ export const postService = {
   },
 
   async createComment(userId, postId, text) {
-    const post = await Post.findById(postId).select("author");
+    const post = await Post.findById(postId).select("author isAnonymous anonAlias");
     if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
     await blockService.assertNoBlock(userId, post.author, "You can't interact with this account's posts.");
+    const t = (text || "").trim();
+    if (!t || t.length > 500) throw new AppError("Reply must be 1-500 characters", 400, "INVALID_TEXT");
+    if (post.isAnonymous) {
+      // All-anonymous threads: no mentions, no reply-policy gates, no notifications
+      // (notifications would leak identity via actor).
+      if (extractMentions(t).length) throw new AppError("@mentions aren't allowed in anonymous posts", 400, "ANON_NO_MENTIONS");
+      const comment = await Comment.create({ post: postId, author: userId, text: t, mentions: [], articleMentions: [] });
+      const updatedPost = await Post.findByIdAndUpdate(postId, { $inc: { replyCount: 1 } }, { new: true }).select("replyCount author");
+      afterResponse(() =>
+        pushPostUpdate(post.author, { postId: String(postId), replyCount: updatedPost.replyCount }),
+      );
+      cache.del(CacheKeys.post(postId));
+      cache.delPattern(`comments:${postId}:*`);
+      cache.delPattern("anonFeed:*");
+      const populated = await Comment.findById(comment._id).populate("author", "fullName username avatarUrl").lean();
+      const masked = maskAnonComment(populated, post, userId);
+      return { comment: masked, replyCount: updatedPost.replyCount };
+    }
     await assertCanSeePost(userId, post.author);
     // Global reply policy on the post author's settings.
     {
@@ -1144,8 +1316,6 @@ export const postService = {
       const gate = await privacyService.replyGate(userId, author || { _id: post.author });
       if (gate) throw new AppError(gate.message, gate.status, gate.code);
     }
-    const t = text.trim();
-    if (!t || t.length > 500) throw new AppError("Reply must be 1-500 characters", 400, "INVALID_TEXT");
     const mentions = extractMentions(t);
     await assertMentionsAllowed(userId, mentions);
     const comment = await Comment.create({ post: postId, author: userId, text: t, mentions, articleMentions: extractArticleMentions(t).map((r) => r.key) });
@@ -1174,26 +1344,35 @@ export const postService = {
     if (viewerId && (await blockService.isBlocked(viewerId, post.author))) {
       throw new AppError("Post not found", 404, "POST_NOT_FOUND");
     }
-    await assertCanSeePost(viewerId, post.author);
+    if (!post.isAnonymous) await assertCanSeePost(viewerId, post.author);
     const lim = Math.max(1, Math.min(50, Number(limit)));
     const skip = (Math.max(1, Number(page)) - 1) * lim;
     const cacheKey = CacheKeys.comments(postId, page, lim);
     const cached = cache.get(cacheKey);
-    if (cached) return cached;
+    if (cached) {
+      if (post.isAnonymous) {
+        return { ...cached, comments: maskAnonComments(cached.comments, post, viewerId) };
+      }
+      return cached;
+    }
     const [comments, total] = await Promise.all([
       Comment.find({ post: postId }).sort({ createdAt: 1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isCofounder").lean(),
       Comment.countDocuments({ post: postId }),
     ]);
-    const result = { comments, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
+    const out = post.isAnonymous ? maskAnonComments(comments, post, viewerId) : comments;
+    // cache raw (unmasked) so per-viewer isOwn stays correct; mask on read
+    const result = { comments: post.isAnonymous ? comments : out, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
     cache.set(cacheKey, result, TTL.COMMENTS);
+    if (post.isAnonymous) return { ...result, comments: maskAnonComments(comments, post, viewerId) };
     return result;
   },
 
   // single endpoint for profile tabs — author / likedBy / repostedBy
+  // Anonymous hub posts are always excluded here — hub-only by design.
   async list({ author, likedBy, repostedBy, kind, page = 1, limit = 20, viewerId }) {
     const lim = Math.max(1, Math.min(50, Number(limit)));
     const skip = (Math.max(1, Number(page)) - 1) * lim;
-    let filter = {};
+    let filter = { ...NOT_ANON };
     if (kind === "article" || kind === "post") filter.kind = kind;
     let sort = { createdAt: -1 };
     let postIds = null;
@@ -1209,11 +1388,12 @@ export const postService = {
         cache.set(cacheKey, result, TTL.USER_POSTS);
         return result;
       }
-      filter = { _id: { $in: postIds } };
+      filter = { _id: { $in: postIds }, ...NOT_ANON };
       // preserve like order
       const posts = await Post.find(filter).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isCofounder").lean();
       const map = new Map(posts.map((p) => [String(p._id), p]));
       let ordered = postIds.map((id) => map.get(String(id))).filter(Boolean);
+      ordered = ordered.filter((p) => !p.isAnonymous);
       if (viewerId) ordered = await withoutBlockedAuthors(ordered, viewerId);
       // add isLiked/isReposted
       if (viewerId && ordered.length) {
@@ -1248,10 +1428,11 @@ export const postService = {
         cache.set(cacheKey, result, TTL.USER_POSTS);
         return result;
       }
-      filter = { _id: { $in: postIds } };
+      filter = { _id: { $in: postIds }, ...NOT_ANON };
       const posts = await Post.find(filter).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isCofounder").lean();
       const map = new Map(posts.map((p) => [String(p._id), p]));
       let ordered = postIds.map((id) => map.get(String(id))).filter(Boolean);
+      ordered = ordered.filter((p) => !p.isAnonymous);
       if (viewerId) ordered = await withoutBlockedAuthors(ordered, viewerId);
       if (viewerId && ordered.length) {
         const ids = ordered.map((p) => p._id);
@@ -1344,6 +1525,7 @@ export const postService = {
     if (cached) return cached;
     const filter = {
       author: authorId,
+      ...NOT_ANON,
       $or: [{ imageUrl: { $ne: null } }, { "media.0": { $exists: true } }],
     };
     const [posts, total] = await Promise.all([
@@ -1367,23 +1549,25 @@ export const postService = {
     const cached = cache.get(cacheKey);
     if (cached) return cached;
     const [comments, total] = await Promise.all([
-      Comment.find({ author: authorId }).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("post", "text author createdAt").populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isCofounder").lean(),
+      Comment.find({ author: authorId }).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("post", "text author createdAt isAnonymous").populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isCofounder").lean(),
       Comment.countDocuments({ author: authorId }),
     ]);
+    // Anonymous hub replies never surface on profiles — hub-only.
+    const visible = comments.filter((c) => !c.post?.isAnonymous);
     // also populate post author for context — single $in query, no N+1
-    const postAuthorIds = [...new Set(comments.map((c) => String(c.post?.author)).filter(Boolean))];
+    const postAuthorIds = [...new Set(visible.map((c) => String(c.post?.author)).filter(Boolean))];
     if (postAuthorIds.length) {
       const authors = await User.find({ _id: { $in: postAuthorIds } })
         .select("fullName username avatarUrl isEmailVerified isVerified isPro isOwner isCofounder")
         .lean();
       const authorMap = new Map(authors.map((a) => [String(a._id), a]));
-      for (const c of comments) {
+      for (const c of visible) {
         if (c.post?.author && authorMap.has(String(c.post.author))) {
           c.post.author = authorMap.get(String(c.post.author));
         }
       }
     }
-    const result = { comments, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
+    const result = { comments: visible, total, page: Number(page), limit: lim, hasMore: skip + lim < total };
     cache.set(cacheKey, result, TTL.REPLIES);
     return result;
   },
@@ -1418,7 +1602,7 @@ export const postService = {
       return { ...cached, posts: freshPosts };
     }
     const hiddenSet = await hiddenAuthorFilter(viewerId);
-    const filter = { hashtags: tag };
+    const filter = { hashtags: tag, ...NOT_ANON };
     if (hiddenSet.size) filter.author = { $nin: [...hiddenSet] };
     const [rawPosts, total] = await Promise.all([
       Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isCofounder isPrivate").lean(),
@@ -1455,7 +1639,7 @@ export const postService = {
 
     const since = new Date(Date.now() - hrs * 60 * 60 * 1000);
     const rows = await Post.aggregate([
-      { $match: { createdAt: { $gte: since }, hashtags: { $ne: [] } } },
+      { $match: { createdAt: { $gte: since }, hashtags: { $ne: [] }, isAnonymous: { $ne: true } } },
       { $unwind: "$hashtags" },
       { $group: { _id: "$hashtags", count: { $sum: 1 } } },
       { $sort: { count: -1 } },

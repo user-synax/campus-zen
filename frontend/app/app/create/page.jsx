@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PostComposer } from "@/components/app/PostComposer";
 import { ArticleComposer } from "@/components/app/ArticleComposer";
+import { AnonymousComposer } from "@/components/app/AnonymousComposer";
 import { PageHeader } from "@/components/app/PageHeader";
 import { useMe } from "@/lib/hooks/queries";
 import { cn } from "@/lib/utils";
@@ -17,18 +18,20 @@ export default function CreatePage() {
 
   return (
     <div>
-      <PageHeader title={mode === "article" ? "New article" : "New post"} />
-      <div className="flex gap-2 border-b border-[var(--cz-border)] px-4 py-2">
+      <PageHeader title={mode === "article" ? "New article" : mode === "anonymous" ? "New anonymous post" : "New post"} />
+      <div className="flex gap-2 overflow-x-auto border-b border-[var(--cz-border)] px-4 py-2">
         {[
           { id: "post", label: "Post" },
           { id: "article", label: "Article · markdown" },
+          { id: "anonymous", label: "Anonymous" },
         ].map((m) => (
           <button
             key={m.id}
+            type="button"
             onClick={() => setMode(m.id)}
             aria-pressed={mode === m.id}
             className={cn(
-              "h-[36px] rounded-full px-4 text-[14px] font-bold transition-colors",
+              "h-[36px] shrink-0 whitespace-nowrap rounded-full px-4 text-[14px] font-bold transition-colors",
               mode === m.id
                 ? "bg-[var(--cz-text-primary)] text-[var(--cz-bg)]"
                 : "bg-[var(--cz-surface-strong)] text-[var(--cz-text-secondary)] hover:text-[var(--cz-text-primary)]",
@@ -48,6 +51,14 @@ export default function CreatePage() {
             router.refresh();
           }}
         />
+      ) : mode === "anonymous" ? (
+        <AnonymousComposer
+          user={user}
+          onCreated={() => {
+            router.push("/app/anonymous");
+            router.refresh();
+          }}
+        />
       ) : (
         <PostComposer
           user={user}
@@ -60,7 +71,9 @@ export default function CreatePage() {
       <p className="px-4 py-6 text-center text-[13px] leading-[18px] text-[var(--cz-text-secondary)]">
         {mode === "article"
           ? "Title 120, description 200, body 50k markdown. You get @you/slug — mention it anywhere with ${you/slug} for a rich preview."
-          : "Up to 500 characters. Up to 4 photos/GIFs, or 1 video (25MB, 60s). Videos play from a lightweight poster so feeds stay fast. Use @ to mention a student, # for tags, and ${user/slug} to embed an article."}
+          : mode === "anonymous"
+            ? "Post anonymously with a random alias — text + images only, no @mentions. Shows only in the Anonymous Hub, never on your profile. Admins can still see authors for safety."
+            : "Up to 500 characters. Up to 4 photos/GIFs, or 1 video (25MB, 60s). Videos play from a lightweight poster so feeds stay fast. Use @ to mention a student, # for tags, and ${user/slug} to embed an article."}
       </p>
     </div>
   );

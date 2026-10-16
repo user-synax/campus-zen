@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { Ghost, Loader2 } from "lucide-react";
 import { useRef, useState } from "react";
 import { CzImage } from "@/components/app/CzImage";
 import {
@@ -19,6 +19,10 @@ function initialsFor(u) {
   return (u.fullName || u.username || "U").trim().slice(0, 1).toUpperCase();
 }
 
+function GhostIcon() {
+  return <Ghost className="h-5 w-5" aria-hidden />;
+}
+
 /**
  * The reply composer for a single post.
  *
@@ -31,6 +35,7 @@ export function ReplyComposer({
   currentUser,
   onCreated,
   autoFocus = false,
+  isAnonymous = false,
 }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -48,6 +53,10 @@ export function ReplyComposer({
     e.preventDefault();
     const body = text.trim();
     if (!body || body.length > MAX || busy) return;
+    if (isAnonymous && /(^|\s)@\w/.test(body)) {
+      setError("@mentions aren't allowed in anonymous posts");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -73,28 +82,37 @@ export function ReplyComposer({
       onSubmit={submit}
       className="cz-row flex gap-3 border-b border-[var(--cz-border)] px-4 py-3"
     >
-      <span className={withAvatarRing(currentUser, "grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[13px] font-bold text-[var(--cz-text-primary)]")}>
-        {currentUser?.avatarUrl ? (
-          <CzImage
-            src={currentUser.avatarUrl}
-            alt=""
-            className="h-full w-full rounded-full"
-            imgClassName="h-full w-full"
-          />
-        ) : (
-          initialsFor(currentUser)
-        )}
-      </span>
+      {isAnonymous ? (
+        <span role="img" aria-label="Anonymous" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[var(--cz-surface-strong)] text-[var(--cz-text-secondary)]">
+          <GhostIcon />
+        </span>
+      ) : (
+        <span className={withAvatarRing(currentUser, "grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[13px] font-bold text-[var(--cz-text-primary)]")}>
+          {currentUser?.avatarUrl ? (
+            <CzImage
+              src={currentUser.avatarUrl}
+              alt=""
+              className="h-full w-full rounded-full"
+              imgClassName="h-full w-full"
+            />
+          ) : (
+            initialsFor(currentUser)
+          )}
+        </span>
+      )}
 
       <div className="min-w-0 flex-1">
+        {isAnonymous ? (
+          <p className="mb-1 text-[13px] font-semibold text-[var(--cz-text-secondary)]">Replying anonymously</p>
+        ) : null}
         <div className="relative">
           <textarea
             ref={inputRef}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            onSelect={mention.recheck}
+            onSelect={isAnonymous ? undefined : mention.recheck}
             onKeyDown={(e) => {
-              if (mention.handleKeyDown(e)) return;
+              if (!isAnonymous && mention.handleKeyDown(e)) return;
               // Enter submits, Shift+Enter newlines, Cmd/Ctrl+Enter always submits.
               if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault();
@@ -110,17 +128,19 @@ export function ReplyComposer({
             rows={2}
             autoFocus={autoFocus}
             maxLength={MAX + 40}
-            placeholder="Post your reply"
-            aria-label="Post your reply"
+            placeholder={isAnonymous ? "Reply anonymously… (no @mentions)" : "Post your reply"}
+            aria-label={isAnonymous ? "Reply anonymously" : "Post your reply"}
             className="max-h-[200px] min-h-[52px] w-full resize-none overflow-y-auto bg-transparent py-2 text-[15px] leading-[20px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)]"
           />
-          <MentionSuggest
-            open={mention.open}
-            users={mention.users}
-            active={mention.active}
-            onSelect={mention.insert}
-            onHover={mention.setActive}
-          />
+          {isAnonymous ? null : (
+            <MentionSuggest
+              open={mention.open}
+              users={mention.users}
+              active={mention.active}
+              onSelect={mention.insert}
+              onHover={mention.setActive}
+            />
+          )}
         </div>
 
         {/* text-only replies: mentions supported, media lives on posts */}

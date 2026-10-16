@@ -98,6 +98,7 @@ export const cache = new InMemoryCache();
 export const CacheKeys = {
   feed: (userId, page, limit) => `feed:${userId}:${page}:${limit}`,
   publicFeed: (page, limit) => `publicFeed:${page}:${limit}`,
+  anonFeed: (page, limit) => `anonFeed:${page}:${limit}`,
   trending: (limit, hours) => `trending:${limit}:${hours}`,
   post: (postId) => `post:${postId}`,
   userPosts: (authorId, page, limit) => `userPosts:${authorId}:${page}:${limit}`,
