@@ -479,6 +479,17 @@ body {
   .scrollbar-none::-webkit-scrollbar {
     display: none;
   }
+
+  /* The page's scrollbar, for opted-in inner scrollers (the xl right rail).
+     scrollbar-width isn't inherited and Chrome/Firefox ignore the
+     ::-webkit-scrollbar rules above the moment scrollbar-color/width are
+     set anywhere — so an inner rail must re-declare the standard pair or
+     it falls back to the native-width browser bar. */
+  .cz-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: var(--cz-border-strong) transparent;
+    scrollbar-gutter: stable;
+  }
 }
 
 /* ── Transitions: error shake ────────────────────────────── */

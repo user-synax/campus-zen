@@ -103,7 +103,9 @@ export function AppShell({ children, requireAuth = false }) {
         </main>
 
         {isArticleReader ? null : (
-          <aside className="sticky top-0 hidden h-[100dvh] min-h-0 overflow-y-auto xl:block">
+          /* Rail scrolls on its own — cz-scrollbar keeps the same thin bar
+             as the page instead of the native-width default. */
+          <aside className="cz-scrollbar sticky top-0 hidden h-[100dvh] min-h-0 overflow-y-auto xl:block">
             <RightMinimal currentUser={user} />
           </aside>
         )}
