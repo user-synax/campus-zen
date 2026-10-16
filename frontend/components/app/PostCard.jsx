@@ -155,6 +155,9 @@ export function PostCard({
   isDetail = false,
   isPinned = false,
   onPinChange,
+  // The article reader already renders the piece — no need to link back
+  // to it from a card underneath. Feed and detail views keep the card.
+  hideArticleCard = false,
 }) {
   const router = useRouter();
   const qc = useQueryClient();
@@ -550,30 +553,32 @@ export function PostCard({
             </div>
 
             {/* body */}
-            {post.kind === "article" ? (
-              <div className="mt-1">
-                <Link
-                  href={post.author?.username && post.slug ? articleUrl(post.author.username, post.slug) : `/app/p/${post._id}`}
-                  onClick={(e) => e.stopPropagation()}
-                  className="block rounded-[12px] border border-[var(--cz-border)] bg-[var(--cz-surface)] p-3 transition-colors hover:bg-[var(--cz-surface-strong)]"
-                >
-                  <span className="flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-wide text-[var(--cz-accent)]">
-                    <FileText className="h-3.5 w-3.5" aria-hidden /> Article · {post.author?.username}/{post.slug}
-                  </span>
-                  <span className="mt-1 block text-[16px] font-extrabold leading-[22px] text-[var(--cz-text-primary)]">
-                    {post.title || "Untitled article"}
-                  </span>
-                  <span className="mt-0.5 line-clamp-3 block text-[14px] leading-[20px] text-[var(--cz-text-secondary)]">
-                    {excerptOf(post, 220)}
-                  </span>
-                  <span className="mt-1 block text-[13px] font-bold text-[var(--cz-accent)]">Read article →</span>
-                </Link>
-                {post.text && !post.description ? (
-                  <p className="mt-1 whitespace-pre-wrap break-words text-[13px] leading-[18px] text-[var(--cz-text-secondary)]">
-                    <RichText text={post.text} articleCompact />
-                  </p>
-                ) : null}
-              </div>
+            {isArticle ? (
+              hideArticleCard ? null : (
+                <div className="mt-1">
+                  <Link
+                    href={post.author?.username && post.slug ? articleUrl(post.author.username, post.slug) : `/app/p/${post._id}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="block rounded-[12px] border border-[var(--cz-border)] bg-[var(--cz-surface)] p-3 transition-colors hover:bg-[var(--cz-surface-strong)]"
+                  >
+                    <span className="flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-wide text-[var(--cz-accent)]">
+                      <FileText className="h-3.5 w-3.5" aria-hidden /> Article · {post.author?.username}/{post.slug}
+                    </span>
+                    <span className="mt-1 block text-[16px] font-extrabold leading-[22px] text-[var(--cz-text-primary)]">
+                      {post.title || "Untitled article"}
+                    </span>
+                    <span className="mt-0.5 line-clamp-3 block text-[14px] leading-[20px] text-[var(--cz-text-secondary)]">
+                      {excerptOf(post, 220)}
+                    </span>
+                    <span className="mt-1 block text-[13px] font-bold text-[var(--cz-accent)]">Read article →</span>
+                  </Link>
+                  {post.text && !post.description ? (
+                    <p className="mt-1 whitespace-pre-wrap break-words text-[13px] leading-[18px] text-[var(--cz-text-secondary)]">
+                      <RichText text={post.text} articleCompact />
+                    </p>
+                  ) : null}
+                </div>
+              )
             ) : editing ? (
               <form onSubmit={handleEdit} className="mt-2">
                 <div className="relative">

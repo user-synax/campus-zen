@@ -1385,6 +1385,19 @@ input[type="number"] {
 .cz-markdown hr { margin: 1.2em 0; border: none; border-top: 1px solid var(--cz-border); }
 .cz-markdown del { color: var(--cz-text-secondary); }
 
+/* Article reader — long-form scale for the wide reading canvas.
+   Designed for a ~70ch measure: 17px body, looser leading, headings and
+   code nudged up so the page reads as prose, not as a feed. */
+.cz-markdown.cz-article { font-size: 17px; line-height: 1.75; }
+.cz-markdown.cz-article p { margin: 0.9em 0; }
+.cz-markdown.cz-article h1 { font-size: 26px; }
+.cz-markdown.cz-article h2 { font-size: 22px; }
+.cz-markdown.cz-article h3 { font-size: 18.5px; }
+.cz-markdown.cz-article h4 { font-size: 17px; }
+.cz-markdown.cz-article code { font-size: 14.5px; }
+.cz-markdown.cz-article pre code { font-size: 14px; }
+.cz-markdown.cz-article table { font-size: 15px; }
+
 /* ── 18+ sensitive media ─────────────────────────────────────
    Blurred placeholder with a moving sweep; tap reveals with a
    click-origin radial wipe (clip-path transition on the overlay).

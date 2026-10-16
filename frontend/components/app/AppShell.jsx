@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { BottomNav } from "@/components/app/BottomNav";
 import { LeftNav } from "@/components/app/LeftNav";
@@ -12,6 +12,7 @@ import { ThemeToggle } from "@/components/app/ThemeToggle";
 import { BrandMark } from "@/components/BrandLogo";
 import { useCurrentUser } from "@/lib/hooks/useRequireSession";
 import { useSSE } from "@/lib/hooks/useSSE";
+import { cn } from "@/lib/utils";
 
 /**
  * The three-column X shell, shared by /app, /u and /c so those routes sit
@@ -21,12 +22,21 @@ import { useSSE } from "@/lib/hooks/useSSE";
  *   lg  275px  expanded rail   ·  feed
  *   xl  275px  expanded rail   ·  feed  · 350px right rail
  *
+ * The article reader (/app/a/…) drops the right rail on xl so the piece
+ * gets the full column — reading mode, not browsing mode. Every other
+ * route keeps the three-column frame.
+ *
  * Columns are separated by hairlines, not gaps — the page is one
  * continuous surface.
  */
 export function AppShell({ children, requireAuth = false }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, loading, signedOut, failed } = useCurrentUser();
+
+  // /app/a/<username>/<slug> — the long-form reader. On xl the right rail
+  // unmounts and the main column grows to fill the freed width.
+  const isArticleReader = Boolean(pathname?.startsWith("/app/a/"));
 
   // One live-notification stream for the whole shell.
   useSSE();
@@ -68,21 +78,35 @@ export function AppShell({ children, requireAuth = false }) {
         <ThemeToggle className="h-[40px] w-[40px]" />
       </header>
 
-      <div className="mx-auto grid w-full max-w-[1275px] md:grid-cols-[72px_minmax(0,1fr)] lg:grid-cols-[275px_minmax(0,1fr)] xl:grid-cols-[275px_minmax(0,1fr)_350px]">
+      <div
+        className={cn(
+          "mx-auto grid w-full max-w-[1275px] md:grid-cols-[72px_minmax(0,1fr)] lg:grid-cols-[275px_minmax(0,1fr)]",
+          isArticleReader
+            ? "xl:grid-cols-[275px_minmax(0,1fr)]"
+            : "xl:grid-cols-[275px_minmax(0,1fr)_350px]",
+        )}
+      >
         <aside className="sticky top-0 hidden h-[100dvh] min-h-0 flex-col border-r border-[var(--cz-border)] md:flex">
           <LeftNav user={user} />
         </aside>
 
-        <main className="min-w-0 xl:border-r xl:border-[var(--cz-border)]">
+        <main
+          className={cn(
+            "min-w-0",
+            !isArticleReader && "xl:border-r xl:border-[var(--cz-border)]",
+          )}
+        >
           {/* room for the mobile tab bar */}
           <div className="pb-[calc(53px+env(safe-area-inset-bottom))] md:pb-0">
             {children}
           </div>
         </main>
 
-        <aside className="sticky top-0 hidden h-[100dvh] min-h-0 overflow-y-auto xl:block">
-          <RightMinimal currentUser={user} />
-        </aside>
+        {isArticleReader ? null : (
+          <aside className="sticky top-0 hidden h-[100dvh] min-h-0 overflow-y-auto xl:block">
+            <RightMinimal currentUser={user} />
+          </aside>
+        )}
       </div>
 
       <BottomNav />
