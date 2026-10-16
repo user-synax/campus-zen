@@ -35,6 +35,13 @@ export function errorHandler(err, req, res, _next) {
     message = err.name === "TokenExpiredError" ? "Token expired" : "Invalid token";
   }
 
+  // body-parser — request over the route's JSON ceiling
+  if (err.type === "entity.too.large") {
+    statusCode = 413;
+    code = "PAYLOAD_TOO_LARGE";
+    message = "Request too large";
+  }
+
   // Multer
   if (err.code === "LIMIT_FILE_SIZE") {
     statusCode = 400;
