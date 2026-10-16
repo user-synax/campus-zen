@@ -125,6 +125,12 @@ function OverflowMenu({
               Edit post
             </button>
           ) : null}
+          {post.kind === "article" && !post.isAnonymous ? (
+            <button role="menuitem" onClick={onEdit} className={menuItemClass}>
+              <Pencil className="h-[18px] w-[18px] shrink-0" aria-hidden />
+              Edit article
+            </button>
+          ) : null}
           <button
             role="menuitem"
             onClick={onDelete}
@@ -568,8 +574,12 @@ export function PostCard({
                     post={post}
                     onPin={handlePinToggle}
                     onEdit={() => {
-                      setEditing(true);
                       setMenuOpen(false);
+                      if (post.kind === "article") {
+                        router.push(`/app/edit/${post._id}`);
+                      } else {
+                        setEditing(true);
+                      }
                     }}
                     onDelete={handleDelete}
                     onReport={() => {

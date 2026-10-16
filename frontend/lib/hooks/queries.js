@@ -679,6 +679,22 @@ export function useUpdatePost() {
   });
 }
 
+export function useUpdateArticle() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ postId, payload }) => api.updateArticle(postId, payload),
+    onSuccess: (res, { postId }) => {
+      const post = res?.data?.post;
+      qc.invalidateQueries({ queryKey: ["post", postId] });
+      qc.invalidateQueries({ queryKey: ["articles-feed"] });
+      qc.invalidateQueries({ queryKey: ["feed"] });
+      if (post?.author?.username && post?.slug) {
+        qc.invalidateQueries({ queryKey: ["article", post.author.username?.toLowerCase(), post.slug?.toLowerCase()] });
+      }
+    },
+  });
+}
+
 export function useDeletePost() {
   const qc = useQueryClient();
   return useMutation({

@@ -121,6 +121,7 @@ export default function ArticleReaderPage() {
 
   const minutes = readingMinutes(post.body);
   const replyCount = post.replyCount || replies.length;
+  const isOwnArticle = me && String(me._id) === String(post.author?._id || post.author);
 
   return (
     <div>
@@ -155,6 +156,14 @@ export default function ArticleReaderPage() {
               <p className="truncate text-[13px] text-[var(--cz-text-secondary)]">
                 @{post.author?.username} · {timeAgo(post.createdAt)}
                 {post.edited ? " · edited" : ""} · {minutes} min read
+                {isOwnArticle ? (
+                  <>
+                    {" · "}
+                    <Link href={`/app/edit/${post._id}`} className="font-bold text-[var(--cz-accent)] hover:underline">
+                      Edit
+                    </Link>
+                  </>
+                ) : null}
               </p>
             </div>
           </div>
