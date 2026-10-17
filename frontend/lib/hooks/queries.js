@@ -14,6 +14,7 @@ export const queryKeys = {
   me: ["me"],
   feed: (tab) => ["feed", tab],
   publicFeed: () => ["publicFeed"],
+  hub: (tag) => ["hub", tag],
   post: (id) => ["post", id],
   user: (username) => ["user", username],
   userPosts: (username, page) => ["userPosts", username, page],
@@ -97,6 +98,27 @@ export function useFeed(tab = "following") {
     staleTime: 15_000,
     // Tab switches stay instant: keep the last feed on screen while the
     // fresh page loads in the background.
+    placeholderData: (prev) => prev,
+  });
+}
+
+// One infinite query per topic — the hub strip just swaps the tag in the key,
+// so each topic keeps its own cache and scroll position.
+export function useHubFeed(tag) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.hub(tag),
+    queryFn: ({ pageParam }) =>
+      api.getHubFeed({ tag, cursor: pageParam?.cursor }),
+    initialPageParam: undefined,
+    // pages are raw API bodies { success, data: { posts, nextCursor, hasMore } }
+    getNextPageParam: (lastPage) => {
+      const d = lastPage?.data;
+      if (!d?.hasMore) return undefined;
+      return d.nextCursor ? { cursor: d.nextCursor } : undefined;
+    },
+    staleTime: 15_000,
+    // Tag switches stay instant: the previous topic stays on screen while
+    // the new one loads.
     placeholderData: (prev) => prev,
   });
 }
@@ -434,6 +456,7 @@ export function useCreatePost() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["feed"] });
       qc.invalidateQueries({ queryKey: ["publicFeed"] });
+      qc.invalidateQueries({ queryKey: ["hub"] });
       qc.invalidateQueries({ queryKey: ["trendingHashtags"] });
     },
   });

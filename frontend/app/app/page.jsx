@@ -1,24 +1,35 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
-import { ArrowUp, Check, ChevronDown, FileText, Users } from "lucide-react";
+import { ArrowUp, Check, ChevronDown, Compass, FileText, Users } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   EmptyState,
   FeedFooter,
   PostSkeleton,
 } from "@/components/app/EmptyState";
+import { INTEREST_TAGS } from "@/lib/interestTags";
+import { HubTagStrip } from "@/components/app/InterestTagChips";
 import { PostComposer } from "@/components/app/PostComposer";
 import { ArticleComposer } from "@/components/app/ArticleComposer";
 import { AnonymousComposer } from "@/components/app/AnonymousComposer";
 import { PostCard } from "@/components/app/PostCard";
 import { api } from "@/lib/api";
-import { useArticlesInfinite, useMe, useFeed, useAnonymousFeed } from "@/lib/hooks/queries";
+import { interestTag } from "@/lib/interestTags";
+import {
+  useArticlesInfinite,
+  useMe,
+  useFeed,
+  useHubFeed,
+  useAnonymousFeed,
+} from "@/lib/hooks/queries";
 
 export default function AppHome() {
   const [tab, setTab] = useState("discovery");
   const isArticlesTab = tab === "articles";
   const isAnonTab = tab === "anonymous";
+  const isHubTab = tab === "hub";
+  const [hubTag, setHubTag] = useState(INTEREST_TAGS[0].id);
   const [moreOpen, setMoreOpen] = useState(false);
   const moreWrapRef = useRef(null);
   const MAIN_TABS = [
@@ -28,6 +39,7 @@ export default function AppHome() {
   const MORE_TABS = [
     { id: "articles", label: "Articles", hint: "Long-form" },
     { id: "anonymous", label: "Anonymous", hint: "Hub" },
+    { id: "hub", label: "Hub", hint: "Pick a topic" },
   ];
   const activeMore = MORE_TABS.find((t) => t.id === tab) || null;
 
@@ -65,9 +77,10 @@ export default function AppHome() {
   const { data: meData } = useMe();
   const user = meData?.data?.user || null;
 
-  const feedQuery = useFeed(isArticlesTab || isAnonTab ? "discovery" : tab);
+  const feedQuery = useFeed(isArticlesTab || isAnonTab || isHubTab ? "discovery" : tab);
   const articlesQuery = useArticlesInfinite();
   const anonQuery = useAnonymousFeed();
+  const hubQuery = useHubFeed(hubTag);
   const {
     data,
     fetchNextPage,
@@ -77,7 +90,23 @@ export default function AppHome() {
     isError,
     error,
     refetch,
-  } = isArticlesTab ? articlesQuery : isAnonTab ? anonQuery : feedQuery;
+  } = isArticlesTab
+    ? articlesQuery
+    : isAnonTab
+      ? anonQuery
+      : isHubTab
+        ? hubQuery
+        : feedQuery;
+
+  // The one cache key the active tab reads+writes (created/deleted/updated
+  // posts, pending merge). The hub key includes its topic.
+  const activeKey = isArticlesTab
+    ? ["articles-feed"]
+    : isAnonTab
+      ? ["anon-feed"]
+      : isHubTab
+        ? ["hub", hubTag]
+        : ["feed", tab];
 
   // Dedupe by _id — cursor sessions can interleave after pull-to-refresh
   // (fresh random top + older session pages) or an order-cache rebuild, so
@@ -116,7 +145,7 @@ export default function AppHome() {
 
   const handleCreated = (newPost) => {
     // Optimistically prepend to feed cache
-    const key = isArticlesTab ? ["articles-feed"] : isAnonTab ? ["anon-feed"] : ["feed", tab];
+    const key = activeKey;
     queryClient.setQueryData(key, (old) => {
       if (!old) return old;
       const newPages = [...old.pages];
@@ -142,6 +171,8 @@ export default function AppHome() {
     if (typeof navigator !== "undefined" && !navigator.onLine) return;
     if (tab === "articles") return;
     if (tab === "anonymous") return;
+    // The hub is browse-only (no composer, no banner) — nothing to peek for.
+    if (tab === "hub") return;
     checkingRef.current = true;
     try {
       const fn = tab === "following" ? api.getFeed : api.getPublicFeed;
@@ -189,7 +220,7 @@ export default function AppHome() {
 
   const showNewPosts = () => {
     // Prepend pending posts to cache
-    const key = isArticlesTab ? ["articles-feed"] : isAnonTab ? ["anon-feed"] : ["feed", tab];
+    const key = activeKey;
     queryClient.setQueryData(key, (old) => {
       if (!old) return old;
       const newPages = [...old.pages];
@@ -248,7 +279,7 @@ export default function AppHome() {
   };
 
   const handleDelete = (id) => {
-    const key = isArticlesTab ? ["articles-feed"] : isAnonTab ? ["anon-feed"] : ["feed", tab];
+    const key = activeKey;
     queryClient.setQueryData(key, (old) => {
       if (!old) return old;
       return {
@@ -265,7 +296,7 @@ export default function AppHome() {
   };
 
   const handleUpdate = (updated) => {
-    const key = isArticlesTab ? ["articles-feed"] : isAnonTab ? ["anon-feed"] : ["feed", tab];
+    const key = activeKey;
     queryClient.setQueryData(key, (old) => {
       if (!old) return old;
       return {
@@ -391,17 +422,30 @@ export default function AppHome() {
             ) : null}
           </div>
         </div>
+        {/* Hub topic strip lives inside the sticky tab bar so it stays
+            reachable while scrolling the topic feed. */}
+        {isHubTab ? (
+          <div className="border-t border-[var(--cz-border)] px-4 py-2">
+            <HubTagStrip
+              activeTag={hubTag}
+              onTag={(id) => {
+                setHubTag(id);
+                window.scrollTo({ top: 0 });
+              }}
+            />
+          </div>
+        ) : null}
       </div>
 
       {isArticlesTab ? (
         <ArticleComposer user={user} onCreated={handleCreated} />
       ) : isAnonTab ? (
         <AnonymousComposer user={user} onCreated={handleCreated} />
-      ) : (
+      ) : isHubTab ? null : (
         <PostComposer user={user} onCreated={handleCreated} />
       )}
 
-      {pending.length > 0 && !isPending ? (
+      {pending.length > 0 && !isPending && !isHubTab ? (
         <div role="status" aria-live="polite" className="sticky top-[117px] z-10 flex justify-center pt-3 md:top-[105px]">
           <button
             ref={bannerRef}
@@ -436,6 +480,14 @@ export default function AppHome() {
             description="Follow students and their posts will show up here, newest first. Find classmates by college and course."
             actionLabel="Discover students"
             actionHref="/u"
+          />
+        ) : isHubTab ? (
+          <EmptyState
+            icon={Compass}
+            title={`Nothing in ${
+              interestTag(hubTag)?.fullLabel || interestTag(hubTag)?.label || "this topic"
+            } yet`}
+            description={`No posts tagged here yet. New posts with this topic appear first — tag yours with it in the composer.`}
           />
         ) : (
           <EmptyState

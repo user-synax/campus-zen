@@ -5,6 +5,7 @@ import { protect, optionalAuth } from "../middleware/auth.js";
 import { postController } from "../controllers/postController.js";
 import { postMediaFields } from "../middleware/upload.js";
 import rateLimit from "express-rate-limit";
+import { INTEREST_TAGS } from "../utils/interestTags.js";
 
 const router = Router();
 
@@ -84,8 +85,18 @@ router.get("/", optionalAuth, feedLimiter, validate(listQuery, "query"), postCon
 // feed — protected following (cursor flow for web, page fallback for mobile)
 router.get("/feed", protect, feedLimiter, validate(feedQuery, "query"), postController.feed);
 
+// interest hub — topic feed, guest-safe. Must sit before /:id ("hub" is not an id)
+const hubQuery = z.object({
+  tag: z.enum(INTEREST_TAGS, { message: "Unknown topic" }),
+  cursor: z.string().max(512).regex(/^[A-Za-z0-9_-]+$/, "Invalid cursor").optional(),
+  limit: z.coerce.number().int().min(1).max(50).optional().default(20),
+});
+
 // public discovery — optional auth for isLiked flags
 router.get("/public", optionalAuth, feedLimiter, validate(feedQuery, "query"), postController.publicFeed);
+
+// interest hub — chronological topic feeds, cursor-paginated
+router.get("/hub", optionalAuth, feedLimiter, validate(hubQuery, "query"), postController.hubFeed);
 
 // author insights — must sit before /:id so "analytics" isn't parsed as an id
 const analyticsQuery = z.object({

@@ -30,6 +30,7 @@ import {
 } from "../utils/feedOrder.js";
 import { pushPostUpdate } from "../routes/sseRoutes.js";
 import { generateAnonAlias, aliasForThreadMember, maskAnonAuthor } from "../utils/anon.js";
+import { normalizeInterestTags, isInterestTag } from "../utils/interestTags.js";
 
 const EDIT_WINDOW_MS = 5 * 60 * 1000;
 
@@ -492,6 +493,8 @@ export const postService = {
   async create(authorId, text, mediaInput, pollInput, opts = {}) {
     const t = text?.trim() || "";
     if (t.length > 500) throw new AppError("Post must be 1-500 characters", 400, "INVALID_TEXT");
+    // 1-3 interest tags required — they route the post into the Interest Hub
+    const interestTags = normalizeInterestTags(opts?.interestTags);
     const poll = buildPoll(pollInput);
     const { files, posters, meta } = normalizeMediaInput(mediaInput);
     if (poll && files.length) throw new AppError("Poll and media can't be combined", 400, "INVALID_POLL");
@@ -512,6 +515,7 @@ export const postService = {
       hashtags: extractHashtags(t),
       mentions: extractMentions(t),
       articleMentions: articleRefs,
+      interestTags,
       isSensitive,
       isAnonymous: false,
     });
@@ -1176,6 +1180,52 @@ export const postService = {
     const posts = raw.map((p) => ({ ...p }));
     await hydrateFeedPosts(posts, userId);
     return { posts, hasMore: false };
+  },
+
+  // ─── Interest Hub (v1 taxonomy — utils/interestTags.js) ─────────────────
+  // Topic-filtered chronological feed, guest-safe, keyset-cursor paginated.
+  // Posts only (articles + anonymous excluded by design). Legacy posts
+  // without tags never surface. Rides the {interestTags, createdAt, _id} index.
+  async hubFeed(tag, { cursor, limit }, viewerId) {
+    if (!isInterestTag(tag)) throw new AppError("Unknown topic", 400, "UNKNOWN_TAG");
+    const lim = Math.max(1, Math.min(50, Number(limit)));
+    let bound = null;
+    if (cursor) {
+      const parsed = decodeCursor(cursor);
+      if (parsed?.kind === "keyset") bound = parsed;
+    }
+    const filter = { kind: "post", ...NOT_ANON, interestTags: tag };
+    if (bound) {
+      filter.$or = [
+        { createdAt: { $lt: new Date(bound.createdAtMs) } },
+        { createdAt: new Date(bound.createdAtMs), _id: { $lt: bound.lastId } },
+      ];
+    }
+    // limit+1 probe — one query per page instead of a countDocuments scan
+    const rows = await Post.find(filter)
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(lim + 1)
+      .populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isCofounder isPrivate")
+      .lean();
+    const hasMore = rows.length > lim;
+    if (hasMore) rows.pop();
+    // The cursor anchors on the RAW last consumed row even if this viewer
+    // can't see it (strip happens after) — hidden posts can't punch gaps.
+    const visible = await stripViewerHiddenPosts(rows, viewerId);
+    await hydrateFeedPosts(visible, viewerId);
+    const anchor = rows[rows.length - 1] || null;
+    return {
+      posts: visible,
+      limit: lim,
+      hasMore,
+      nextCursor:
+        hasMore && anchor
+          ? encodeKeysetCursor({
+              createdAtMs: new Date(anchor.createdAt).getTime(),
+              lastId: String(anchor._id),
+            })
+          : null,
+    };
   },
 
   // Explicit idempotent like: POST always ensures liked. Safe under burst:

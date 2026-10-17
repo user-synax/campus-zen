@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { INTEREST_TAGS } from "../utils/interestTags.js";
 
 const postSchema = new mongoose.Schema(
   {
@@ -54,6 +55,10 @@ const postSchema = new mongoose.Schema(
     isSensitive: { type: Boolean, default: false, index: true },
     hashtags: { type: [String], default: [], index: true },
     mentions: { type: [String], default: [], index: true },
+    // interest hub taxonomy (v1, fixed — see utils/interestTags.js). 1-3 tags
+    // picked by the author at creation; power GET /posts/hub. Posts without
+    // tags (legacy) never surface in the hub.
+    interestTags: { type: [String], enum: INTEREST_TAGS, default: [], index: true },
     // poll attachment (V1) — counts denormalized here so feeds never aggregate.
     // Per-user votes live in PollVote; expiry is computed (no cron on free tier).
     poll: {
@@ -90,6 +95,8 @@ postSchema.index({ kind: 1, createdAt: -1 });
 postSchema.index({ createdAt: -1, _id: -1 });
 // for hashtag feeds
 postSchema.index({ hashtags: 1, createdAt: -1 });
+// interest hub feed: one tag + newest-first keyset cursors
+postSchema.index({ interestTags: 1, createdAt: -1, _id: -1 });
 // text search for PRD §13 — optimized, lightweight
 postSchema.index({ text: "text" });
 

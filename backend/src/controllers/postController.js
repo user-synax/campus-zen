@@ -34,7 +34,7 @@ export const postController = {
 
   create: asyncHandler(async (req, res) => {
     let poll = req.body.poll;
-    // multipart (media upload) delivers fields as strings — accept JSON-encoded poll/meta
+    // multipart (media upload) delivers fields as strings — accept JSON-encoded poll/meta/tags
     if (typeof poll === "string") {
       try {
         poll = JSON.parse(poll);
@@ -64,7 +64,11 @@ export const postController = {
       mediaInput = req.file;
     }
     const isSensitive = parseSensitiveFlag(req.body.isSensitive ?? req.body.sensitive);
-    const post = await postService.create(req.user._id, req.body.text, mediaInput, poll, { isSensitive });
+    // 1-3 interest tags route the post into the Interest Hub (validation in service)
+    const post = await postService.create(req.user._id, req.body.text, mediaInput, poll, {
+      isSensitive,
+      interestTags: req.body.interestTags,
+    });
     res.status(201).json({ success: true, data: { post } });
   }),
 
@@ -201,6 +205,13 @@ export const postController = {
       return res.json({ success: true, data: result });
     }
     const result = await postService.publicFeed({ page, limit }, viewerId);
+    res.json({ success: true, data: result });
+  }),
+
+  hubFeed: asyncHandler(async (req, res) => {
+    const { tag, cursor, limit } = req.query;
+    const viewerId = req.user?._id || null;
+    const result = await postService.hubFeed(tag, { cursor, limit }, viewerId);
     res.json({ success: true, data: result });
   }),
 

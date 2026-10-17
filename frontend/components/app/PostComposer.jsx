@@ -6,25 +6,28 @@ import {
   Image as ImageIcon,
   Loader2,
   Smile,
+  Tags,
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { CzImage } from "@/components/app/CzImage";
+import { InterestTagPickerModal } from "@/components/app/InterestTagPickerModal";
 import {
   MentionSuggest,
   useMentionAutocomplete,
 } from "@/components/app/MentionAutocomplete";
 import { useAutogrowTextarea } from "@/components/app/useAutogrowTextarea";
 import { Button } from "@/components/ui/button";
-import { withAvatarRing } from "@/lib/avatar";
 import { api } from "@/lib/api";
+import { withAvatarRing } from "@/lib/avatar";
+import { MAX_INTEREST_TAGS } from "@/lib/interestTags";
 import {
   ACCEPT_POST_MEDIA,
-  MEDIA_LIMITS,
   formatDuration,
   generateVideoPoster,
   getVideoMetadata,
   kindOfFile,
+  MEDIA_LIMITS,
   validatePostFile,
 } from "@/lib/media";
 import { cn } from "@/lib/utils";
@@ -40,10 +43,19 @@ export function PostComposer({ user, onCreated }) {
   const [error, setError] = useState("");
   const fileInputRef = useRef(null);
   const textRef = useRef(null);
+  // Up to 3 interest tags route the post into the Interest Hub. Optional —
+  // untagged posts never surface there. The picker lives in a modal opened
+  // from the action bar (like Image / Poll).
+  const [tags, setTags] = useState([]);
+  const [tagHint, setTagHint] = useState("");
+  const [topicPickerOpen, setTopicPickerOpen] = useState(false);
+  const tagHintTimer = useRef(null);
 
   // Draft persistence — text-only, per user, survives tab switch / close.
-  // Media can't go in localStorage, so only text is stored.
+  // Media can't go in localStorage, so only text is stored. Topics ride a
+  // sibling key so older drafts (plain strings) still hydrate untouched.
   const draftKey = `cz:post-draft:${user?._id || user?.username || "guest"}`;
+  const tagsDraftKey = `${draftKey}:tags`;
   const hydratedKeyRef = useRef(null);
 
   // Restore once per key. Never blank a non-empty box when switching keys
@@ -54,8 +66,18 @@ export function PostComposer({ user, onCreated }) {
     try {
       const saved = window.localStorage.getItem(draftKey);
       if (saved) setText(saved);
+      const savedTags = window.localStorage.getItem(tagsDraftKey);
+      if (savedTags) {
+        const arr = JSON.parse(savedTags);
+        if (Array.isArray(arr))
+          setTags(
+            arr
+              .filter((t) => typeof t === "string")
+              .slice(0, MAX_INTEREST_TAGS),
+          );
+      }
     } catch {}
-  }, [draftKey]);
+  }, [draftKey, tagsDraftKey]);
 
   // Save debounced so every keystroke doesn't hit storage.
   useEffect(() => {
@@ -64,10 +86,20 @@ export function PostComposer({ user, onCreated }) {
       try {
         if (text) window.localStorage.setItem(draftKey, text);
         else window.localStorage.removeItem(draftKey);
+        if (tags.length)
+          window.localStorage.setItem(tagsDraftKey, JSON.stringify(tags));
+        else window.localStorage.removeItem(tagsDraftKey);
       } catch {}
     }, 250);
     return () => clearTimeout(t);
-  }, [text, draftKey]);
+  }, [text, tags, draftKey, tagsDraftKey]);
+
+  useEffect(
+    () => () => {
+      clearTimeout(tagHintTimer.current);
+    },
+    [],
+  );
 
   // Revoke blob URLs on unmount so multi-preview sessions don't leak.
   useEffect(
@@ -112,6 +144,24 @@ export function PostComposer({ user, onCreated }) {
     setPollOpen(false);
     setPollOptions(["", ""]);
     setPollDays(1);
+  };
+
+  // Instant optimistic toggle — pure local state, no async in the tap path.
+  // Tapping a 4th topic flashes a hint instead of jarring with a disabled UI.
+  const toggleTag = (id) => {
+    if (tags.includes(id)) {
+      setTags(tags.filter((t) => t !== id));
+      setTagHint("");
+      return;
+    }
+    if (tags.length >= MAX_INTEREST_TAGS) {
+      setTagHint("Up to 3 topics in one post");
+      clearTimeout(tagHintTimer.current);
+      tagHintTimer.current = setTimeout(() => setTagHint(""), 2500);
+      return;
+    }
+    setTags([...tags, id]);
+    setTagHint("");
   };
 
   const removeItem = (id) => {
@@ -278,14 +328,25 @@ export function PostComposer({ user, onCreated }) {
         text.trim() || undefined,
         files.length ? files : undefined,
         poll,
-        files.length ? { posters, meta: hasMeta ? meta : undefined, isSensitive } : { isSensitive },
+        files.length
+          ? {
+              posters,
+              meta: hasMeta ? meta : undefined,
+              isSensitive,
+              interestTags: tags,
+            }
+          : { isSensitive, interestTags: tags },
       );
       setText("");
       clearItems();
       resetPoll();
       setIsSensitive(false);
+      setTags([]);
+      setTagHint("");
+      setTopicPickerOpen(false);
       try {
         window.localStorage.removeItem(draftKey);
+        window.localStorage.removeItem(tagsDraftKey);
       } catch {}
       window.dispatchEvent(new Event("cz:hashtag-trending"));
       onCreated?.(res.data?.post);
@@ -307,7 +368,12 @@ export function PostComposer({ user, onCreated }) {
   return (
     <form onSubmit={onSubmit} className="cz-row px-4 py-3">
       <div className="flex gap-3">
-        <span className={withAvatarRing(user, "grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[13px] font-bold text-[var(--cz-text-primary)]")}>
+        <span
+          className={withAvatarRing(
+            user,
+            "grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[13px] font-bold text-[var(--cz-text-primary)]",
+          )}
+        >
           {user?.avatarUrl ? (
             <CzImage
               src={user.avatarUrl}
@@ -351,6 +417,9 @@ export function PostComposer({ user, onCreated }) {
               onHover={mention.setActive}
             />
           </div>
+
+          {/* Topics are chosen in the action bar's picker modal — nothing
+              inline, the composer stays visually bare like before. */}
 
           {items.length ? (
             <div
@@ -487,7 +556,9 @@ export function PostComposer({ user, onCreated }) {
           ) : null}
 
           {error ? (
-            <p role="alert" className="mt-2 text-[13px] text-[var(--cz-error)]">{error}</p>
+            <p role="alert" className="mt-2 text-[13px] text-[var(--cz-error)]">
+              {error}
+            </p>
           ) : null}
           {isSensitive ? (
             <p className="mt-2 text-[13px] font-bold text-[var(--cz-error)]">
@@ -495,25 +566,25 @@ export function PostComposer({ user, onCreated }) {
             </p>
           ) : null}
 
-          <div className="mt-2 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1">
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
+            <div className="flex min-w-0 items-center gap-1.5 sm:gap-1">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={pollOpen || items.length >= MEDIA_LIMITS.MAX_FILES}
                 aria-label="Add photos, GIF or video"
                 title="Photos, GIFs, video (25MB / 60s). Tip: Cmd+Enter to post"
-                className="grid h-[44px] w-[44px] place-items-center rounded-full text-[var(--cz-accent)] transition-colors hover:bg-[var(--cz-accent-soft)] disabled:opacity-40 disabled:hover:bg-transparent"
+                className="grid h-[40px] w-[40px] shrink-0 place-items-center rounded-full text-[var(--cz-accent)] transition-colors hover:bg-[var(--cz-accent-soft)] disabled:opacity-40 disabled:hover:bg-transparent sm:h-[44px] sm:w-[44px]"
               >
                 {items.some((it) => it.kind === "video") ? (
                   <Film
-                    className="h-[20px] w-[20px]"
+                    className="h-[18px] w-[18px] sm:h-[20px] sm:w-[20px]"
                     strokeWidth={1.9}
                     aria-hidden
                   />
                 ) : (
                   <ImageIcon
-                    className="h-[20px] w-[20px]"
+                    className="h-[18px] w-[18px] sm:h-[20px] sm:w-[20px]"
                     strokeWidth={1.9}
                     aria-hidden
                   />
@@ -529,7 +600,7 @@ export function PostComposer({ user, onCreated }) {
                 aria-label={pollOpen ? "Remove poll" : "Add poll"}
                 aria-pressed={pollOpen}
                 className={cn(
-                  "grid h-[44px] w-[44px] place-items-center rounded-full transition-colors",
+                  "grid h-[40px] w-[40px] shrink-0 place-items-center rounded-full transition-colors sm:h-[44px] sm:w-[44px]",
                   pollOpen
                     ? "bg-[var(--cz-accent-soft)] text-[var(--cz-accent)]"
                     : "text-[var(--cz-accent)] hover:bg-[var(--cz-accent-soft)]",
@@ -537,10 +608,45 @@ export function PostComposer({ user, onCreated }) {
                 )}
               >
                 <BarChart2
-                  className="h-[20px] w-[20px]"
+                  className="h-[18px] w-[18px] sm:h-[20px] sm:w-[20px]"
                   strokeWidth={1.9}
                   aria-hidden
                 />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTopicPickerOpen(true);
+                  setTagHint("");
+                }}
+                aria-haspopup="dialog"
+                aria-expanded={topicPickerOpen}
+                aria-label={
+                  tags.length
+                    ? `Edit post topics — ${tags.length} selected`
+                    : "Choose post topics"
+                }
+                title="Post topics (optional) — pick up to 3, they route this post into the Interest Hub"
+                className={cn(
+                  "relative grid h-[40px] w-[40px] shrink-0 place-items-center rounded-full transition-colors sm:h-[44px] sm:w-[44px]",
+                  tags.length
+                    ? "bg-[var(--cz-accent-soft)] text-[var(--cz-accent)]"
+                    : "text-[var(--cz-accent)] hover:bg-[var(--cz-accent-soft)]",
+                )}
+              >
+                <Tags
+                  className="h-[18px] w-[18px] sm:h-[20px] sm:w-[20px]"
+                  strokeWidth={1.9}
+                  aria-hidden
+                />
+                {tags.length ? (
+                  <span
+                    aria-hidden
+                    className="absolute right-[4px] top-[4px] grid h-[14px] min-w-[14px] place-items-center rounded-full bg-[var(--cz-accent)] px-[3px] text-[9px] font-bold leading-none text-[var(--cz-text-inverse)] sm:right-[6px] sm:top-[6px] sm:h-[15px] sm:min-w-[15px] sm:text-[10px]"
+                  >
+                    {tags.length}
+                  </span>
+                ) : null}
               </button>
               <input
                 ref={fileInputRef}
@@ -557,7 +663,7 @@ export function PostComposer({ user, onCreated }) {
                 aria-label={isSensitive ? "Unmark as 18+" : "Mark as 18+"}
                 title="Mark media as 18+ — blurred unless viewer enables Show 18+"
                 className={cn(
-                  "grid h-[32px] min-w-[48px] place-items-center rounded-full border px-2 text-[13px] font-extrabold tracking-wide transition-colors",
+                  "grid h-[30px] min-w-[44px] shrink-0 place-items-center rounded-full border px-2 text-[13px] font-extrabold tracking-wide transition-colors sm:h-[32px] sm:min-w-[48px]",
                   isSensitive
                     ? "border-[var(--cz-error)] bg-[var(--cz-error)] text-white"
                     : "border-[var(--cz-border-strong)] text-[var(--cz-text-secondary)] hover:bg-[var(--cz-surface-strong)] hover:text-[var(--cz-text-primary)]",
@@ -565,20 +671,22 @@ export function PostComposer({ user, onCreated }) {
               >
                 18+
               </button>
-              <span
-                className={cn(
-                  "text-[13px] tabular-nums",
-                  over
-                    ? "text-[var(--cz-error)]"
-                    : remaining <= 40
-                      ? "text-[var(--cz-warn)]"
-                      : "text-[var(--cz-text-secondary)]",
-                )}
-                aria-live="polite"
-                aria-label={`${remaining} characters remaining`}
-              >
-                {len}/{MAX}
-              </span>
+              {len > 0 ? (
+                <span
+                  className={cn(
+                    "hidden text-[13px] tabular-nums whitespace-nowrap sm:inline",
+                    over
+                      ? "text-[var(--cz-error)]"
+                      : remaining <= 40
+                        ? "text-[var(--cz-warn)]"
+                        : "text-[var(--cz-text-secondary)]",
+                  )}
+                  aria-live="polite"
+                  aria-label={`${remaining} characters remaining`}
+                >
+                  {len}/{MAX}
+                </span>
+              ) : null}
               {items.length ? (
                 <span className="hidden text-[13px] text-[var(--cz-text-secondary)] sm:inline">
                   {items.length}/{MEDIA_LIMITS.MAX_FILES}
@@ -590,7 +698,7 @@ export function PostComposer({ user, onCreated }) {
               type="submit"
               disabled={!canPost}
               size="sm"
-              className="min-w-[92px]"
+              className="ml-auto min-w-[92px]"
             >
               {loading ? (
                 <>
@@ -605,6 +713,32 @@ export function PostComposer({ user, onCreated }) {
               )}
             </Button>
           </div>
+
+          {/* Mobile counter — its own line under all the options, only
+              while typing; desktop keeps it inline in the row above. */}
+          {len > 0 ? (
+            <p
+              className={cn(
+                "flex justify-end text-[12px] tabular-nums sm:hidden",
+                over
+                  ? "text-[var(--cz-error)]"
+                  : remaining <= 40
+                    ? "text-[var(--cz-warn)]"
+                    : "text-[var(--cz-text-secondary)]",
+              )}
+            >
+              {len}/{MAX}
+            </p>
+          ) : null}
+
+          {/* Topic picker modal — bottom sheet on phones, dialog on desktop. */}
+          <InterestTagPickerModal
+            open={topicPickerOpen}
+            tags={tags}
+            onToggle={toggleTag}
+            hint={tagHint}
+            onClose={() => setTopicPickerOpen(false)}
+          />
         </div>
       </div>
     </form>

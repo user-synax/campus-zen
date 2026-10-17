@@ -24,6 +24,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AnimatedNumber } from "@/components/app/AnimatedNumber";
 import { CzImage } from "@/components/app/CzImage";
+import { CardInterestTags } from "@/components/app/InterestTagChips";
 import { PostMedia } from "@/components/app/PostMedia";
 import {
   MentionSuggest,
@@ -689,6 +690,10 @@ export function PostCard({
                 <RichText text={post.text} />
               </div>
             )}
+
+            {/* 1-3 topic chips — tapping one opens the Interest Hub on it.
+                Anonymous posts never carry tags, so nothing leaks here. */}
+            <CardInterestTags tags={post.interestTags} />
 
             <PostMedia post={post} viewerShowSensitive={currentUser?.showSensitive} />
 

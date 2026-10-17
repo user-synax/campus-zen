@@ -350,7 +350,7 @@ export const api = {
   },
   createPost: (text, media, poll, extra = {}) => {
     // media: File | File[] | undefined (images, GIFs, videos).
-    // extra: { posters?: Blob[], meta?: [{ width, height, duration }], isSensitive?: boolean } —
+    // extra: { posterBlob?, meta?, isSensitive?, interestTags?: string[] } —
     // meta aligned by file index; posters[0] is the single video's poster.
     // Old (text, imageFile, poll) calls keep working: a lone File sends as
     // one "media" part.
@@ -358,6 +358,7 @@ export const api = {
     const posters = extra?.posters || [];
     const meta = extra?.meta;
     const isSensitive = Boolean(extra?.isSensitive);
+    const tags = Array.isArray(extra?.interestTags) ? extra.interestTags : [];
     if (files.length) {
       const form = new FormData();
       if (text) form.append("text", text);
@@ -367,10 +368,14 @@ export const api = {
       });
       if (meta) form.append("mediaMeta", JSON.stringify(meta));
       if (poll) form.append("poll", JSON.stringify(poll));
+      if (tags.length) form.append("interestTags", JSON.stringify(tags));
       if (isSensitive) form.append("isSensitive", "true");
       return request("/api/posts", { method: "POST", form });
     }
-    return request("/api/posts", { method: "POST", body: { text, poll, isSensitive: isSensitive || undefined } });
+    return request("/api/posts", {
+      method: "POST",
+      body: { text, poll, interestTags: tags.length ? tags : undefined, isSensitive: isSensitive || undefined },
+    });
   },
   createAnonymousPost: (text, media, extra = {}) => {
     // Anonymous hub: text + images only. No polls, no video.
@@ -472,6 +477,15 @@ export const api = {
     });
     const q = qs.toString();
     return request(`/api/posts/public${q ? `?${q}` : ""}`, { method: "GET" });
+  },
+  getHubFeed: (params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "")
+        qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(`/api/posts/hub${q ? `?${q}` : ""}`, { method: "GET" });
   },
   likePost: (id) =>
     request(`/api/posts/${encodeURIComponent(id)}/like`, { method: "POST" }),
