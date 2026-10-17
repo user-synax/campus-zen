@@ -178,9 +178,12 @@ export const postController = {
 
   feed: asyncHandler(async (req, res) => {
     const { page, limit, cursor, seed, latest } = req.query;
-    // cursor/seed/latest → new cursor flow (web); plain page → legacy offset
-    // path kept for the mobile app until it migrates.
-    if (cursor || seed || latest === "1") {
+    // cursor/seed/latest → new cursor flow (web). A request with NO page
+    // param is also the cursor flow — that's how the web client's first
+    // page arrives, and the legacy path returns no nextCursor, which made
+    // the client dead-end with "No more posts" after one page. Plain
+    // page=N → legacy offset path kept for the mobile app until it migrates.
+    if (cursor || seed || latest === "1" || page === undefined) {
       const result = await postService.feedCursor(req.user._id, { cursor, seed, limit, latest });
       return res.json({ success: true, data: result });
     }
@@ -191,7 +194,9 @@ export const postController = {
   publicFeed: asyncHandler(async (req, res) => {
     const { page, limit, cursor, seed, latest } = req.query;
     const viewerId = req.user?._id || null;
-    if (cursor || seed || latest === "1") {
+    // Same page === undefined routing as feed() above — the web client's
+    // first discovery page sends no params at all.
+    if (cursor || seed || latest === "1" || page === undefined) {
       const result = await postService.publicFeedCursor({ cursor, seed, limit, latest }, viewerId);
       return res.json({ success: true, data: result });
     }

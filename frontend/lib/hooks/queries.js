@@ -64,10 +64,18 @@ export function useMe() {
 export const feedPage = (tab = "discovery") => ({ pageParam }) => {
   // pageParam: undefined on first page → server starts a fresh randomized
   // session (For you) and returns an opaque cursor; later pages replay it.
-  const { cursor } = pageParam || {};
+  // { page } is the legacy offset fallback for responses that came back
+  // without a cursor — whichever protocol the first page answers with is
+  // the one the rest of the scroll keeps using.
+  const params =
+    pageParam?.cursor != null
+      ? { cursor: pageParam.cursor }
+      : pageParam?.page != null
+        ? { page: pageParam.page }
+        : {};
   return tab === "following"
-    ? api.getFeed({ cursor })
-    : api.getPublicFeed({ cursor });
+    ? api.getFeed(params)
+    : api.getPublicFeed(params);
 };
 
 export function useFeed(tab = "following") {
@@ -80,7 +88,11 @@ export function useFeed(tab = "following") {
     // the same randomized order the first page picked.
     getNextPageParam: (lastPage) => {
       const d = lastPage?.data;
-      return d?.hasMore && d?.nextCursor ? { cursor: d.nextCursor } : undefined;
+      if (!d?.hasMore) return undefined;
+      // Cursor protocol first. Legacy offset responses (hasMore but no
+      // nextCursor — e.g. an older backend) fall back to page+n instead of
+      // dead-ending the scroll with a false "No more posts".
+      return d.nextCursor ? { cursor: d.nextCursor } : { page: (d.page || 1) + 1 };
     },
     staleTime: 15_000,
     // Tab switches stay instant: keep the last feed on screen while the

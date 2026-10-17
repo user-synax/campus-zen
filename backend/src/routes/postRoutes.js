@@ -41,7 +41,11 @@ const paginationQuery = z.object({
 // cursor = opaque base64url token returned by the previous page; seed lets a
 // client rehydrate an existing random session; latest=1 is the cheap
 // chronological peek for "new posts" banners.
-const feedQuery = paginationQuery.extend({
+// page stays truly optional (no .default()): the feed controllers branch on
+// its presence — no page param ⇒ web cursor flow, page=N ⇒ legacy offsets.
+const feedQuery = z.object({
+  page: z.coerce.number().int().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(50).optional().default(20),
   cursor: z.string().max(512).regex(/^[A-Za-z0-9_-]+$/, "Invalid cursor").optional(),
   seed: z.string().max(32).regex(/^[a-f0-9]{6,32}$/, "Invalid seed").optional(),
   latest: z.enum(["0", "1"]).optional(),
