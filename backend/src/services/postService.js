@@ -21,10 +21,22 @@ import {
 } from "../utils/articles.js";
 import { AppError } from "../utils/AppError.js";
 import { cache, CacheKeys, TTL } from "../utils/cache.js";
+import {
+  decodeCursor,
+  encodeCursor,
+  encodeKeysetCursor,
+  orderIds,
+  resolveFeedState,
+} from "../utils/feedOrder.js";
 import { pushPostUpdate } from "../routes/sseRoutes.js";
 import { generateAnonAlias, aliasForThreadMember, maskAnonAuthor } from "../utils/anon.js";
 
 const EDIT_WINDOW_MS = 5 * 60 * 1000;
+
+// Upper bound on candidate posts considered when building a shuffled cursor
+// feed order (newest first). Bounds rebuild cost + RAM for the memoized order
+// lists on the Render free tier; 20k posts ≈ 1k scroll pages.
+const FEED_CANDIDATE_CAP = 20_000;
 
 // ─── Anonymous hub helpers ──────────────────────────────────────────────
 // Real author ObjectId is always stored for moderation/abuse handling.
@@ -250,6 +262,99 @@ async function hiddenAuthorFilter(viewerId) {
   } catch {}
   const all = new Set([...hidden.map(String), ...privateHide.map(String)]);
   return all;
+}
+
+// ─── Cursor/paginated feeds (For you = seeded random order) ────────────────
+// Per-viewer visibility strip shared by the legacy offset publicFeed and the
+// new cursor feed: blocked/deactivated authors gone, private authors only
+// for self/followers (legacy discovery included followed privates).
+async function stripViewerHiddenPosts(posts, viewerId) {
+  if (!posts.length) return posts;
+  let out = await withoutBlockedAuthors(posts, viewerId);
+  // Guests + non-followers: drop private authors (belt-and-braces).
+  out = out.filter((p) => {
+    const a = p.author;
+    if (!a) return true;
+    if (a.isPrivate && String(a._id || a) !== String(viewerId || "")) return false;
+    return true;
+  });
+  return out;
+}
+
+// One place for the per-viewer feed plumbing: isLiked/isReposted/isBookmarked
+// + viewer poll state. Same flags the page feeds attach, just shared.
+async function hydrateFeedPosts(posts, viewerId) {
+  if (viewerId && posts.length) {
+    const postIds = posts.map((p) => p._id);
+    const [likes, reposts] = await Promise.all([
+      Like.find({ user: viewerId, post: { $in: postIds } }).select("post").lean(),
+      Repost.find({ user: viewerId, post: { $in: postIds } }).select("post").lean(),
+    ]);
+    const likeSet = new Set(likes.map((l) => String(l.post)));
+    const repostSet = new Set(reposts.map((r) => String(r.post)));
+    posts.forEach((p) => {
+      p.isLiked = likeSet.has(String(p._id));
+      p.isReposted = repostSet.has(String(p._id));
+    });
+    await attachBookmarked(posts, viewerId);
+  }
+  await attachPollVotes(posts, viewerId || null);
+}
+
+// Deterministic per-seed shuffle of candidate IDs, memoized. Recompute is a
+// single covered index scan (_id projection, no full docs) + in-memory hash
+// sort; the memoized list makes every page 2+ a pure RAM slice with zero
+// sorting/resampling on the DB. Only ~10 min TTL — a normal scroll session
+// rarely rebuilds, and the cursor's lastId anchor bridges any rebuild.
+async function getShuffledOrderList(cacheKey, seed, buildCandidates) {
+  let order = cache.get(cacheKey);
+  if (order) return order;
+  const rows = await buildCandidates();
+  order = orderIds(seed, rows.map((d) => String(d._id)));
+  cache.set(cacheKey, order, TTL.FEED_ORDER);
+  return order;
+}
+
+// Consume the next window of an order list: hydrate live posts with one $in
+// per ::lim slice, keeping the shuffled order. Deleted posts mid-session
+// shrink a slice; we roll into later chunks until the page fills or the list
+// is exhausted. `end` = candidate index AFTER the last consumed candidate —
+// that's the next page's start anchor.
+async function consumeOrderSlice(order, start, lim, queryFilter, authorProjection) {
+  const picked = [];
+  let k = Math.max(0, Math.min(start, order.length));
+  while (k < order.length && picked.length < lim) {
+    const chunk = order.slice(k, k + lim);
+    if (!chunk.length) break;
+    const rows = await Post.find({ _id: { $in: chunk }, ...queryFilter })
+      .populate("author", authorProjection)
+      .lean();
+    const byId = new Map(rows.map((r) => [String(r._id), r]));
+    for (const id of chunk) {
+      const post = byId.get(id);
+      if (post) picked.push(post);
+      k += 1;
+      if (picked.length === lim) break;
+    }
+  }
+  return { posts: picked, end: k };
+}
+
+// Shared "nextCursor" assembly for both cursor feeds.
+function cursorPageResult(state, orderLength, end, posts, lim) {
+  const hasMore = end < orderLength;
+  const lastShown = posts.length ? String(posts[posts.length - 1]._id) : "";
+  return {
+    posts,
+    limit: lim,
+    hasMore,
+    // seed rides inside the cursor; expose it too so clients can rehydrate
+    // the same session without holding the cursor around (freshness polls).
+    seed: state.seed,
+    nextCursor: hasMore
+      ? encodeCursor({ seed: state.seed, start: end, lastId: lastShown || state.lastId })
+      : null,
+  };
 }
 
 // Enforce mention policy before creating content — hard 403 with clear code.
@@ -900,18 +1005,7 @@ export const postService = {
     const cacheKey = CacheKeys.publicFeed(page, lim);
     const cached = cache.get(cacheKey);
     // Per-viewer strip helper (private/blocked/deactivated never in discovery).
-    const stripForViewer = async (posts) => {
-      if (!posts.length) return posts;
-      let out = await withoutBlockedAuthors(posts, viewerId);
-      // Guests + non-followers: drop private authors (belt-and-braces).
-      out = out.filter((p) => {
-        const a = p.author;
-        if (!a) return true;
-        if (a.isPrivate && String(a._id || a) !== String(viewerId || "")) return false;
-        return true;
-      });
-      return out;
-    };
+    const stripForViewer = (posts) => stripViewerHiddenPosts(posts, viewerId);
     if (cached) {
       // Still need per-viewer data even on cache hit
       if (viewerId && cached.posts.length) {
@@ -964,6 +1058,124 @@ export const postService = {
     const result = { posts, page: Number(page), limit: lim, hasMore };
     cache.set(cacheKey, result, TTL.PUBLIC_FEED);
     return result;
+  },
+
+  // ─── Cursor feeds (web): pagination moves to opaque cursors so offset
+  // shifts (new/deleted posts mid-scroll) can't duplicate or skip posts, and
+  // "For you" additionally re-arranges per user per session via a seeded
+  // shuffle (see utils/feedOrder.js). Following stays chronological but gains
+  // the same cursor mechanics. The legacy page paths above are kept for the
+  // mobile app until it migrates.
+  async feedCursor(userId, { cursor, limit, latest }) {
+    const lim = Math.max(1, Math.min(50, Number(limit)));
+    if (latest === "1") return this.feedLatestPeek(userId, lim);
+    // following stays newest-first — true keyset over (createdAt, _id), no
+    // order list, no randomness. Keyset is insert-safe (new posts always sort
+    // AFTER the cursor, so they never re-shown) and re-evaluates blocks/
+    // hides per page instead of waiting out a cached snapshot.
+    let bound = null;
+    if (cursor) {
+      const parsed = decodeCursor(cursor);
+      if (parsed?.kind === "keyset") bound = parsed;
+    }
+    const follows = await Follow.find({ follower: userId }).select("following").lean();
+    const ids = follows.map((f) => f.following);
+    ids.push(userId);
+    const hiddenSet = await hiddenAuthorFilter(userId);
+    const visibleIds = ids.filter((id) => !hiddenSet.has(String(id)));
+    const filter = { author: { $in: visibleIds.length ? visibleIds : ["000000000000000000000000"] }, ...NOT_ANON };
+    if (bound) {
+      filter.$or = [
+        { createdAt: { $lt: new Date(bound.createdAtMs) } },
+        { createdAt: new Date(bound.createdAtMs), _id: { $lt: bound.lastId } },
+      ];
+    }
+    // limit+1 probe instead of a second countDocuments scan (same trick the
+    // legacy page feed uses — one query per page).
+    const rows = await Post.find(filter)
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(lim + 1)
+      .populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isCofounder")
+      .lean();
+    const hasMore = rows.length > lim;
+    if (hasMore) rows.pop();
+    await hydrateFeedPosts(rows, userId);
+    const last = rows[rows.length - 1];
+    return {
+      posts: rows,
+      limit: lim,
+      hasMore,
+      nextCursor: hasMore
+        ? encodeKeysetCursor({ createdAtMs: new Date(last.createdAt).getTime(), lastId: String(last._id) })
+        : null,
+    };
+  },
+
+  async publicFeedCursor({ cursor, seed, limit, latest }, viewerId) {
+    const lim = Math.max(1, Math.min(50, Number(limit)));
+    if (latest === "1") return this.publicLatestPeek(lim, viewerId);
+    const state = resolveFeedState(cursor, seed);
+    const order = await getShuffledOrderList(CacheKeys.publicFeedOrder(state.seed), state.seed, () =>
+      // candidates = every non-anonymous post/article, newest-first cap. The
+      // _id-only projection rides the {kind, createdAt} / isAnonymous index —
+      // covered scan, no document fetches. Per-viewer stripping happens per
+      // request, like the legacy feed.
+      Post.find(NOT_ANON)
+        .sort({ createdAt: -1 })
+        .limit(FEED_CANDIDATE_CAP)
+        .select("_id")
+        .lean(),
+    );
+    let { start } = state;
+    if (state.lastId) {
+      const idx = order.indexOf(state.lastId);
+      if (idx >= 0) start = idx + 1;
+    }
+    const { posts, end } = await consumeOrderSlice(order, start, lim, NOT_ANON, "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isCofounder isPrivate");
+    const visible = await stripViewerHiddenPosts(posts, viewerId);
+    await hydrateFeedPosts(visible, viewerId);
+    return cursorPageResult(state, order.length, end, visible, lim);
+  },
+
+  // Cheap chronological "any new posts?" peeks used by the 30s freshness poll.
+  // The banner logic only needs the newest few IDs — random session order is
+  // irrelevant there, so these stay shared-cache chronological and tiny.
+  async publicLatestPeek(lim, viewerId) {
+    const cacheKey = CacheKeys.latestPublic(lim);
+    let raw = cache.get(cacheKey);
+    if (!raw) {
+      raw = await Post.find(NOT_ANON)
+        .sort({ createdAt: -1, _id: -1 })
+        .limit(lim)
+        .populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isCofounder isPrivate")
+        .lean();
+      cache.set(cacheKey, raw, TTL.LATEST);
+    }
+    const posts = await stripViewerHiddenPosts(raw.map((p) => ({ ...p })), viewerId);
+    await hydrateFeedPosts(posts, viewerId);
+    return { posts, hasMore: false };
+  },
+
+  async feedLatestPeek(userId, lim) {
+    const cacheKey = CacheKeys.feedLatest(userId, lim);
+    let raw = cache.get(cacheKey);
+    if (!raw) {
+      const follows = await Follow.find({ follower: userId }).select("following").lean();
+      const ids = follows.map((f) => f.following);
+      ids.push(userId);
+      const hiddenSet = await hiddenAuthorFilter(userId);
+      const visibleIds = ids.filter((id) => !hiddenSet.has(String(id)));
+      const authorFilter = { $in: visibleIds.length ? visibleIds : ["000000000000000000000000"] };
+      raw = await Post.find({ author: authorFilter, ...NOT_ANON })
+        .sort({ createdAt: -1, _id: -1 })
+        .limit(lim)
+        .populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isCofounder")
+        .lean();
+      cache.set(cacheKey, raw, TTL.LATEST);
+    }
+    const posts = raw.map((p) => ({ ...p }));
+    await hydrateFeedPosts(posts, userId);
+    return { posts, hasMore: false };
   },
 
   // Explicit idempotent like: POST always ensures liked. Safe under burst:

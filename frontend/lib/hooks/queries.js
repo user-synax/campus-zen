@@ -58,20 +58,30 @@ export function useMe() {
 
 // ─── Feed ────────────────────────────────────────────────────────────────────
 
+// Shared feed page fetcher — used by useFeed AND the BottomNav idle prefetch,
+// so both speak the same cursor protocol and a prefetched cache entry never
+// shape-clashes with the live feed's pages.
+export const feedPage = (tab = "discovery") => ({ pageParam }) => {
+  // pageParam: undefined on first page → server starts a fresh randomized
+  // session (For you) and returns an opaque cursor; later pages replay it.
+  const { cursor } = pageParam || {};
+  return tab === "following"
+    ? api.getFeed({ cursor })
+    : api.getPublicFeed({ cursor });
+};
+
 export function useFeed(tab = "following") {
   return useInfiniteQuery({
     queryKey: queryKeys.feed(tab),
-    queryFn: ({ pageParam = 1 }) =>
-      tab === "following"
-        ? api.getFeed({ page: pageParam })
-        : api.getPublicFeed({ page: pageParam }),
-    // pages are raw API bodies { success, data: { posts, page, hasMore } } —
-    // read through .data (same as useReplies/useBookmarks). Reading
-    // lastPage.hasMore directly is always undefined, which silently capped
-    // the feed at page 1 with no Load more button.
-    getNextPageParam: (lastPage) =>
-      lastPage.data?.hasMore ? (lastPage.data?.page || 1) + 1 : undefined,
-    initialPageParam: 1,
+    queryFn: feedPage(tab),
+    initialPageParam: undefined,
+    // pages are raw API bodies { success, data: { posts, nextCursor, hasMore } }.
+    // The session seed rides inside the cursor, so later pages stay glued to
+    // the same randomized order the first page picked.
+    getNextPageParam: (lastPage) => {
+      const d = lastPage?.data;
+      return d?.hasMore && d?.nextCursor ? { cursor: d.nextCursor } : undefined;
+    },
     staleTime: 15_000,
     // Tab switches stay instant: keep the last feed on screen while the
     // fresh page loads in the background.

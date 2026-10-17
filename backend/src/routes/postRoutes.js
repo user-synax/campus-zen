@@ -37,6 +37,16 @@ const paginationQuery = z.object({
   limit: z.coerce.number().int().min(1).max(50).optional().default(20),
 });
 
+// main feeds: legacy page params (mobile) + new cursor flow (web).
+// cursor = opaque base64url token returned by the previous page; seed lets a
+// client rehydrate an existing random session; latest=1 is the cheap
+// chronological peek for "new posts" banners.
+const feedQuery = paginationQuery.extend({
+  cursor: z.string().max(512).regex(/^[A-Za-z0-9_-]+$/, "Invalid cursor").optional(),
+  seed: z.string().max(32).regex(/^[a-f0-9]{6,32}$/, "Invalid seed").optional(),
+  latest: z.enum(["0", "1"]).optional(),
+});
+
 const createLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false });
 const feedLimiter = rateLimit({ windowMs: 60 * 1000, max: 60, standardHeaders: true, legacyHeaders: false });
 const interactionLimiter = rateLimit({ windowMs: 60 * 1000, max: 60, standardHeaders: true, legacyHeaders: false });
@@ -67,11 +77,11 @@ const listQuery = z.object({
 });
 router.get("/", optionalAuth, feedLimiter, validate(listQuery, "query"), postController.list);
 
-// feed — protected following
-router.get("/feed", protect, feedLimiter, validate(paginationQuery, "query"), postController.feed);
+// feed — protected following (cursor flow for web, page fallback for mobile)
+router.get("/feed", protect, feedLimiter, validate(feedQuery, "query"), postController.feed);
 
 // public discovery — optional auth for isLiked flags
-router.get("/public", optionalAuth, feedLimiter, validate(paginationQuery, "query"), postController.publicFeed);
+router.get("/public", optionalAuth, feedLimiter, validate(feedQuery, "query"), postController.publicFeed);
 
 // author insights — must sit before /:id so "analytics" isn't parsed as an id
 const analyticsQuery = z.object({

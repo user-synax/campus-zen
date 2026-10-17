@@ -177,14 +177,24 @@ export const postController = {
   }),
 
   feed: asyncHandler(async (req, res) => {
-    const { page, limit } = req.query;
+    const { page, limit, cursor, seed, latest } = req.query;
+    // cursor/seed/latest → new cursor flow (web); plain page → legacy offset
+    // path kept for the mobile app until it migrates.
+    if (cursor || seed || latest === "1") {
+      const result = await postService.feedCursor(req.user._id, { cursor, seed, limit, latest });
+      return res.json({ success: true, data: result });
+    }
     const result = await postService.feed(req.user._id, { page, limit });
     res.json({ success: true, data: result });
   }),
 
   publicFeed: asyncHandler(async (req, res) => {
-    const { page, limit } = req.query;
+    const { page, limit, cursor, seed, latest } = req.query;
     const viewerId = req.user?._id || null;
+    if (cursor || seed || latest === "1") {
+      const result = await postService.publicFeedCursor({ cursor, seed, limit, latest }, viewerId);
+      return res.json({ success: true, data: result });
+    }
     const result = await postService.publicFeed({ page, limit }, viewerId);
     res.json({ success: true, data: result });
   }),

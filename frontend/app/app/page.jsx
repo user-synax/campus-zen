@@ -79,8 +79,9 @@ export default function AppHome() {
     refetch,
   } = isArticlesTab ? articlesQuery : isAnonTab ? anonQuery : feedQuery;
 
-  // Dedupe by _id — offset pages shift when new posts land mid-scroll, so
-  // page N+1 can repeat page N's tail. First occurrence wins (newest).
+  // Dedupe by _id — cursor sessions can interleave after pull-to-refresh
+  // (fresh random top + older session pages) or an order-cache rebuild, so
+  // pages can share posts. First occurrence wins (newest).
   const posts = useMemo(() => {
     const seen = new Set();
     const out = [];
@@ -144,7 +145,10 @@ export default function AppHome() {
     checkingRef.current = true;
     try {
       const fn = tab === "following" ? api.getFeed : api.getPublicFeed;
-      const res = await fn({ page: 1, limit: 5 });
+      // latest=1 → cheap chronological peek (shared 20s server cache) for
+      // "any new posts?" detection. Never touches the viewer's randomized
+      // session order used by the real feed.
+      const res = await fn({ latest: 1, limit: 5 });
       const fresh = res.data?.posts || [];
       const known = new Set([
         ...postsRef.current.map((p) => p._id),

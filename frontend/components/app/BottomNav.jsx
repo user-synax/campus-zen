@@ -7,7 +7,7 @@ import { useCallback, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AnimatedNumber } from "@/components/app/AnimatedNumber";
 import { api } from "@/lib/api";
-import { useUnreadCount } from "@/lib/hooks/queries";
+import { feedPage, useUnreadCount } from "@/lib/hooks/queries";
 import { cn } from "@/lib/utils";
 
 // Mobile tab bar — exactly 5 tabs:
@@ -40,9 +40,8 @@ export function BottomNav() {
         if (href === "/app") {
           queryClient.prefetchInfiniteQuery({
             queryKey: ["feed", "discovery"],
-            queryFn: ({ pageParam = 1 }) =>
-              api.getPublicFeed({ page: pageParam }),
-            initialPageParam: 1,
+            queryFn: feedPage("discovery"),
+            initialPageParam: undefined,
             staleTime: 15_000,
           });
         } else if (href === "/app/notifications") {
@@ -93,9 +92,8 @@ export function BottomNav() {
       try {
         queryClient.prefetchInfiniteQuery({
           queryKey: ["feed", "discovery"],
-          queryFn: ({ pageParam = 1 }) =>
-            api.getPublicFeed({ page: pageParam }),
-          initialPageParam: 1,
+          queryFn: feedPage("discovery"),
+          initialPageParam: undefined,
           staleTime: 15_000,
         });
         queryClient.prefetchQuery({

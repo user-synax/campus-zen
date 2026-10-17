@@ -870,8 +870,8 @@ http://localhost:4000/api
 |--------|----------|------|-------------|
 | `POST` | `/posts/` | Yes | Create post (text + `media[]` image/gif/video or `poll {options, expiresAt}`) |
 | `GET` | `/posts/?author=&likedBy=&repostedBy=` | Optional | List posts by filter |
-| `GET` | `/posts/feed` | Yes | Get feed (tab=following/discovery) |
-| `GET` | `/posts/public` | No | Public feed (guests) |
+| `GET` | `/posts/feed` | Yes | Following feed — `?cursor=` for cursor paging, `?latest=1` for the new-posts peek (legacy `?page=` still honored for mobile) |
+| `GET` | `/posts/public` | No | "For you" discovery feed — per-user randomized per session via seeded cursor (`?cursor=`, `?latest=1`; legacy `?page=` still honored) |
 | `GET` | `/posts/:id` | Optional | Get single post |
 | `PATCH` | `/posts/:id` | Yes | Edit own post |
 | `DELETE` | `/posts/:id` | Yes | Delete own post |

@@ -99,6 +99,12 @@ export const CacheKeys = {
   feed: (userId, page, limit) => `feed:${userId}:${page}:${limit}`,
   publicFeed: (page, limit) => `publicFeed:${page}:${limit}`,
   anonFeed: (page, limit) => `anonFeed:${page}:${limit}`,
+  // ⚠ keep the "orderPublic:" prefix documented — order caches must NOT share
+  // the legacy "feed:" namespace (writes may not wipe them: session stability
+  // of the seeded "For you" feeds).
+  publicFeedOrder: (seed) => `orderPublic:${seed}`,
+  feedLatest: (userId, limit) => `feedLatest:${userId}:${limit}`,
+  latestPublic: (limit) => `publicLatest:${limit}`,
   trending: (limit, hours) => `trending:${limit}:${hours}`,
   post: (postId) => `post:${postId}`,
   userPosts: (authorId, page, limit) => `userPosts:${authorId}:${page}:${limit}`,
@@ -122,6 +128,11 @@ export const CacheKeys = {
 export const TTL = {
   FEED: 30_000, // 30s — feeds change frequently
   PUBLIC_FEED: 30_000,
+  // 10min — shuffled order snapshot for the cursor feeds. Long enough that a
+  // normal scroll session never rebuilds mid-flight (cursor resync covers
+  // drift anyway); writes intentionally do NOT invalidate these.
+  FEED_ORDER: 600_000,
+  LATEST: 20_000, // cheap "any new posts?" peek shared across viewers
   TRENDING: 300_000, // 5min — trending is expensive aggregation
   POST: 60_000, // 1min
   USER_POSTS: 30_000,
