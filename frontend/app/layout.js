@@ -2,6 +2,7 @@ import { Inter } from "next/font/google";
 import { cookies } from "next/headers";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { PushRegistrar } from "@/components/app/PushRegistrar";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { CzToaster } from "@/components/ui/sonner";
@@ -107,6 +108,7 @@ export default async function RootLayout({ children }) {
         <QueryProvider>{children}</QueryProvider>
         <CzToaster />
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
