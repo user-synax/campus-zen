@@ -42,7 +42,9 @@ function Avatar({ user, size = 40 }) {
   );
 }
 
-function SuggestRow({ user, onFollowed }) {
+/** Compact suggestion row with an optimistic Follow toggle — shared by the
+ *  desktop rail and the /app/search explore state. */
+export function SuggestRow({ user, onFollowed, compact = false }) {
   const [following, setFollowing] = useState(Boolean(user.isFollowing));
   const [busy, setBusy] = useState(false);
 
@@ -68,7 +70,7 @@ function SuggestRow({ user, onFollowed }) {
   return (
     <div className="flex items-center gap-3 py-3">
       <Link href={`/u/${user.username}`} className="shrink-0">
-        <Avatar user={user} />
+        <Avatar user={user} size={compact ? 38 : 40} />
       </Link>
       <Link href={`/u/${user.username}`} className="min-w-0 flex-1">
         <span className="flex items-center gap-1">

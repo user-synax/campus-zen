@@ -1,10 +1,11 @@
 "use client";
 
-import { Loader2, Search as SearchIcon, Users, X } from "lucide-react";
+import { Loader2, Search as SearchIcon, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { EmptyState } from "@/components/app/EmptyState";
+import { Explore } from "@/components/app/Explore";
 import { PageHeader } from "@/components/app/PageHeader";
 import { PostCard } from "@/components/app/PostCard";
 import { UserCard } from "@/components/app/UserCard";
@@ -167,11 +168,7 @@ function SearchInner() {
       ) : null}
 
       {!debouncedQ ? (
-        <EmptyState
-          icon={Users}
-          title="Search CampusZen"
-          description="Find students by name, username, college or course, and posts by text."
-        />
+        <Explore me={me} />
       ) : isPending &&
         users.length === 0 &&
         posts.length === 0 &&
