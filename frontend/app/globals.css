@@ -1417,7 +1417,7 @@ input[type="number"] {
   isolation: isolate;
 }
 .cz-sensitive-blurred {
-  filter: blur(22px) saturate(0.85) brightness(0.92);
+  filter: blur(12px) saturate(0.85) brightness(0.92);
   transform: scale(1.08);
   user-select: none;
 }
