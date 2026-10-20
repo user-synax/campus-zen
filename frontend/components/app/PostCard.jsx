@@ -2,7 +2,6 @@
 
 import {
   Bookmark,
-  Check,
   FileText,
   Flag,
   Ghost,
@@ -33,6 +32,7 @@ import {
 import { PollBlock } from "@/components/app/PollBlock";
 import { ReportDialog } from "@/components/app/ReportDialog";
 import { RichText } from "@/components/app/RichText";
+import { ShareDialog } from "@/components/app/ShareDialog";
 import { useAnimatedMount } from "@/components/app/useAnimatedMount";
 import { useAutogrowTextarea } from "@/components/app/useAutogrowTextarea";
 import { Button } from "@/components/ui/button";
@@ -95,6 +95,7 @@ function OverflowMenu({
   onEdit,
   onDelete,
   onReport,
+  onShare,
 }) {
   const { show, mountClass } = useAnimatedMount(open);
   if (!show) return null;
@@ -103,6 +104,16 @@ function OverflowMenu({
       role="menu"
       className={`t-menu ${mountClass} absolute right-0 top-8 z-20 w-[232px] overflow-hidden rounded-[16px] border border-[var(--cz-border)] bg-[var(--cz-elevated)] py-1 shadow-[var(--shadow-sm)]`}
     >
+      <button
+        type="button"
+        role="menuitem"
+        onClick={onShare}
+        className={menuItemClass}
+      >
+        <Share2 className="h-[18px] w-[18px] shrink-0" aria-hidden />
+        Share to socials
+      </button>
+      <div className="my-1 h-px bg-[var(--cz-border)]" aria-hidden />
       {isOwn ? (
         <>
           {post.isAnonymous ? null : (
@@ -190,17 +201,9 @@ export function PostCard({
   const [editText, setEditText] = useState(initialPost.text);
   const [editLoading, setEditLoading] = useState(false);
   const [pinLoading, setPinLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const copyTimer = useRef(null);
+  const [shareOpen, setShareOpen] = useState(false);
   const menuWrapRef = useRef(null);
   const cardRef = useRef(null);
-
-  useEffect(
-    () => () => {
-      if (copyTimer.current) clearTimeout(copyTimer.current);
-    },
-    [],
-  );
 
   // Dismiss the overflow menu on outside tap or Escape.
   useEffect(() => {
@@ -431,52 +434,6 @@ export function PostCard({
     });
   };
 
-  const flashCopied = () => {
-    setCopied(true);
-    if (copyTimer.current) clearTimeout(copyTimer.current);
-    copyTimer.current = setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleShare = async () => {
-    const path = post.kind === "article" && post.author?.username && post.slug
-      ? articleUrl(post.author.username, post.slug)
-      : `/app/p/${post._id}`;
-    const url = `${window.location.origin}${path}`;
-    if (typeof navigator !== "undefined" && navigator.share) {
-      try {
-        await navigator.share({
-          title: `Post by @${post.author?.username || "campuszen"}`,
-          text:
-            (post.text || "").slice(0, 120) ||
-            "Check out this post on CampusZen",
-          url,
-        });
-        toast.success("Shared");
-      } catch {
-        // user dismissed the sheet or share failed — stay silent
-      }
-      return;
-    }
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(url);
-      } else {
-        const ta = document.createElement("textarea");
-        ta.value = url;
-        ta.style.position = "fixed";
-        ta.style.opacity = "0";
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand("copy");
-        document.body.removeChild(ta);
-      }
-      flashCopied();
-      toast.success("Link copied to clipboard");
-    } catch {
-      toast.error("Couldn't copy link.");
-    }
-  };
-
   const handlePinToggle = async () => {
     if (pinLoading) return;
     setMenuOpen(false);
@@ -586,6 +543,10 @@ export function PostCard({
                     onReport={() => {
                       setReportOpen(true);
                       setMenuOpen(false);
+                    }}
+                    onShare={() => {
+                      setMenuOpen(false);
+                      setShareOpen(true);
                     }}
                   />
                 </div>
@@ -792,23 +753,16 @@ export function PostCard({
           )}
 
           <button
-            onClick={handleShare}
-            aria-label={copied ? "Link copied" : "Share post"}
+            type="button"
+            onClick={() => setShareOpen(true)}
+            aria-label="Share to socials"
             className="group/act -ml-2 grid place-items-center rounded-full p-2 text-[var(--cz-text-secondary)] transition-colors hover:cursor-pointer hover:bg-[var(--cz-accent-soft)] hover:text-[var(--cz-accent)]"
           >
-            {copied ? (
-              <Check
-                className="h-[18.75px] w-[18.75px] text-[var(--cz-accent)]"
-                strokeWidth={1.8}
-                aria-hidden
-              />
-            ) : (
-              <Share2
-                className="h-[18.75px] w-[18.75px] transition-transform group-hover/act:scale-110"
-                strokeWidth={1.8}
-                aria-hidden
-              />
-            )}
+            <Share2
+              className="h-[18.75px] w-[18.75px] transition-transform group-hover/act:scale-110"
+              strokeWidth={1.8}
+              aria-hidden
+            />
           </button>
         </div>
 
@@ -836,6 +790,13 @@ export function PostCard({
           setReportOpen(false);
           setIsHidden(true);
         }}
+      />
+
+      <ShareDialog
+        open={shareOpen}
+        post={post}
+        viewer={currentUser}
+        onClose={() => setShareOpen(false)}
       />
     </>
   );
