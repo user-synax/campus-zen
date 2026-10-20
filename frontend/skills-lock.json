@@ -115,6 +115,12 @@
       "skillPath": "skills/remotion-upgrade/SKILL.md",
       "computedHash": "281ba627a9702d3bc204b4a37000161599894d380a14566835c6055416e692a0"
     },
+    "seo-audit": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceType": "github",
+      "skillPath": "skills/seo-audit/SKILL.md",
+      "computedHash": "00202d90242df3ba5f240ffcf6bedca8e12854b350c8be65831a9346a5c6d6fd"
+    },
     "transitions-dev": {
       "source": "Jakubantalik/transitions.dev",
       "sourceType": "github",
