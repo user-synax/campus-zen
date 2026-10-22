@@ -1,6 +1,5 @@
 const SITE = "https://campuszen.tech";
-const API =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 // Static, public, indexable routes. Auth-walled /app/*, /admin, and
 // one-off utility pages (forgot/reset/verify) are intentionally excluded.
@@ -9,6 +8,7 @@ const STATIC_ROUTES = [
   { path: "/u", changeFrequency: "daily", priority: 0.9 },
   { path: "/c", changeFrequency: "daily", priority: 0.9 },
   { path: "/docs", changeFrequency: "monthly", priority: 0.8 },
+  { path: "/author", changeFrequency: "monthly", priority: 0.6 },
   { path: "/login", changeFrequency: "monthly", priority: 0.7 },
   { path: "/signup", changeFrequency: "monthly", priority: 0.7 },
   { path: "/terms", changeFrequency: "yearly", priority: 0.5 },
@@ -22,10 +22,9 @@ async function fetchSlugs(path, key, idKey, maxPages) {
   const out = [];
   try {
     for (let page = 1; page <= maxPages; page += 1) {
-      const res = await fetch(
-        `${API}${path}?page=${page}&limit=50`,
-        { next: { revalidate: 86400 } },
-      );
+      const res = await fetch(`${API}${path}?page=${page}&limit=50`, {
+        next: { revalidate: 86400 },
+      });
       if (!res.ok) break;
       const json = await res.json().catch(() => null);
       const data = json?.data ?? json ?? {};

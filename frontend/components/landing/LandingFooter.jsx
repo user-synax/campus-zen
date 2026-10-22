@@ -15,6 +15,7 @@ export function LandingFooter() {
         >
           {[
             { href: "/docs", label: "Docs" },
+            { href: "/author", label: "Author" },
             { href: "/terms", label: "Terms of Service" },
             { href: "/privacy", label: "Privacy Policy" },
             { href: "/u", label: "Students" },
