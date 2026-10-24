@@ -482,8 +482,15 @@ Current API structure (MVP complete):
 
 /api/posts
     POST   /                        Create post (text + media[] image/gif/video or poll)
-    GET    /?author=&likedBy=&repostedBy=  List posts by filter
+    POST   /anonymous               Create anonymous hub post
+    GET    /anonymous/feed          Anonymous hub feed
+    POST   /articles                Create article (long-form)
+    GET    /articles                List articles
+    GET    /articles/:username/:slug Get article by slug
+    PATCH  /articles/:id            Update own article
+    GET    /?author=&likedBy=&repostedBy=&kind=  List posts by filter
     GET    /feed                    Get feed (tab=following/discovery)
+    GET    /hub?tag=                Interest Hub topic feed
     GET    /public                  Public feed (guests)
     GET    /:id                     Get single post
     PATCH  /:id                     Edit own post
@@ -496,7 +503,13 @@ Current API structure (MVP complete):
     GET    /:id/replies             Get replies
     POST   /:id/bookmark            Bookmark post
     DELETE /:id/bookmark            Remove bookmark
+    POST   /:id/view                Record post view (deduped impression)
     POST   /:id/vote                Vote in poll ({ optionIndex })
+    GET    /analytics/overview?range= Author analytics (24h/7d)
+
+/api/verifications
+    GET    /me                      Verification status + eligibility
+    POST   /request                 Request blue-tick verification
 
 /api/search
     GET    /?q=&type=              Search (type=all|users|posts|colleges)
@@ -524,6 +537,7 @@ Current API structure (MVP complete):
 
 /api/users (delta vs §17 header — privacy + lifecycle shipped)
     PATCH  /me/privacy              Privacy settings (private account)
+    POST   /me/dob                  Set date of birth once (18+ gating)
     GET    /me/follow-requests/incoming|outgoing
     POST   /me/follow-requests/:id/accept|decline
     GET    /me/export               Data export
@@ -537,6 +551,9 @@ Current API structure (MVP complete):
     GET    /appeals  PATCH /appeals/:id
     DELETE /posts/:id
     PATCH  /users/:id/suspend|unsuspend
+    PATCH  /users/:id/verified      Set/revoke user verified
+    GET    /verifications           Verification requests queue
+    PATCH  /verifications/:id       Review verification (approved/rejected)
 
 /api/hashtags
     GET    /trending                Get trending hashtags
@@ -556,11 +573,11 @@ Current API structure (MVP complete):
 
 # 18. Database Models
 
-Initial MongoDB/Mongoose models (16 implemented — see `docs.md` §10):
+Initial MongoDB/Mongoose models (18 implemented — see `docs.md` §10):
 
 ```text
 User
-Post (text 500 + media[] image/gif/video + poll + hashtags/mentions)
+Post (text 500 + media[] image/gif/video + poll + articles + anonymous + views + sensitive)
 Comment
 Like
 Follow + FollowRequest (private accounts)
@@ -573,6 +590,8 @@ Report + Appeal
 PushSubscription (Web Push VAPID)
 Otp (TTL)
 College
+PostView (deduped impressions)
+VerificationRequest (blue-tick appeals)
 ```
 
 The implementation may embed or reference some relationships depending on performance and query requirements.
@@ -784,11 +803,12 @@ The following should NOT be required for the first release:
 > Already shipped past MVP: multi-media posts, mentions autocomplete + extraction,
 > bookmarks, polls, trending hashtags, suggested students, colleges,
 > SSE realtime + Web Push, avatar/cover uploads, pinned posts,
-> private accounts + follow requests, admin dashboard, appeals.
+> private accounts + follow requests, admin dashboard, appeals,
+> articles (long-form), anonymous hub posts, post views + analytics,
+> blue-tick verification (merit-based, 50+ posts or 100+ followers).
 >
 > Remaining:
 > - Improved feed ranking
-> - Student/college verification
 > - College information pages (expanded)
 > - Profile customization
 > - Better notifications

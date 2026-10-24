@@ -204,7 +204,7 @@ D:\campus-zen\
 │   │   │   ├── rateLimiter.js      # Express rate limiters
 │   │   │   ├── errorHandler.js     # notFound + errorHandler
 │   │   │   └── upload.js           # Multer (avatarUpload, postMediaFields) → Appwrite
-│   │   ├── models/                 # Mongoose schemas (16 files)
+│   │   ├── models/                 # Mongoose schemas (18 files)
 │   │   │   ├── User.js             # Profile, counts, avatar/cover, pinned, socials, badges, privacy, suspend
 │   │   │   ├── Post.js             # Text 500 + imageUrl legacy + media[] (image/gif/video) + hashtags/mentions + poll
 │   │   │   ├── Comment.js          # Replies
@@ -219,7 +219,7 @@ D:\campus-zen\
 │   │   │   ├── PushSubscription.js # Web Push (VAPID)
 │   │   │   ├── Otp.js              # TTL-indexed OTPs
 │   │   │   └── College.js
-│   │   ├── routes/                 # Express routers (11 files)
+│   │   ├── routes/                 # Express routers (12 files)
 │   │   │   ├── authRoutes.js
 │   │   │   ├── userRoutes.js
 │   │   │   ├── postRoutes.js
@@ -230,8 +230,9 @@ D:\campus-zen\
 │   │   │   ├── reportRoutes.js
 │   │   │   ├── sseRoutes.js        # GET / + /events alias, replay buffer
 │   │   │   ├── collegeRoutes.js
-│   │   │   └── adminRoutes.js      # Env-gated admin
-│   │   ├── services/               # Business logic (12 files)
+│   │   │   ├── adminRoutes.js      # Env-gated admin (+ verifications)
+│   │   │   └── verificationRoutes.js # /api/verifications (me, request)
+│   │   ├── services/               # Business logic (14 files)
 │   │   │   ├── authService.js
 │   │   │   ├── userService.js + privacyService.js
 │   │   │   ├── postService.js
@@ -241,8 +242,10 @@ D:\campus-zen\
 │   │   │   ├── reportService.js
 │   │   │   ├── searchService.js
 │   │   │   ├── collegeService.js
-│   │   │   └── adminService.js
-│   │   └── utils/                  # Shared utilities (12 files)
+│   │   │   ├── adminService.js
+│   │   │   ├── analyticsService.js   # Post view/engagement analytics (24h/7d)
+│   │   │   └── verificationService.js # Blue-tick verification requests
+│   │   └── utils/                  # Shared utilities (14 files)
 │   │       ├── AppError.js
 │   │       ├── asyncHandler.js
 │   │       ├── cookies.js
@@ -253,8 +256,26 @@ D:\campus-zen\
 │   │       ├── hashtags.js
 │   │       ├── mentions.js
 │   │       ├── college.js
+│   │       ├── interestTags.js       # Interest Hub taxonomy (coding, design, cybersecurity, devops, drawing, business)
 │   │       ├── backfill-hashtags.js
 │   │       └── backfill-mentions.js
+│   │   └── models/                 # Mongoose schemas (18 files)
+│   │       ├── User.js             # Profile, counts, avatar/cover, pinned, socials, badges, privacy, suspend, verification
+│   │       ├── Post.js             # Text 500 + imageUrl legacy + media[] (image/gif/video) + hashtags/mentions + poll + articles + anonymous + views + sensitive
+│   │       ├── Comment.js          # Replies
+│   │       ├── Like.js
+│   │       ├── Follow.js + FollowRequest.js  # Direct + private-account requests
+│   │       ├── Repost.js
+│   │       ├── Bookmark.js
+│   │       ├── PollVote.js         # Per-user poll votes
+│   │       ├── Notification.js
+│   │       ├── Block.js
+│   │       ├── Report.js + Appeal.js
+│   │       ├── PushSubscription.js # Web Push (VAPID)
+│   │       ├── Otp.js              # TTL-indexed OTPs
+│   │       ├── College.js
+│   │       ├── PostView.js         # Deduped per-user-per-day post impressions
+│   │       └── VerificationRequest.js # Blue-tick appeal requests (open/approved/rejected)
 │   │
 │   ├── .env                        # All env vars
 │   ├── .env.example                # Template for env setup
@@ -433,6 +454,7 @@ api.getUser(username)
 api.listUsers(params)
 api.updateMe(patchData)
 api.updatePrivacy({ isPrivate, ... })
+api.setDobOnce(dob) // Set date of birth once (18+ gating)
 api.getIncomingRequests(params) / getOutgoingRequests(params)
 api.acceptFollowRequest(id) / declineFollowRequest(id)
 api.exportData() / deactivateAccount() / reactivateAccount() / deleteAccount({confirm})
@@ -459,12 +481,23 @@ api.unbookmarkPost(id)
 
 // Posts
 api.createPost(text, media, poll, extra) // media: File|File[] (image/gif/video) + extra {posters, meta}; poll {options, expiresAt}
+api.createAnonymousPost(text, media, extra) // Anonymous hub: text + images only
+api.getAnonymousFeed(params) // Anonymous hub feed
+api.createArticle({title, description, body}, media, extra) // Long-form article
+api.updateArticle(id, payload) // Update own article
+api.getArticle(username, slug) // Get article by author + slug
+api.getArticles(params) // List articles
+api.lookupArticles(refs) // Batch lookup articles by {username, slug} refs
+api.getUserArticles(username, params) // User's articles (kind=article filter)
 api.votePoll(id, optionIndex)
 api.getPost(id)
 api.updatePost(id, text)
 api.deletePost(id)
 api.getFeed({ tab, cursor, limit })
 api.getPublicFeed(params)
+api.getHubFeed(params) // Interest Hub topic feed
+api.recordPostView(id) // Record deduped impression
+api.getAnalyticsOverview(range) // Author insights (24h/7d)
 api.likePost(id)
 api.unlikePost(id)
 api.repostPost(id)
@@ -512,6 +545,10 @@ api.adminReports(params) / adminResolveReport(id, status)
 api.adminDeletePost(id)
 api.adminSuspendUser(id, reason) / adminUnsuspendUser(id)
 api.adminAppeals(params) / adminReviewAppeal(id, payload)
+api.adminVerifications(params) / adminReviewVerification(id, payload) / adminSetVerified(id, isVerified)
+
+// Verification (blue tick)
+api.getVerificationStatus() / api.requestVerification(payload)
 ```
 
 **Key behaviors**:
@@ -538,15 +575,21 @@ api.adminAppeals(params) / adminReviewAppeal(id, payload)
 | Route | Component | Description |
 |-------|-----------|-------------|
 | `/app` | `app/page.jsx` | Home feed with Following/Discovery tabs |
+| `/app/anonymous` | `app/anonymous/page.jsx` | Anonymous hub feed (hub-only posts) |
+| `/app/analytics` | `app/analytics/page.jsx` | Author post insights (impressions, likes, replies, reposts, bookmarks, top posts) |
 | `/app/create` | `create/page.jsx` | Create new post (500 chars + media[] + poll) |
+| `/app/edit/[id]` | `app/edit/[id]/page.jsx` | Edit own post or article |
+| `/app/hub` | `app/hub/page.jsx` | Interest Hub topic feed |
 | `/app/notifications` | `notifications/page.jsx` | Notifications list with mark-read (SSE live) |
 | `/app/search` | `search/page.jsx` | Search users + posts + colleges |
 | `/app/bookmarks` | `bookmarks/page.jsx` | Saved posts |
 | `/app/tag/[tag]` | `app/tag/[tag]/page.jsx` | Posts by hashtag (route `/app/tag/[tag]`) |
+| `/app/a/[username]/[slug]` | `app/a/[username]/[slug]/page.jsx` | Article view by author + slug |
 | `/app/menu` | `menu/page.jsx` | Settings, logout, blocked users, follow requests, privacy, push, data export |
 | `/app/profile` | `profile/page.jsx` | Own profile page |
 | `/app/profile/[username]` | `profile/[username]/page.jsx` | Own profile by username |
 | `/app/p/[id]` | `app/p/[id]/page.jsx` | Single post view with replies |
+| `/app/verified` | `app/verified/page.jsx` | Verification status + request blue tick |
 
 #### `admin/` — Admin (env-gated)
 
@@ -573,6 +616,7 @@ api.adminAppeals(params) / adminReviewAppeal(id, payload)
 | Route | Description |
 |-------|-------------|
 | `/` | Landing/marketing page |
+| `/docs` | Developer docs viewer (`app/docs/page.jsx` + `DocsRedirect.jsx`) |
 | `/privacy` | Privacy policy |
 | `/terms` | Terms of service |
 
@@ -707,6 +751,7 @@ Different limits per route group:
 | Login | 10/minute |
 | Forgot/Reset password | 5/hour |
 | Feed | 60/minute |
+| Post create | 30/hour |
 | General API | 100/minute |
 
 #### Upload Middleware (`middleware/upload.js`)
@@ -749,6 +794,22 @@ Services contain all business logic. Controllers are thin wrappers.
 | `getReplies(postId, cursor, limit)` | Paginated replies for a post |
 | `votePoll` / `buildPoll` | Single-choice, changeable vote; counts denormalized on `Post.poll` |
 
+#### Articles (`kind: "article"`)
+
+Long-form posts (up to 50k char body) with `title`, `description`, `body`, `slug`, optional media. Endpoints: `POST /api/posts/articles`, `GET /api/posts/articles`, `POST /api/posts/articles/lookup`, `GET /api/posts/articles/:username/:slug`, `PATCH /api/posts/articles/:id`. Slug is unique per author. Articles appear in the articles list and article-by-slug pages, not in the regular feed.
+
+#### Anonymous posts (`isAnonymous`)
+
+Hub-only posts (text + images only, no polls, no video) visible only in the anonymous feed (`GET /api/posts/anonymous/feed`). Real author is stored for moderation but masked in API output (`anonAlias`). Never appear in profiles, feeds, or search.
+
+#### Post views (`POST /api/posts/:id/view`)
+
+Auth-only deduped impression tracking. One `PostView` document per viewer per post per UTC day (unique index prevents double-counting). `viewCount` on `Post` is the denormalized all-time total. Drives the analytics overview and post view counters.
+
+#### Verification (blue tick)
+
+Merit-based verification: users with 50+ posts or 100+ followers can request verification via `POST /api/verifications/request`. Admin reviews from `/admin/verifications` (`approved`/`rejected`). Approved users get `isVerified = true` on their `User` record. 7-day cooldown after rejection before re-appeal.
+
 #### Other Services
 
 | Service | Responsibility |
@@ -761,6 +822,8 @@ Services contain all business logic. Controllers are thin wrappers.
 | `searchService.js` | Full-text search across users and posts |
 | `collegeService.js` | College CRUD, members, college posts |
 | `hashtagService.js` | Hashtag extraction, trending, posts by hashtag |
+| `analyticsService.js` | Author-only post insights: impressions (PostView), likes, replies, reposts, bookmarks over 24h/7d + top posts |
+| `verificationService.js` | Blue-tick verification: eligibility (50+ posts or 100+ followers), request submission, status, cooldown |
 
 ### Utility Modules
 
@@ -839,7 +902,8 @@ http://localhost:4000/api
 | `GET` | `/users/` | Optional | List users (directory, guest blur) |
 | `GET` | `/users/:username` | Optional | Get user profile |
 | `PATCH` | `/users/me` | Yes | Update own profile (partial; also `PUT` alias) |
-| `PATCH` | `/users/me/privacy` | Yes | Privacy settings (private account) |
+| `POST` | `/users/me/dob` | Yes | Set date of birth once (18+ gating, never editable after set) |
+| `PATCH` | `/users/me/privacy` | Yes | Privacy settings (private account, reply/mention policy, per-field visibility, showSensitive) |
 | `GET` | `/users/me/follow-requests/incoming\|outgoing` | Yes | Follow requests |
 | `POST` | `/users/me/follow-requests/:id/accept\|decline` | Yes | Accept / decline |
 | `GET` | `/users/me/export` | Yes | Data export |
@@ -869,10 +933,18 @@ http://localhost:4000/api
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | `POST` | `/posts/` | Yes | Create post (text + `media[]` image/gif/video or `poll {options, expiresAt}` + optional 1-3 `interestTags`; untagged posts stay out of the hub) |
-| `GET` | `/posts/?author=&likedBy=&repostedBy=` | Optional | List posts by filter |
+| `POST` | `/posts/anonymous` | Yes | Create anonymous hub post (text + images only, never in profiles/feeds/search) |
+| `GET` | `/posts/anonymous/feed` | Yes | Anonymous hub feed (cursor-paginated) |
+| `POST` | `/posts/articles` | Yes | Create article (long-form: title/description/body up to 50k chars, optional media) |
+| `GET` | `/posts/articles` | Optional | List articles (paginated) |
+| `POST` | `/posts/articles/lookup` | Optional | Batch lookup articles by `{username, slug}` refs (max 10) |
+| `GET` | `/posts/articles/:username/:slug` | Optional | Get single article by author slug |
+| `PATCH` | `/posts/articles/:id` | Yes | Update own article |
+| `GET` | `/posts/?author=&likedBy=&repostedBy=&kind=` | Optional | List posts by filter (`kind=post\|article`) |
 | `GET` | `/posts/feed` | Yes | Following feed — `?cursor=` for cursor paging, `?latest=1` for the new-posts peek (legacy `?page=` still honored for mobile) |
 | `GET` | `/posts/public` | No | "For you" discovery feed — per-user randomized per session via seeded cursor (`?cursor=`, `?latest=1`; legacy `?page=` still honored) |
 | `GET` | `/posts/hub?tag=` | No | Interest Hub topic feed (coding/design/cybersecurity/devops/drawing/business) — keyset `?cursor=`, chronological |
+| `GET` | `/posts/analytics/overview?range=` | Yes | Author-only insights: impressions/likes/replies/reposts/bookmarks over 24h/7d + top posts |
 | `GET` | `/posts/:id` | Optional | Get single post |
 | `PATCH` | `/posts/:id` | Yes | Edit own post |
 | `DELETE` | `/posts/:id` | Yes | Delete own post |
@@ -882,6 +954,7 @@ http://localhost:4000/api
 | `DELETE` | `/posts/:id/repost` | Yes | Remove repost |
 | `POST` | `/posts/:id/bookmark` | Yes | Bookmark post |
 | `DELETE` | `/posts/:id/bookmark` | Yes | Remove bookmark |
+| `POST` | `/posts/:id/view` | Yes | Record deduped impression (one per viewer per UTC day) |
 | `POST` | `/posts/:id/vote` | Yes | Vote in poll (`{ optionIndex }`) |
 | `POST` | `/posts/:id/replies` | Yes | Create reply |
 | `GET` | `/posts/:id/replies` | Optional | Get replies |
@@ -922,6 +995,13 @@ http://localhost:4000/api
 | `POST` | `/reports/appeals` | Yes | File appeal |
 | `GET` | `/reports/appeals/me` | Yes | My appeals |
 
+### Verification Endpoints (blue tick)
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/verifications/me` | Yes | My verification status + eligibility (50+ posts or 100+ followers) |
+| `POST` | `/verifications/request` | Yes | Submit a verification request (message optional, max 500 chars) |
+
 ### Admin Endpoints (env-gated `ADMIN_EMAIL` + `ADMIN_PASSKEY`)
 
 | Method | Endpoint | Auth | Description |
@@ -936,6 +1016,9 @@ http://localhost:4000/api
 | `PATCH` | `/admin/appeals/:id` | Admin | Review (`upheld\|rejected`) |
 | `DELETE` | `/admin/posts/:id` | Admin | Delete post |
 | `PATCH` | `/admin/users/:id/suspend\|unsuspend` | Admin | Suspend / unsuspend |
+| `PATCH` | `/admin/users/:id/verified` | Admin | Set/revoke user verified (blue tick) |
+| `GET` | `/admin/verifications?status=` | Admin | Verification requests queue |
+| `PATCH` | `/admin/verifications/:id` | Admin | Review verification (`approved\|rejected`) |
 
 ### Hashtag Endpoints
 
@@ -1027,8 +1110,8 @@ http://localhost:4000/api
 
 | Model | Collection | Purpose |
 |-------|-----------|---------|
-| `User` | `users` | Accounts, profiles (avatar/cover, pinned, college/course/year, socials, badges, privacy, suspend/deactivate), stats |
-| `Post` | `posts` | Posts (text 500 + legacy `imageUrl` + `media[]` image/gif/video + hashtags/mentions + poll) |
+| `User` | `users` | Accounts, profiles (avatar/cover, pinned, college/course/year, socials, badges, privacy, suspend/deactivate), stats, verification (`isVerified`), accent, sensitive pref (`showSensitive`), DOB, reply/mention policy, per-field visibility |
+| `Post` | `posts` | Posts (text 500 + legacy `imageUrl` + `media[]` image/gif/video + hashtags/mentions + poll) + articles (`kind`, `title`, `description`, `body`, `slug`) + anonymous (`isAnonymous`, `anonAlias`) + views (`viewCount`) + sensitive flag (`isSensitive`) + interest tags (`interestTags`) |
 | `Comment` | `comments` | Replies on posts |
 | `Like` | `likes` | Post likes |
 | `Follow` | `follows` | Follow relationships |
@@ -1043,6 +1126,8 @@ http://localhost:4000/api
 | `PushSubscription` | `pushsubscriptions` | Web Push VAPID subscriptions |
 | `Otp` | `otps` | One-time passwords (TTL index) |
 | `College` | `colleges` | Colleges (slug, members, posts) |
+| `PostView` | `postviews` | Deduped per-user-per-day post impressions (auth-only; drives `viewCount`) |
+| `VerificationRequest` | `verificationrequests` | Blue-tick appeal requests (open/approved/rejected, 50+ posts or 100+ followers threshold, 7-day re-appeal cooldown) |
 
 ### Key Indexes
 
@@ -1064,6 +1149,11 @@ http://localhost:4000/api
 | Like | `user + post` | Compound unique (partial) |
 | Follow | `follower + following` | Compound unique (partial) |
 | Repost | `user + post` | Compound unique (partial) |
+| PostView | `post + viewer + dayKey` | Compound unique (dedup) |
+| PostView | `post + createdAt` | Compound |
+| PostView | `viewer + createdAt` | Compound |
+| VerificationRequest | `user + status + createdAt` | Compound |
+| VerificationRequest | `status + createdAt` | Compound |
 
 ### Denormalized Counters (on User)
 
@@ -1268,6 +1358,7 @@ bun run start
 - `APPWRITE_*` — Appwrite storage credentials (`APPWRITE_ENDPOINT/PROJECT_ID/API_KEY/BUCKET_ID`, optional `APPWRITE_VIDEO_BUCKET_ID`)
 - `ADMIN_EMAIL` + `ADMIN_PASSKEY` — Enable `/api/admin/*` + `/admin` (optional `ADMIN_TOKEN_EXPIRES`)
 - `VAPID_PUBLIC/PRIVATE_KEY/SUBJECT` — Web Push (public key also goes to frontend)
+- `OWNER_EMAIL` + `COFOUNDER_EMAIL` — Owner/cofounder badge sync (red/lavender badge, set on User pre-save)
 
 ### Production Checklist
 
@@ -1323,12 +1414,16 @@ bun run start
 | Modify auth logic | `backend/src/services/authService.js` |
 | Modify privacy / follow-requests / export / deactivate | `backend/src/services/privacyService.js` + `followService.js` |
 | Modify push notifications | `backend/src/services/pushService.js` + `frontend/lib/push.js` |
+| Modify post views / analytics | `backend/src/services/analyticsService.js` + `backend/src/models/PostView.js` |
+| Modify verification (blue tick) | `backend/src/services/verificationService.js` + `backend/src/models/VerificationRequest.js` + `backend/src/routes/verificationRoutes.js` |
 | Modify admin moderation | `backend/src/services/adminService.js` + `frontend/app/admin/page.jsx` |
+| Modify articles / anonymous posts | `backend/src/services/postService.js` + `backend/src/controllers/postController.js` + `frontend/app/app/a/` + `frontend/app/app/anonymous/` |
+| Modify interest hub tags | `backend/src/utils/interestTags.js` (MIRRORED in `frontend/lib/interestTags.js`) |
 | Add a new DB model | `backend/src/models/` |
 | Add a new API route | `backend/src/routes/` + `backend/src/app.js` |
 | Change validation rules | `backend/src/middleware/validate.js` + route files |
 | Modify email templates | `backend/src/utils/email.js` (email-only `#ffcead` on `#0c122c` theme) |
-| Change rate limits | `backend/src/middleware/rateLimiter.js` |
+| Change rate limits | `backend/src/middleware/rateLimiter.js` + `backend/src/routes/postRoutes.js` (createLimiter) |
 | Configure shadcn/ui | `frontend/components.json` |
 | Configure linter/formatter | `frontend/biome.json` |
 | Set up environment variables | `backend/.env.example` (+ `frontend/.env` for `NEXT_PUBLIC_*`) |
@@ -1339,4 +1434,4 @@ bun run start
 
 ---
 
-*Last updated: October 03, 2026*
+*Last updated: October 24, 2026*

@@ -216,14 +216,23 @@ Base URL: `http://localhost:4000/api`. Success shape: `{ success: true, data }`.
 | `GET` | `/users/me/bookmarks` | Yes | Bookmarked posts |
 | `GET` | `/users/:username/posts|replies|likes|reposts|media` | Optional | Profile tab feeds |
 | `POST` | `/posts/` | Yes | Create post (text + media[] image/gif/video or poll) |
-| `GET` | `/posts/?author=&likedBy=&repostedBy=` | Optional | List posts by filter |
+| `POST` | `/posts/anonymous` | Yes | Create anonymous hub post |
+| `GET` | `/posts/anonymous/feed` | Yes | Anonymous hub feed |
+| `POST` | `/posts/articles` | Yes | Create article (long-form) |
+| `GET` | `/posts/articles` | Optional | List articles |
+| `GET` | `/posts/articles/:username/:slug` | Optional | Get article by slug |
+| `PATCH` | `/posts/articles/:id` | Yes | Update own article |
+| `GET` | `/posts/?author=&likedBy=&repostedBy=&kind=` | Optional | List posts by filter |
 | `GET` | `/posts/feed?tab=` | Yes | Feed (`following` / `discovery`, paginated) |
+| `GET` | `/posts/hub?tag=` | No | Interest Hub topic feed |
 | `GET` | `/posts/public` | – | Public feed for guests |
 | `GET / PATCH / DELETE` | `/posts/:id` | Varies | Read / edit own / delete own |
 | `POST / DELETE` | `/posts/:id/like` | Yes | Like / unlike |
 | `POST / DELETE` | `/posts/:id/repost` | Yes | Repost / remove |
 | `POST / DELETE` | `/posts/:id/bookmark` | Yes | Bookmark / remove |
 | `POST` | `/posts/:id/vote` | Yes | Vote in poll |
+| `POST` | `/posts/:id/view` | Yes | Record post view (impression) |
+| `GET` | `/posts/analytics/overview?range=` | Yes | Author analytics (24h/7d) |
 | `POST / GET` | `/posts/:id/replies` | Varies | Reply / list replies |
 | `GET` | `/search/?q=&type=` | Yes | Search users, posts, colleges (`all|users|posts|colleges`) |
 | `GET` | `/hashtags/trending` | Yes | Trending hashtags |
@@ -244,8 +253,10 @@ Base URL: `http://localhost:4000/api`. Success shape: `{ success: true, data }`.
 | `POST` | `/reports/` | Yes | Report user or post |
 | `GET` | `/reports/me`, `/reports/appeals/me` | Yes | My reports / appeals |
 | `POST` | `/reports/appeals`, `/reports/:id/appeal` | Yes | File appeal |
+| `GET` | `/verifications/me` | Yes | Verification status + eligibility |
+| `POST` | `/verifications/request` | Yes | Request blue-tick verification |
 
-Rate limits (see `backend/src/middleware/rateLimiter.js`): signup 5/hr, login 10/min, forgot/reset 5/hr, feed 60/min, general 100/min.
+Rate limits (see `backend/src/middleware/rateLimiter.js` and `backend/src/routes/postRoutes.js`): signup 5/hr, login 10/min, forgot/reset 5/hr, feed 60/min, post create 30/hr, general 100/min.
 
 ## 🎨 Design
 
@@ -263,8 +274,8 @@ X-style monochrome interface with exactly one chromatic accent. Tokens live in
 ## 🗺️ Roadmap
 
 - [x] **MVP** — auth + OTP, profiles (avatar/cover/pinned), follow, text+image+poll posts, feed (Following/Discovery), like/reply/repost/bookmark, hashtags + trending, colleges, search, notifications (in-app + SSE realtime), block/report, suggestions
-- [x] **Shipped past MVP** — multi-media posts (image/gif/video, `Post.media`), mentions autocomplete + extraction, Web Push (`/api/push/*`), private accounts + follow requests, account export/deactivate/delete, admin dashboard (`/admin` + `/api/admin/*`), report appeals
-- [ ] **V1** — improved feed ranking, student/college verification, expanded college pages, profile customization, better notifications
+- [x] **Shipped past MVP** — multi-media posts (image/gif/video, `Post.media`), mentions autocomplete + extraction, Web Push (`/api/push/*`), private accounts + follow requests, account export/deactivate/delete, admin dashboard (`/admin` + `/api/admin/*`), report appeals, articles (long-form), anonymous hub posts, post views + analytics, blue-tick verification
+- [ ] **V1** — improved feed ranking, expanded college pages, profile customization, better notifications
 - [ ] **V2** — communities (college groups, roles, feeds, discovery)
 - [ ] **V3** — realtime DMs, group chats, voice/video, clips, events
 
