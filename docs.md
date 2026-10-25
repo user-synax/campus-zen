@@ -80,7 +80,7 @@ Sign Up → Verify Email (OTP) → Login → Discover Students → Follow → Po
 | Validation | Zod | ^3.24.1 |
 | Auth | JWT (jsonwebtoken) + bcryptjs | ^9.0.2 / ^2.4.3 |
 | File uploads | Multer | ^2.4.0 |
-| Email | Nodemailer (Gmail SMTP) | ^10.0.10 |
+| Email | Resend (HTTPS) + Nodemailer (SMTP fallback) | ^10.0.10 |
 | File storage | Appwrite (server-side SDK) | `appwrite ^28.0.0` + `node-appwrite ^29.0.0` (both installed; server-side only) |
 | Push | Web Push via `web-push` | `^3.6.7` (VAPID, `/api/push/*`) |
 | Security | helmet, cors, hpp, express-mongo-sanitize, express-rate-limit | various |
@@ -377,7 +377,7 @@ bun install
 
 # Configure environment variables
 cp .env.example .env
-# Edit .env with your MongoDB URI, JWT secrets, SMTP credentials, Appwrite keys
+# Edit .env with your MongoDB URI, JWT secrets, email (Resend or SMTP), Appwrite keys
 
 # Start development server (auto-reload)
 bun run dev
@@ -1313,9 +1313,9 @@ All animations respect `prefers-reduced-motion: reduce`.
 | Service layer | All business logic in services; controllers are thin |
 | asyncHandler | Wraps async route handlers to catch errors |
 | AppError class | Custom error with `statusCode`, `code`, `details`, `isOperational` |
-| Fail-closed email | OTP sent before user creation; if email fails, user deleted |
+| Fail-closed email | If OTP delivery fails, the new user row and OTP are rolled back; no session is issued |
 | Token rotation | New refresh token on every refresh; old invalidated |
-| Consistent error format | `{ success: false, message, code?, details?, stack? }` |
+| Consistent error format | `{ success: false, message, code?, details?, meta?, stack? }` |
 | Rate limiting per route | Different limits for signup, login, feed, etc. |
 | Zod validation | Reusable `validate(schema, source)` middleware |
 | Partial unique indexes | For Like/Follow/Repost to prevent duplicates |
@@ -1354,7 +1354,8 @@ bun run start
 - `JWT_REFRESH_SECRET` — 32+ character random string
 - `FRONTEND_URL` — Production frontend URL (for CORS)
 - `COOKIE_SECURE=true` — Enable secure cookies (`COOKIE_SAMESITE=none` only when frontend + API are on different hosts)
-- `SMTP_*` — Gmail SMTP credentials (`SMTP_HOST/PORT/USER/PASS`, `EMAIL_FROM`)
+- `RESEND_API_KEY` + `EMAIL_FROM` — Resend API key and a sender on a domain verified in Resend (preferred OTP transport)
+- `SMTP_*` — Optional fallback: Gmail SMTP credentials (`SMTP_HOST/PORT/USER/PASS`, `EMAIL_FROM`; `SMTP_FROM` overrides the fallback sender)
 - `APPWRITE_*` — Appwrite storage credentials (`APPWRITE_ENDPOINT/PROJECT_ID/API_KEY/BUCKET_ID`, optional `APPWRITE_VIDEO_BUCKET_ID`)
 - `ADMIN_EMAIL` + `ADMIN_PASSKEY` — Enable `/api/admin/*` + `/admin` (optional `ADMIN_TOKEN_EXPIRES`)
 - `VAPID_PUBLIC/PRIVATE_KEY/SUBJECT` — Web Push (public key also goes to frontend)
@@ -1367,7 +1368,7 @@ bun run start
 - [ ] Use strong JWT secrets (32+ chars)
 - [ ] Configure MongoDB Atlas or production DB
 - [ ] Set up Appwrite bucket for avatar storage
-- [ ] Configure Gmail SMTP app password
+- [ ] Configure Resend (`RESEND_API_KEY` + verified-domain `EMAIL_FROM`) or Gmail SMTP app password
 - [ ] Enable `trust proxy` (already set in code)
 - [ ] Set up reverse proxy (nginx) if needed
 - [ ] Test graceful shutdown

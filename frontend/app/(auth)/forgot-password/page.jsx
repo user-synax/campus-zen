@@ -9,8 +9,6 @@ import { FloatingInput } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 
-const ALLOWED = ["gmail.com", "proton.me"];
-
 export default function ForgotPasswordPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -28,11 +26,6 @@ export default function ForgotPasswordPage() {
     }
     if (!v.includes("@") || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
       setError("Enter a valid email.");
-      return false;
-    }
-    const domain = v.split("@")[1];
-    if (!ALLOWED.includes(domain)) {
-      setError("Use a gmail.com or proton.me email.");
       return false;
     }
     return true;
@@ -106,7 +99,7 @@ export default function ForgotPasswordPage() {
             }}
           />
           <p className="mt-1 text-[13px] leading-[17px] text-[var(--cz-text-secondary)]">
-            We only send codes to gmail.com or proton.me.
+            We&apos;ll send the code to the email on your account.
           </p>
         </div>
 

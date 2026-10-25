@@ -51,8 +51,12 @@ export function useMe() {
     // "Signed out" is an answer, not a transient failure — retrying it only
     // delays the redirect to /login, and the default exponential backoff can
     // leave the auth gate waiting several seconds on a flaky connection.
+    // The same applies to an unverified account (403): retry just delays the
+    // redirect to /verify-email.
     retry: (failureCount, error) =>
-      error?.status === 401 ? false : failureCount < 2,
+      error?.status === 401 || error?.data?.code === "EMAIL_NOT_VERIFIED"
+        ? false
+        : failureCount < 2,
     retryDelay: 1_000,
   });
 }

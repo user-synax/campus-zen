@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { BrandMark } from "@/components/BrandLogo";
 import { api } from "@/lib/api";
+import { rememberPendingEmail, verifyEmailPath } from "@/lib/authRedirect";
 
 // Logged-in visitors skip guest-only pages (login/signup)
-// and go straight to the app.
+// and go straight to the app. Unverified accounts go to /verify-email
+// instead — they must finish the OTP before the app accepts them.
 export function GuestGuard({ children }) {
   const router = useRouter();
   const [checked, setChecked] = useState(false);
@@ -18,8 +20,15 @@ export function GuestGuard({ children }) {
       try {
         await api.me();
         if (!cancelled) router.replace("/app");
-      } catch {
-        if (!cancelled) setChecked(true);
+      } catch (err) {
+        if (cancelled) return;
+        if (err?.status === 403 && err?.data?.code === "EMAIL_NOT_VERIFIED") {
+          const email = err.data.meta?.email || "";
+          rememberPendingEmail(email);
+          router.replace(verifyEmailPath(email));
+          return;
+        }
+        setChecked(true);
       }
     })();
     return () => {

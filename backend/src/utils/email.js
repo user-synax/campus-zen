@@ -6,6 +6,13 @@ let transporter = null;
 
 function getTransporter() {
   if (!transporter) {
+    if (!env.SMTP_USER || !env.SMTP_PASS) {
+      throw new AppError(
+        "Email is not configured on the server.",
+        500,
+        "EMAIL_NOT_CONFIGURED"
+      );
+    }
     transporter = nodemailer.createTransport({
       host: env.SMTP_HOST,
       port: env.SMTP_PORT,
@@ -111,39 +118,55 @@ export async function sendMail({ to, subject, html, text }) {
   // Prefer Resend HTTP API when configured: port 443 is never blocked
   // on Render, unlike Gmail SMTP (587) which routinely fails or hangs
   // from datacenter IPs even with correct credentials.
+  let resendError = null;
   if (env.RESEND_API_KEY) {
     try {
       await sendViaResend({ to, subject, html, text });
       console.log(`[email] sent via resend "${subject.split(":")[0]}" -> ${maskEmail(to)}`);
       return;
     } catch (err) {
+      resendError = err;
+      const canFallback = Boolean(env.SMTP_USER && env.SMTP_PASS);
       console.error(
         `[email] resend failed -> ${maskEmail(to)}:`,
         err.message,
+        canFallback ? "| trying SMTP fallback" : "| no SMTP fallback configured"
+      );
+    }
+  }
+
+  // Fallback transport. If Resend is configured but currently failing
+  // (bad key, outage, unverified sender), SMTP keeps OTP delivery alive.
+  // When neither transport works we fail closed: the caller must not
+  // create an account it cannot verify.
+  if (env.SMTP_USER && env.SMTP_PASS) {
+    try {
+      await getTransporter().sendMail({
+        from: `"${env.EMAIL_FROM_NAME}" <${env.SMTP_FROM}>`,
+        to,
+        subject,
+        html,
+        text,
+      });
+      console.log(`[email] sent via smtp "${subject.split(":")[0]}" -> ${maskEmail(to)}`);
+      return;
+    } catch (err) {
+      // fail closed: caller decides, but never leak SMTP details to client.
+      // Log code + response (not just message) so Render logs show the
+      // real SMTP reason: auth (535), timeout (ETIMEDOUT), refused, etc.
+      console.error(
+        `[email] smtp failed -> ${maskEmail(to)}:`,
+        err.message,
+        `| code=${err.code || "-"} responseCode=${err.responseCode || "-"} response=${err.response || "-"}`
       );
       throw new AppError("Couldn't send email right now. Please try again.", 500, "EMAIL_SEND_FAILED");
     }
   }
-  try {
-    await getTransporter().sendMail({
-      from: `"${env.EMAIL_FROM_NAME}" <${env.EMAIL_FROM}>`,
-      to,
-      subject,
-      html,
-      text,
-    });
-    console.log(`[email] sent via smtp "${subject.split(":")[0]}" -> ${maskEmail(to)}`);
-  } catch (err) {
-    // fail closed: caller decides, but never leak SMTP details to client.
-    // Log code + response (not just message) so Render logs show the
-    // real SMTP reason: auth (535), timeout (ETIMEDOUT), refused, etc.
-    console.error(
-      `[email] send failed -> ${maskEmail(to)}:`,
-      err.message,
-      `| code=${err.code || "-"} responseCode=${err.responseCode || "-"} response=${err.response || "-"}`
-    );
+
+  if (resendError) {
     throw new AppError("Couldn't send email right now. Please try again.", 500, "EMAIL_SEND_FAILED");
   }
+  throw new AppError("Email is not configured on the server.", 500, "EMAIL_NOT_CONFIGURED");
 }
 
 async function sendViaResend({ to, subject, html, text }) {

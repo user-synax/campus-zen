@@ -46,8 +46,9 @@ Intentionally small MVP: text-first posts (500 chars), chronological feeds, in-a
 **Auth & accounts**
 
 - Signup / login / logout, current-session (`/auth/me`), token refresh with rotation
-- Email verification + password reset via 6-digit OTP (Gmail SMTP + Nodemailer, bcrypt-hashed, 10-min expiry, 5-attempt cap, 30s resend throttle)
-- `gmail.com` / `proton.me` allowlist (enforced frontend + backend Zod)
+- Email verification + password reset via 6-digit OTP (Resend HTTPS, Gmail SMTP fallback, bcrypt-hashed, 10-min expiry, 5-attempt cap, 30s resend throttle)
+- Signup is limited to `gmail.com` / `proton.me` (enforced frontend + backend Zod); verification and password recovery accept existing accounts on any domain
+- OTP verification is mandatory: signup and login issue no session until the emailed code is entered
 - HTTP-only cookies (`SameSite=lax` / `none` + `Secure` in prod), `trust proxy` ready
 
 **Profiles & social graph**
@@ -96,7 +97,7 @@ Frontend and backend are separate apps. The browser talks to Next.js, Next.js ta
 
 ```
 Browser → Next.js (:3000) → Express API (:4000) → MongoDB
-                              ↳ Appwrite (avatars) / Gmail SMTP (OTP)
+                              ↳ Appwrite (avatars) / Resend or SMTP (OTP)
 ```
 
 ## 📁 Monorepo layout
@@ -142,7 +143,7 @@ campus-zen/
 
 ### Prerequisites
 
-- Bun ≥ 1.4.2, Node.js LTS, MongoDB (local or Atlas), Appwrite account (avatars), Gmail SMTP (OTP emails)
+- Bun ≥ 1.4.2, Node.js LTS, MongoDB (local or Atlas), Appwrite account (avatars), Resend API key + verified sender (preferred) or Gmail SMTP app password (OTP emails)
 
 ```bash
 git clone https://github.com/user-synax/campus-zen.git
@@ -164,8 +165,11 @@ bun run dev            # node --watch src/server.js
 | `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | 32+ random chars each |
 | `FRONTEND_URL` | `http://localhost:3000` |
 | `COOKIE_SECURE` | `false` locally, `true` in prod |
-| `SMTP_HOST/PORT/USER/PASS` | Gmail SMTP + App Password |
-| `EMAIL_FROM` | `noreply@campuszen.tech` |
+| `RESEND_API_KEY` | Resend API key (preferred transport) |
+| `EMAIL_FROM` | Sender on a Resend-verified domain, e.g. `noreply@campuszen.tech` |
+| `EMAIL_FROM_NAME` | `CampusZen` |
+| `SMTP_HOST/PORT/USER/PASS` | Optional fallback: Gmail SMTP + App Password |
+| `SMTP_FROM` | Optional SMTP sender; defaults to `SMTP_USER` when Resend is configured |
 | `APPWRITE_ENDPOINT/PROJECT_ID/API_KEY/BUCKET_ID` | avatar storage (server-side only) |
 | `APPWRITE_BUCKET.COVER_ID` | cover image storage bucket |
 

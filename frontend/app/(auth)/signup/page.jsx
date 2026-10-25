@@ -17,6 +17,7 @@ import { PasswordStrength } from "@/components/auth/PasswordStrength";
 import { Button } from "@/components/ui/button";
 import { FloatingInput } from "@/components/ui/input";
 import { api } from "@/lib/api";
+import { rememberPendingEmail, verifyEmailPath } from "@/lib/authRedirect";
 
 const EMAIL_ALLOW = ["gmail.com", "proton.me"];
 
@@ -134,14 +135,17 @@ export default function SignupPage() {
     }
     setLoading(true);
     try {
+      const cleanEmail = email.trim().toLowerCase();
       await api.signup({
         fullName: fullName.trim(),
         username: username.trim().toLowerCase(),
-        email: email.trim().toLowerCase(),
+        email: cleanEmail,
         password,
       });
-      // No OTP — domain allowlist is the gate, backend auto-logs in via cookies.
-      router.push(`/app`);
+      // Signup creates an unverified account and emails a 6-digit code.
+      // No session exists until /verify-email succeeds.
+      rememberPendingEmail(cleanEmail);
+      router.push(verifyEmailPath(cleanEmail));
     } catch (err) {
       const data = err.data || {};
       const code = data.code;
@@ -166,6 +170,13 @@ export default function SignupPage() {
       } else if (code === "EMAIL_TAKEN") {
         setErrors((p) => ({ ...p, email: "Email already registered" }));
         triggerShake("email");
+      } else if (code === "EMAIL_PENDING_VERIFICATION") {
+        // The account exists but was never verified. Let the user resend the
+        // code instead of dead-ending on "email already registered".
+        const pending = data.meta?.email || email.trim().toLowerCase();
+        rememberPendingEmail(pending);
+        router.push(verifyEmailPath(pending));
+        return;
       } else if (!details || Object.keys(details || {}).length === 0) {
         setServerError(data.message || err.message || "Signup failed");
       }

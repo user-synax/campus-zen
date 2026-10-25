@@ -37,7 +37,7 @@ Please give us reasonable time to fix the issue before any public disclosure.
 
 In scope: the CampusZen frontend (Next.js) and backend API (Express) in this repository, including authentication, OTP flows, sessions/cookies, uploads, and admin endpoints.
 
-Out of scope: third-party services (Appwrite, MongoDB Atlas, Gmail SMTP), social engineering, denial-of-service via volumetric traffic, and issues in unmodified forks or self-hosted deployments run by others.
+Out of scope: third-party services (Appwrite, MongoDB Atlas, Resend, Gmail SMTP), social engineering, denial-of-service via volumetric traffic, and issues in unmodified forks or self-hosted deployments run by others.
 
 ## Safe Harbor
 

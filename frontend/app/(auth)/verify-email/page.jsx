@@ -1,5 +1,6 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   Loader2,
@@ -14,15 +15,18 @@ import { AuthShell } from "@/components/auth/AuthShell";
 import { OtpInput } from "@/components/auth/OtpInput";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
+import {
+  clearPendingEmail,
+  pendingEmail,
+  rememberPendingEmail,
+} from "@/lib/authRedirect";
+import { queryKeys } from "@/lib/hooks/queries";
 
 function VerifyEmailInner() {
   const search = useSearchParams();
   const router = useRouter();
-  const email =
-    search.get("email") ||
-    (typeof window !== "undefined"
-      ? sessionStorage.getItem("cz_pending_email") || ""
-      : "");
+  const queryClient = useQueryClient();
+  const email = search.get("email") || pendingEmail();
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
   const [shake, setShake] = useState(false);
@@ -31,6 +35,11 @@ function VerifyEmailInner() {
   const [resendIn, setResendIn] = useState(30);
   const [canResend, setCanResend] = useState(false);
   const [info, setInfo] = useState("");
+
+  // Keep the address across a refresh or a redirect back to this screen.
+  useEffect(() => {
+    if (email) rememberPendingEmail(email);
+  }, [email]);
 
   useEffect(() => {
     if (canResend) return;
@@ -70,12 +79,24 @@ function VerifyEmailInner() {
     try {
       await api.verifyEmail({ email: email.toLowerCase().trim(), otp });
       setSuccess(true);
+      clearPendingEmail();
+      // Drop any cached 403 from before verification so the shell fetches a
+      // fresh session as soon as it mounts.
+      queryClient.removeQueries({ queryKey: queryKeys.me });
       setTimeout(() => {
-        router.push("/app");
+        // Backend set the auth cookies on this response.
+        router.replace("/app");
         router.refresh();
       }, 1400);
     } catch (err) {
       const data = err.data || {};
+      if (data.code === "EMAIL_ALREADY_VERIFIED") {
+        clearPendingEmail();
+        setError("");
+        setInfo("Email already verified. Taking you to sign in…");
+        setTimeout(() => router.replace("/login"), 1400);
+        return;
+      }
       setError(data.message || err.message || "Verification failed");
       triggerShake();
       if (err.status === 429)
@@ -100,6 +121,12 @@ function VerifyEmailInner() {
       setInfo("New code sent. Check your email.");
     } catch (err) {
       const data = err.data || {};
+      if (data.code === "EMAIL_ALREADY_VERIFIED") {
+        clearPendingEmail();
+        setInfo("Email already verified. Taking you to sign in…");
+        setTimeout(() => router.replace("/login"), 1200);
+        return;
+      }
       setError(data.message || err.message || "Resend failed");
       if (data.code === "RESEND_THROTTLE") {
         setCanResend(false);
@@ -122,30 +149,50 @@ function VerifyEmailInner() {
   return (
     <AuthShell
       title="Verify your email"
-      subtitle={`We sent a 6-digit code to ${masked}. It expires in 10 minutes.`}
+      subtitle={
+        email
+          ? `We sent a 6-digit code to ${masked}. It expires in 10 minutes.`
+          : "Enter the 6-digit code from your signup email."
+      }
     >
       <div className="flex flex-col gap-5">
         {!success ? (
           <>
+            {!email ? (
+              <div className="flex items-start gap-2 rounded-[4px] bg-[color-mix(in_srgb,var(--cz-error)_10%,transparent)] px-3 py-2.5 text-[15px] leading-[20px] text-[var(--cz-error)]">
+                <AlertCircle className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden />
+                <span>
+                  We don&apos;t have an email address for this verification.
+                  Sign in with your username and we&apos;ll bring you back
+                  here.{" "}
+                  <Link href="/login" className="font-bold underline">
+                    Sign in
+                  </Link>
+                </span>
+              </div>
+            ) : null}
+
             <div className="flex items-center gap-3 rounded-[16px] border border-[var(--cz-border)] p-4">
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[var(--cz-accent-soft)] text-[var(--cz-accent)]">
                 <Mail className="h-[18px] w-[18px]" aria-hidden />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[15px] font-bold leading-[20px] text-[var(--cz-text-primary)]">
-                  {email || "you@gmail.com"}
+                  {email || "No email address"}
                 </p>
                 <p className="text-[13px] leading-[16px] text-[var(--cz-text-secondary)]">
                   5 attempts max
                 </p>
               </div>
-              <span className="inline-flex shrink-0 items-center gap-1.5 text-[13px] text-[var(--cz-success)]">
-                <span
-                  className="h-2 w-2 animate-pulse rounded-full bg-[var(--cz-success)]"
-                  aria-hidden
-                />
-                Sent
-              </span>
+              {email ? (
+                <span className="inline-flex shrink-0 items-center gap-1.5 text-[13px] text-[var(--cz-success)]">
+                  <span
+                    className="h-2 w-2 animate-pulse rounded-full bg-[var(--cz-success)]"
+                    aria-hidden
+                  />
+                  Sent
+                </span>
+              ) : null}
             </div>
 
             {info ? (

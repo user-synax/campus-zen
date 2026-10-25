@@ -14,7 +14,7 @@ For larger changes, open an issue first so the approach can be discussed before 
 
 ## Local setup
 
-Prerequisites: Bun >= 1.4.2, Node.js LTS, MongoDB (local or Atlas), an Appwrite project (avatar/cover storage), Gmail SMTP (OTP emails).
+Prerequisites: Bun >= 1.4.2, Node.js LTS, MongoDB (local or Atlas), an Appwrite project (avatar/cover storage), a Resend API key with a verified sender or Gmail SMTP (OTP emails).
 
 ```bash
 git clone https://github.com/user-synax/campus-zen.git

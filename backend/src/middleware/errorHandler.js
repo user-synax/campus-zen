@@ -97,6 +97,7 @@ export function errorHandler(err, req, res, _next) {
     message,
     ...(code ? { code } : {}),
     ...(details ? { details } : {}),
+    ...(err.meta ? { meta: err.meta } : {}),
     ...(!isProd && err.stack ? { stack: err.stack } : {}),
   };
 

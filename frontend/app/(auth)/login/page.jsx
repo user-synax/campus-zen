@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FloatingInput } from "@/components/ui/input";
 import { api } from "@/lib/api";
+import { rememberPendingEmail, verifyEmailPath } from "@/lib/authRedirect";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -60,6 +61,14 @@ export default function LoginPage() {
       router.refresh();
     } catch (err) {
       const data = err.data || {};
+      if (err.status === 403 && data.code === "EMAIL_NOT_VERIFIED") {
+        // Password was correct, but the account still owes an OTP. Send the
+        // user to the verification screen instead of showing a password error.
+        const email = data.meta?.email || "";
+        rememberPendingEmail(email);
+        router.push(verifyEmailPath(email));
+        return;
+      }
       if (err.status === 401) {
         setErrors({ password: "Invalid username or password" });
         triggerShake("password");

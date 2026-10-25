@@ -29,18 +29,24 @@ async function persistOtp({ email, type }) {
 
 async function createAndSendOtp({ email, type }) {
   const plain = await persistOtp({ email, type });
-  await sendOtpEmail({ to: email, type, otp: plain });
+  try {
+    await sendOtpEmail({ to: email, type, otp: plain });
+  } catch (err) {
+    // No ghost OTP: if delivery fails, discard the code so a later resend
+    // creates a fresh one and the old hash can never be replayed.
+    await Otp.deleteMany({ email, type });
+    throw err;
+  }
 }
 
-// Fire-and-forget delivery for signup: the 201 must not wait on SMTP
-// (Gmail handshake from Render free hosts routinely takes 5–20s).
-// The returned promise never rejects — failures are logged only —
-// because an unhandled rejection would crash the process (see server.js).
-// If delivery fails the user still exists and can use resend-otp.
-function sendOtpInBackground({ email, type, otp }) {
-  sendOtpEmail({ to: email, type, otp }).catch((err) => {
-    console.error(`[email] background send failed -> ${email}:`, err.message);
-  });
+// Issue an authenticated session. Only called after credentials are proven
+// AND the email is verified — signup never issues tokens.
+function issueSession(user, remember = true) {
+  const accessToken = signAccessToken({ id: user._id, username: user.username, role: user.role });
+  const refreshToken = signRefreshToken({ id: user._id }, remember);
+  user.refreshTokenHash = hashToken(refreshToken);
+  user.lastLoginAt = new Date();
+  return { accessToken, refreshToken };
 }
 
 export const authService = {
@@ -62,8 +68,20 @@ export const authService = {
       User.findOne({ username: cleanUsername }),
       User.findOne({ email: cleanEmail }),
     ]);
+    if (userByEmail?.isEmailVerified) throw new AppError("Email is already registered", 409, "EMAIL_TAKEN");
+    if (userByEmail) {
+      // A previous signup never finished verifying. Never let a second
+      // signup overwrite that account's password; send them back to the
+      // (unprotected) verification screen where they can resend the code.
+      throw new AppError(
+        "This email is already waiting for verification. Resend the code from the verification screen.",
+        409,
+        "EMAIL_PENDING_VERIFICATION",
+        null,
+        { email: cleanEmail }
+      );
+    }
     if (userByUsername) throw new AppError("Username is already taken", 409, "USERNAME_TAKEN");
-    if (userByEmail) throw new AppError("Email is already registered", 409, "EMAIL_TAKEN");
 
     const passwordHash = await bcrypt.hash(password, 10);
     const user = await User.create({
@@ -71,28 +89,29 @@ export const authService = {
       username: cleanUsername,
       email: cleanEmail,
       passwordHash,
-      // No compulsory OTP — domain allowlist (gmail/proton) is the gate.
-      isEmailVerified: true,
+      isEmailVerified: false,
     });
 
-    // Auto-login: issue tokens immediately so signup lands straight in /app.
-    const accessToken = signAccessToken({ id: user._id, username: user.username, role: user.role });
-    const refreshToken = signRefreshToken({ id: user._id }, true);
-    user.refreshTokenHash = hashToken(refreshToken);
-    user.lastLoginAt = new Date();
+    // Mandatory verification: no cookies/tokens here. If delivery fails the
+    // signup is rolled back so the user can simply try again.
     try {
-      const { env } = await import("../config/env.js");
-      const clean = String(user.email || "").toLowerCase().trim();
-      user.isOwner = clean === env.OWNER_EMAIL;
-      user.isCofounder = clean === env.COFOUNDER_EMAIL;
-    } catch {}
-    await user.save();
+      await createAndSendOtp({ email: cleanEmail, type: "verify" });
+    } catch (err) {
+      await User.deleteOne({ _id: user._id });
+      throw err;
+    }
 
-    return { user: user.toSafeObject(), accessToken, refreshToken };
+    return { user: user.toSafeObject() };
   },
 
   async verifyEmail({ email, otp }) {
     const cleanEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: cleanEmail });
+    if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+    if (user.isEmailVerified) {
+      throw new AppError("Email is already verified. Please sign in.", 409, "EMAIL_ALREADY_VERIFIED");
+    }
+
     const record = await Otp.findOne({ email: cleanEmail, type: "verify" }).sort({ createdAt: -1 });
     if (!record) throw new AppError("No verification code found. Request a new one.", 404, "OTP_NOT_FOUND");
     if (record.expiresAt < new Date()) {
@@ -112,24 +131,26 @@ export const authService = {
       throw new AppError(`Invalid code. ${remaining > 0 ? `${remaining} attempts left.` : "No attempts left. Request a new code."}`, 400, "OTP_INVALID");
     }
 
-    // success — mark verified and clear OTPs
-    await Otp.deleteMany({ email: cleanEmail, type: "verify" });
-    const user = await User.findOne({ email: cleanEmail });
-    if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+    // Success — mark verified, clear OTPs, and only NOW issue the session.
     user.isEmailVerified = true;
+    const { accessToken, refreshToken } = issueSession(user, true);
     await user.save();
+    await Otp.deleteMany({ email: cleanEmail, type: "verify" });
 
     // welcome email is best-effort: verification already succeeded,
     // so a send failure here only gets logged, never fails the request
     await sendWelcomeEmail({ to: cleanEmail, name: user.fullName });
 
-    return user.toSafeObject();
+    return { user: user.toSafeObject(), accessToken, refreshToken, remember: true };
   },
 
   async resendOtp({ email, type }) {
     const cleanEmail = email.toLowerCase().trim();
     const user = await User.findOne({ email: cleanEmail });
     if (!user) return { message: "If an account exists, a code will be sent." };
+    if (type === "verify" && user.isEmailVerified) {
+      throw new AppError("Email is already verified. Please sign in.", 409, "EMAIL_ALREADY_VERIFIED");
+    }
 
     // throttle: already handled by rateLimiter, but also prevent spam if last OTP <30s old
     const last = await Otp.findOne({ email: cleanEmail, type }).sort({ createdAt: -1 });
@@ -149,12 +170,18 @@ export const authService = {
 
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) throw new AppError("Invalid username or password", 401, "INVALID_CREDENTIALS");
+    if (!user.isEmailVerified) {
+      throw new AppError(
+        "Verify your email before signing in. Enter the 6-digit code we sent you.",
+        403,
+        "EMAIL_NOT_VERIFIED",
+        null,
+        { email: user.email }
+      );
+    }
 
-    const accessToken = signAccessToken({ id: user._id, username: user.username, role: user.role });
-    const refreshToken = signRefreshToken({ id: user._id }, remember);
-
-    user.refreshTokenHash = hashToken(refreshToken);
-    user.lastLoginAt = new Date();
+    // Verification passed — only now issue the session.
+    const { accessToken, refreshToken } = issueSession(user, remember);
     // backfill: accounts created before isOwner/isCofounder existed get flagged here
     // (pre-save hook covers all future saves)
     try {
@@ -181,6 +208,15 @@ export const authService = {
     const user = await User.findById(decoded.id).select("+refreshTokenHash");
     if (!user || !user.refreshTokenHash) throw new AppError("Session not found. Log in again.", 401, "SESSION_NOT_FOUND");
     if (user.isSuspended) throw new AppError("Account suspended. Contact support.", 403, "ACCOUNT_SUSPENDED");
+    if (!user.isEmailVerified) {
+      throw new AppError(
+        "Verify your email before continuing.",
+        403,
+        "EMAIL_NOT_VERIFIED",
+        null,
+        { email: user.email }
+      );
+    }
 
     const incomingHash = hashToken(raw);
     if (incomingHash !== user.refreshTokenHash) throw new AppError("Session revoked. Log in again.", 401, "SESSION_REVOKED");
@@ -208,7 +244,6 @@ export const authService = {
 
   async forgotPassword({ email }) {
     const cleanEmail = email.toLowerCase().trim();
-    assertAllowedEmail(cleanEmail);
     const user = await User.findOne({ email: cleanEmail });
     // generic response to avoid enumeration
     if (!user) return { message: "If an account exists, a reset code has been sent." };

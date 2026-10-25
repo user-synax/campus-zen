@@ -10,6 +10,7 @@ import { PushEnableBanner } from "@/components/app/PushEnableBanner";
 import { RightMinimal } from "@/components/app/RightMinimal";
 import { ThemeToggle } from "@/components/app/ThemeToggle";
 import { BrandMark } from "@/components/BrandLogo";
+import { redirectToVerify } from "@/lib/authRedirect";
 import { useCurrentUser } from "@/lib/hooks/useRequireSession";
 import { useSSE } from "@/lib/hooks/useSSE";
 import { cn } from "@/lib/utils";
@@ -32,7 +33,8 @@ import { cn } from "@/lib/utils";
 export function AppShell({ children, requireAuth = false }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, loading, signedOut, failed } = useCurrentUser();
+  const { user, loading, signedOut, failed, needsVerification, pendingEmail } =
+    useCurrentUser();
 
   // /app/a/<username>/<slug> — the long-form reader. On xl the right rail
   // unmounts and the main column grows to fill the freed width.
@@ -44,10 +46,17 @@ export function AppShell({ children, requireAuth = false }) {
   // /app/* has no guest reading experience, so a signed-out visitor goes to
   // sign in. /u and /c don't: their own pages gate themselves with
   // useRequireSession, and /u/[username] stays public by design.
+  //
+  // Unverified accounts are a separate state in every segment: they hold no
+  // usable session (signup/login issue none) and must finish OTP first.
   useEffect(() => {
     if (loading) return;
+    if (needsVerification) {
+      redirectToVerify(router, pendingEmail);
+      return;
+    }
     if (requireAuth && (signedOut || failed)) router.replace("/login");
-  }, [loading, signedOut, failed, requireAuth, router]);
+  }, [loading, signedOut, failed, requireAuth, router, needsVerification, pendingEmail]);
 
   // Only the auth-gated segments wait on the session. The public profile at
   // /u/[username] renders immediately and the sign-in redirect happens
@@ -67,6 +76,10 @@ export function AppShell({ children, requireAuth = false }) {
   }
 
   if (requireAuth && !user) return null;
+
+  // Redirect is in flight — don't flash the app frame for an unverified
+  // account (also covers /u and /c, which are not requireAuth).
+  if (needsVerification) return null;
 
   return (
     <div className="min-h-dvh bg-[var(--cz-bg)] text-[var(--cz-text-primary)]">

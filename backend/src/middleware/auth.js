@@ -29,6 +29,17 @@ export async function protect(req, res, next) {
     const user = await User.findById(decoded.id).select("+refreshTokenHash");
     if (!user) throw new AppError("User no longer exists.", 401, "USER_NOT_FOUND");
     if (user.isSuspended) throw new AppError("Account suspended. Contact support.", 403, "ACCOUNT_SUSPENDED");
+    // Hard gate: a session is not valid for app access until the email is
+    // verified. Only /api/auth/verify-email + /resend-otp (unprotected) work.
+    if (!user.isEmailVerified) {
+      throw new AppError(
+        "Verify your email to continue. Enter the 6-digit code we sent you.",
+        403,
+        "EMAIL_NOT_VERIFIED",
+        null,
+        { email: user.email }
+      );
+    }
 
     req.user = user;
     req.userId = user._id;
@@ -54,8 +65,11 @@ export async function optionalAuth(req, res, next) {
       return next();
     }
     const user = await User.findById(decoded.id).select("+refreshTokenHash");
-    req.user = user || null;
-    if (user) req.userId = user._id;
+    // Unverified (or suspended) accounts get the guest view on optional-auth
+    // routes; every write path uses protect() and is rejected outright.
+    const usable = user && user.isEmailVerified && !user.isSuspended ? user : null;
+    req.user = usable;
+    if (usable) req.userId = usable._id;
     next();
   } catch {
     req.user = null;

@@ -64,10 +64,15 @@ async function protectSSE(req, res, next) {
       res.end(JSON.stringify({ success: false, message: "Invalid session" }));
       return;
     }
-    const user = await User.findById(decoded.id).select("_id");
+    const user = await User.findById(decoded.id).select("_id isEmailVerified");
     if (!user) {
       res.writeHead(401, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ success: false, message: "User no longer exists" }));
+      return;
+    }
+    if (!user.isEmailVerified) {
+      res.writeHead(403, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: false, code: "EMAIL_NOT_VERIFIED", message: "Verify your email to continue" }));
       return;
     }
     req.user = user;

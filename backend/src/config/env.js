@@ -7,6 +7,12 @@ function requireEnv(name, fallback) {
   return v;
 }
 
+// Email can be delivered by Resend (HTTPS, preferred) or SMTP.
+// Resend only needs RESEND_API_KEY; SMTP needs SMTP_USER + SMTP_PASS.
+const resendApiKey = process.env.RESEND_API_KEY || "";
+const smtpUser = process.env.SMTP_USER || "";
+const smtpPass = process.env.SMTP_PASS || "";
+
 export const env = {
   NODE_ENV: process.env.NODE_ENV || "development",
   PORT: Number(process.env.PORT || 4000),
@@ -31,14 +37,21 @@ export const env = {
   // Email (Gmail SMTP — needs an App Password, not the login password)
   SMTP_HOST: process.env.SMTP_HOST || "smtp.gmail.com",
   SMTP_PORT: Number(process.env.SMTP_PORT || 587),
-  SMTP_USER: requireEnv("SMTP_USER"),
-  SMTP_PASS: requireEnv("SMTP_PASS"),
-  EMAIL_FROM: process.env.EMAIL_FROM || process.env.SMTP_USER,
+  SMTP_USER: smtpUser,
+  SMTP_PASS: smtpPass,
+  // Sender address. With Resend this MUST be on a domain verified in the
+  // Resend dashboard. onboarding@resend.dev is Resend's test sender and only
+  // delivers to the account owner, so set EMAIL_FROM in production.
+  EMAIL_FROM: process.env.EMAIL_FROM || (resendApiKey ? "onboarding@resend.dev" : smtpUser),
+  // SMTP fallback sender. Gmail only accepts an address it owns, so when
+  // Resend is the primary transport this defaults to SMTP_USER instead of
+  // the Resend-domain EMAIL_FROM. SMTP_FROM overrides both.
+  SMTP_FROM: process.env.SMTP_FROM || (resendApiKey ? smtpUser : process.env.EMAIL_FROM || smtpUser),
   EMAIL_FROM_NAME: process.env.EMAIL_FROM_NAME || "CampusZen",
   // Transactional email over HTTPS (preferred on Render — SMTP to Gmail
   // often fails from datacenter IPs). When set, sendMail uses Resend
   // instead of SMTP. No new dependency: plain fetch, no SDK needed.
-  RESEND_API_KEY: process.env.RESEND_API_KEY || "",
+  RESEND_API_KEY: resendApiKey,
   // Push (Web Push / VAPID) — OS-level notifications when app is closed.
   // Public key is safe to expose; private key never leaves the server.
   VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY || "",
@@ -53,6 +66,17 @@ export const env = {
 };
 
 export const isProd = env.NODE_ENV === "production";
+
+// Fail fast: an app that cannot deliver OTPs cannot let anyone in.
+if (!env.RESEND_API_KEY && (!env.SMTP_USER || !env.SMTP_PASS)) {
+  throw new Error("Missing email config: set RESEND_API_KEY or SMTP_USER + SMTP_PASS");
+}
+if (env.RESEND_API_KEY && !process.env.EMAIL_FROM) {
+  console.warn(
+    `[email] RESEND_API_KEY set but EMAIL_FROM is not. Using ${env.EMAIL_FROM}. ` +
+      "Set EMAIL_FROM to an address on a domain verified in Resend."
+  );
+}
 
 // Fail fast: never boot prod with missing or placeholder signing keys,
 // and never combine SameSite=None with non-secure cookies (browsers reject it).

@@ -8,13 +8,19 @@ import { signupLimiter, loginLimiter, verifyLimiter, forgotLimiter, resendLimite
 const router = Router();
 
 // --- Zod schemas ---
-const emailDomain = z
+const emailAddress = z
   .string()
   .email()
-  .transform((v) => v.toLowerCase().trim())
-  .refine((v) => ["gmail.com", "proton.me"].includes(v.split("@")[1] || ""), {
-    message: "Email must be gmail.com or proton.me",
-  });
+  .max(254)
+  .transform((v) => v.toLowerCase().trim());
+
+// Signup-only policy: new accounts must use an allowed mailbox provider.
+// Verification / reset accept any address so accounts created before this
+// policy (or before its domain list changes) can still verify and recover.
+const emailDomain = emailAddress.refine(
+  (v) => ["gmail.com", "proton.me"].includes(v.split("@")[1] || ""),
+  { message: "Email must be gmail.com or proton.me" }
+);
 
 const signupSchema = z.object({
   fullName: z.string().trim().min(2, "Full name at least 2 chars").max(50),
@@ -32,12 +38,12 @@ const signupSchema = z.object({
 });
 
 const verifySchema = z.object({
-  email: emailDomain,
+  email: emailAddress,
   otp: z.string().regex(/^[0-9]{6}$/, "6-digit code required"),
 });
 
 const resendSchema = z.object({
-  email: emailDomain,
+  email: emailAddress,
   type: z.enum(["verify", "reset"]),
 });
 
@@ -48,11 +54,11 @@ const loginSchema = z.object({
 });
 
 const forgotSchema = z.object({
-  email: emailDomain,
+  email: emailAddress,
 });
 
 const resetSchema = z.object({
-  email: emailDomain,
+  email: emailAddress,
   otp: z.string().regex(/^[0-9]{6}$/),
   newPassword: z.string().min(8).max(128).optional(),
   password: z.string().min(8).max(128).optional(),

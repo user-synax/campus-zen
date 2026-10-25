@@ -4,20 +4,25 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 
 export const authController = {
   signup: asyncHandler(async (req, res) => {
-    const { user, accessToken, refreshToken } = await authService.signup(req.body);
-    setAuthCookies(res, { accessToken, refreshToken, remember: true });
+    const { user } = await authService.signup(req.body);
+    // No auth cookies here: the account cannot be used until the emailed OTP
+    // is entered. Cookies are issued by verifyEmail on success.
     res.status(201).json({
       success: true,
-      message: "Account created.",
-      // Web keeps using the httpOnly cookies above; native clients
-      // (Expo) cannot read cookies, so tokens are also in the body.
-      data: { user, accessToken, refreshToken },
+      message: "Account created. Check your email for a 6-digit verification code.",
+      data: { user, verificationRequired: true },
     });
   }),
 
   verifyEmail: asyncHandler(async (req, res) => {
-    const user = await authService.verifyEmail(req.body);
-    res.json({ success: true, message: "Email verified successfully.", data: { user } });
+    const { user, accessToken, refreshToken, remember } = await authService.verifyEmail(req.body);
+    setAuthCookies(res, { accessToken, refreshToken, remember });
+    res.json({
+      success: true,
+      message: "Email verified successfully.",
+      // Tokens duplicated in body for native clients; web uses cookies.
+      data: { user, accessToken, refreshToken },
+    });
   }),
 
   resendOtp: asyncHandler(async (req, res) => {
