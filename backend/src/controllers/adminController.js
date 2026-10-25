@@ -40,7 +40,7 @@ export const adminController = {
 
   deletePost: asyncHandler(async (req, res) => {
     const result = await adminService.deletePost(req.params.id);
-    res.json({ success: true, ...result });
+    res.json({ success: true, message: result.message });
   }),
 
   suspendUser: asyncHandler(async (req, res) => {

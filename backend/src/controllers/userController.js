@@ -85,7 +85,8 @@ export const userController = {
 
   setDobOnce: asyncHandler(async (req, res) => {
     const result = await userService.setDobOnce(req.user._id, req.body?.dob);
-    res.status(201).json({
+    // A field set on an existing account creates nothing — 200, not 201.
+    res.json({
       success: true,
       message: result.isAdult
         ? "Date of birth saved"
@@ -113,7 +114,7 @@ export const userController = {
 
   deleteMe: asyncHandler(async (req, res) => {
     // Graceful delete: deactivate first; purge only on explicit confirm.
-    const { confirm } = req.body || {};
+    const confirm = req.body?.confirm ?? req.query?.confirm;
     if (confirm === "PERMANENTLY_DELETE") {
       const result = await userService.purge(req.user._id);
       res.json({ success: true, message: "Account permanently deleted", data: result });

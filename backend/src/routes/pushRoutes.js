@@ -25,6 +25,10 @@ const unsubscribeSchema = z.object({
   endpoint: z.string().url().max(2000),
 });
 
+const unsubscribeQuery = z.object({
+  endpoint: z.string().url().max(2000),
+});
+
 const limiter = rateLimit({
   windowMs: 60 * 1000,
   max: 30,
@@ -37,6 +41,10 @@ router.get("/public-key", pushController.publicKey);
 
 router.use(protect);
 router.post("/subscribe", limiter, validate(subscribeSchema, "body"), pushController.subscribe);
+// Canonical: the subscription key travels in the URL, not a DELETE body (some
+// proxies and clients strip request bodies from DELETE).
+router.delete("/subscriptions", limiter, validate(unsubscribeQuery, "query"), pushController.unsubscribe);
+// Deprecated: body-based DELETE kept so already-shipped clients keep working.
 router.delete("/unsubscribe", limiter, validate(unsubscribeSchema, "body"), pushController.unsubscribe);
 router.get("/subscriptions", limiter, pushController.list);
 

@@ -63,6 +63,12 @@ const deleteMeSchema = z.object({
   confirm: z.string().optional(),
 });
 
+// DELETE carries its confirmation in the query string so the request needs no
+// body; the body form is still accepted for older clients.
+const deleteMeQuery = z.object({
+  confirm: z.string().trim().max(40).optional(),
+});
+
 const meLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 60,
@@ -93,6 +99,29 @@ const blockLimiter = rateLimit({
 
 const idParam = z.object({ id: z.string().regex(/^[a-f\d]{24}$/i, "Invalid id") });
 
+// Shared collection query contract: page >= 1, 1..50 per page, everything else
+// stripped. Every list route below validates with one of these so a bad page or
+// limit returns 400 instead of reaching the service (and .skip(NaN)).
+const pageQuery = z.object({
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(50).optional().default(20),
+});
+
+const profileListQuery = z.object({
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(50).optional().default(20),
+  kind: z.enum(["post", "article"]).optional(),
+});
+
+const listUsersQuery = z.object({
+  q: z.string().trim().max(100).optional(),
+  college: z.string().trim().max(100).optional(),
+  course: z.string().trim().max(100).optional(),
+  academicYear: z.string().trim().max(50).optional(),
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(50).optional().default(20),
+});
+
 router.post("/me/avatar", avatarLimiter, protect, avatarUpload.single("avatar"), userController.updateAvatar);
 router.post("/me/cover", avatarLimiter, protect, avatarUpload.single("cover"), userController.updateCover);
 
@@ -104,13 +133,13 @@ router.delete("/me/pin", meLimiter, protect, userController.unpinPost);
 // follow — before /:username to avoid param clash
 router.post("/:id/follow", followLimiter, protect, validate(idParam, "params"), followController.follow);
 router.delete("/:id/follow", followLimiter, protect, validate(idParam, "params"), followController.unfollow);
-router.get("/:id/followers", meLimiter, optionalAuth, validate(idParam, "params"), followController.getFollowers);
-router.get("/:id/following", meLimiter, optionalAuth, validate(idParam, "params"), followController.getFollowing);
+router.get("/:id/followers", meLimiter, optionalAuth, validate(idParam, "params"), validate(pageQuery, "query"), followController.getFollowers);
+router.get("/:id/following", meLimiter, optionalAuth, validate(idParam, "params"), validate(pageQuery, "query"), followController.getFollowing);
 
 // follow requests — approval queue for private accounts
 const requestIdParam = z.object({ requestId: z.string().regex(/^[a-f\d]{24}$/i, "Invalid id") });
-router.get("/me/follow-requests/incoming", protect, followController.incoming);
-router.get("/me/follow-requests/outgoing", protect, followController.outgoing);
+router.get("/me/follow-requests/incoming", protect, validate(pageQuery, "query"), followController.incoming);
+router.get("/me/follow-requests/outgoing", protect, validate(pageQuery, "query"), followController.outgoing);
 router.post("/me/follow-requests/:requestId/accept", protect, validate(requestIdParam, "params"), followController.accept);
 router.post("/me/follow-requests/:requestId/decline", protect, validate(requestIdParam, "params"), followController.decline);
 
@@ -130,11 +159,11 @@ router.post("/me/dob", dobLimiter, protect, validate(dobSchema), userController.
 router.get("/me/export", protect, userController.exportMe);
 router.post("/me/deactivate", protect, userController.deactivateMe);
 router.post("/me/reactivate", protect, userController.reactivateMe);
-router.delete("/me", protect, validate(deleteMeSchema), userController.deleteMe);
+router.delete("/me", protect, validate(deleteMeQuery, "query"), validate(deleteMeSchema), userController.deleteMe);
 
 // block — before /:username to avoid param clash
 router.get("/me/blocks", protect, blockController.list);
-router.get("/me/bookmarks", protect, userController.myBookmarks);
+router.get("/me/bookmarks", protect, validate(pageQuery, "query"), userController.myBookmarks);
 
 const suggestionsQuery = z.object({
   limit: z.coerce.number().int().min(1).max(20).optional().default(6),
@@ -144,19 +173,16 @@ router.post("/:id/block", blockLimiter, protect, validate(idParam, "params"), bl
 router.delete("/:id/block", blockLimiter, protect, validate(idParam, "params"), blockController.unblock);
 
 // profile tab lists — single via username, before generic :username
-router.get("/:username/posts", meLimiter, optionalAuth, validate(usernameParam, "params"), userController.getUserPosts);
-router.get("/:username/replies", meLimiter, optionalAuth, validate(usernameParam, "params"), userController.getUserReplies);
-router.get("/:username/likes", meLimiter, optionalAuth, validate(usernameParam, "params"), userController.getUserLikes);
-router.get("/:username/reposts", meLimiter, optionalAuth, validate(usernameParam, "params"), userController.getUserReposts);
-router.get("/:username/media", meLimiter, optionalAuth, validate(usernameParam, "params"), userController.getUserMedia);
+router.get("/:username/posts", meLimiter, optionalAuth, validate(usernameParam, "params"), validate(profileListQuery, "query"), userController.getUserPosts);
+router.get("/:username/replies", meLimiter, optionalAuth, validate(usernameParam, "params"), validate(pageQuery, "query"), userController.getUserReplies);
+router.get("/:username/likes", meLimiter, optionalAuth, validate(usernameParam, "params"), validate(pageQuery, "query"), userController.getUserLikes);
+router.get("/:username/reposts", meLimiter, optionalAuth, validate(usernameParam, "params"), validate(pageQuery, "query"), userController.getUserReposts);
+router.get("/:username/media", meLimiter, optionalAuth, validate(usernameParam, "params"), validate(pageQuery, "query"), userController.getUserMedia);
 
 // list users — public, optional auth to decide guest blur
-router.get("/", meLimiter, optionalAuth, userController.listUsers);
+router.get("/", meLimiter, optionalAuth, validate(listUsersQuery, "query"), userController.listUsers);
 
 router.get("/:username", meLimiter, optionalAuth, validate(usernameParam, "params"), userController.getByUsername);
 router.patch("/me", meLimiter, protect, validate(updateMeSchema), userController.updateMe);
-
-// also allow PATCH /me with PUT alias
-router.put("/me", meLimiter, protect, validate(updateMeSchema), userController.updateMe);
 
 export default router;

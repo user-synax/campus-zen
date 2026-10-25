@@ -3,8 +3,13 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 
 export const blockController = {
   block: asyncHandler(async (req, res) => {
-    await blockService.block(req.user._id, req.params.id);
-    res.status(201).json({ success: true, message: "User blocked", data: { blocked: true } });
+    const { created } = await blockService.block(req.user._id, req.params.id);
+    // 201 only when the block was actually created; a repeat is a 200 no-op.
+    res.status(created ? 201 : 200).json({
+      success: true,
+      message: created ? "User blocked" : "User already blocked",
+      data: { blocked: true },
+    });
   }),
 
   unblock: asyncHandler(async (req, res) => {

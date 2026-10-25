@@ -31,9 +31,14 @@ const appealGeneralSchema = z.object({
 
 const idParam = z.object({ id: z.string().regex(/^[a-f\d]{24}$/i, "Invalid id") });
 
+const pageQuery = z.object({
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(50).optional().default(20),
+});
+
 router.post("/", reportLimiter, protect, validate(fileSchema), reportController.file);
-router.get("/me", protect, reportController.mine);
-router.get("/appeals/me", protect, reportController.myAppeals);
+router.get("/me", protect, validate(pageQuery, "query"), reportController.mine);
+router.get("/appeals/me", protect, validate(pageQuery, "query"), reportController.myAppeals);
 router.post("/appeals", reportLimiter, protect, validate(appealGeneralSchema), reportController.appealGeneral);
 router.post("/:id/appeal", reportLimiter, protect, validate(idParam, "params"), validate(appealSchema), reportController.appeal);
 

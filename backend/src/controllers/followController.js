@@ -7,7 +7,10 @@ export const followController = {
     const targetId = req.params.id;
     // ensure target exists and get live counts
     const result = await followService.follow(req.user._id, targetId);
-    if (result.requested) return res.status(202).json({ success: true, message: "Follow request sent. Awaiting approval.", data: result });
+    // A follow request is a created resource, not an accepted async job — 201.
+    if (result.requested) return res.status(201).json({ success: true, message: "Follow request sent. Awaiting approval.", data: result });
+    // Repeat follows are idempotent no-ops, so they are not a new resource.
+    if (result.alreadyFollowing) return res.json({ success: true, message: "Already following", data: result });
     res.status(201).json({ success: true, message: "Followed", data: result });
   }),
 

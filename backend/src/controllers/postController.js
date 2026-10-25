@@ -177,7 +177,7 @@ export const postController = {
 
   remove: asyncHandler(async (req, res) => {
     const result = await postService.remove(req.params.id, req.user._id);
-    res.json({ success: true, ...result });
+    res.json({ success: true, message: result.message });
   }),
 
   feed: asyncHandler(async (req, res) => {

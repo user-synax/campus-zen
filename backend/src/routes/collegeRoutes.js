@@ -32,7 +32,7 @@ const pageQuery = z.object({
 // order matters: "/" before "/:slug"
 router.get("/", limiter, optionalAuth, validate(listQuery, "query"), collegeController.search);
 router.get("/:slug", limiter, optionalAuth, validate(slugParam, "params"), collegeController.getBySlug);
-router.get("/:slug/members", limiter, optionalAuth, validate(slugParam, "params"), collegeController.listMembers);
-router.get("/:slug/posts", limiter, optionalAuth, validate(slugParam, "params"), collegeController.listPosts);
+router.get("/:slug/members", limiter, optionalAuth, validate(slugParam, "params"), validate(pageQuery, "query"), collegeController.listMembers);
+router.get("/:slug/posts", limiter, optionalAuth, validate(slugParam, "params"), validate(pageQuery, "query"), collegeController.listPosts);
 
 export default router;

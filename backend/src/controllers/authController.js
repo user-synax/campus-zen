@@ -27,7 +27,7 @@ export const authController = {
 
   resendOtp: asyncHandler(async (req, res) => {
     const result = await authService.resendOtp(req.body);
-    res.json({ success: true, ...result });
+    res.json({ success: true, message: result.message });
   }),
 
   login: asyncHandler(async (req, res) => {
@@ -67,14 +67,14 @@ export const authController = {
   forgotPassword: asyncHandler(async (req, res) => {
     const result = await authService.forgotPassword(req.body);
     // always 200 to avoid enumeration
-    res.json({ success: true, ...result });
+    res.json({ success: true, message: result.message });
   }),
 
   resetPassword: asyncHandler(async (req, res) => {
     const { email, otp, newPassword } = req.body;
     // frontend sends newPassword as password
     const result = await authService.resetPassword({ email, otp, newPassword: newPassword || req.body.password });
-    res.json({ success: true, ...result });
+    res.json({ success: true, message: result.message });
   }),
 
   checkUsername: asyncHandler(async (req, res) => {

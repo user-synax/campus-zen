@@ -1,8 +1,10 @@
 import rateLimit from "express-rate-limit";
 
+// Same error envelope as the central handler: clients branch on `code`, so a
+// 429 must carry one too. Retry-After / RateLimit-* come from express-rate-limit.
 function jsonHandler(message) {
   return (req, res) => {
-    res.status(429).json({ success: false, message });
+    res.status(429).json({ success: false, code: "RATE_LIMITED", message });
   };
 }
 

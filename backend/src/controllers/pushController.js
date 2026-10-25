@@ -24,7 +24,8 @@ export const pushController = {
   }),
 
   unsubscribe: asyncHandler(async (req, res) => {
-    const { endpoint } = req.body || {};
+    // Canonical route sends ?endpoint=; the deprecated route still sends a body.
+    const endpoint = req.body?.endpoint || req.query?.endpoint;
     const result = await pushService.removeSubscription(req.user._id, endpoint);
     res.json({ success: true, data: result });
   }),

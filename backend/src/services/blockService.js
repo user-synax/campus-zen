@@ -43,7 +43,7 @@ export const blockService = {
     if (!target) throw new AppError("User not found", 404, "USER_NOT_FOUND");
 
     const existing = await Block.findOne({ blocker: blockerId, blocked: blockedId });
-    if (existing) return { blocked: true }; // idempotent
+    if (existing) return { blocked: true, created: false }; // idempotent
 
     // remove follows in both directions and repair counts
     const rels = await Follow.find({
@@ -76,7 +76,7 @@ export const blockService = {
         ],
       });
     } catch {}
-    return { blocked: true };
+    return { blocked: true, created: true };
   },
 
   async unblock(blockerId, blockedId) {
