@@ -4,7 +4,8 @@ import { Otp } from "../models/Otp.js";
 import { AppError } from "../utils/AppError.js";
 import { generateOtp, hashOtp, compareOtp, otpExpiresAt } from "../utils/otp.js";
 import { sendOtpEmail, sendWelcomeEmail } from "../utils/email.js";
-import { signAccessToken, signRefreshToken, hashToken, verifyRefreshToken } from "../utils/jwt.js";
+import { signAccessToken, verifyRefreshToken } from "../utils/jwt.js";
+import { sessionService } from "./sessionService.js";
 
 const ALLOWED_DOMAINS = ["gmail.com", "proton.me"];
 const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
@@ -41,12 +42,19 @@ async function createAndSendOtp({ email, type }) {
 
 // Issue an authenticated session. Only called after credentials are proven
 // AND the email is verified — signup never issues tokens.
-function issueSession(user, remember = true) {
-  const accessToken = signAccessToken({ id: user._id, username: user.username, role: user.role });
-  const refreshToken = signRefreshToken({ id: user._id }, remember);
-  user.refreshTokenHash = hashToken(refreshToken);
+// Each call creates its own device session; signing in on a second device no
+// longer invalidates the first. The access token carries `sid` so request
+// handlers can tell which device is calling (see GET /api/auth/sessions).
+async function issueSession(user, remember = true, meta = {}) {
+  const { session, refreshToken } = await sessionService.create(user, { remember, ...meta });
+  const accessToken = signAccessToken({
+    id: user._id,
+    username: user.username,
+    role: user.role,
+    sid: session._id.toString(),
+  });
   user.lastLoginAt = new Date();
-  return { accessToken, refreshToken };
+  return { accessToken, refreshToken, sessionId: session._id.toString() };
 }
 
 export const authService = {
@@ -104,7 +112,7 @@ export const authService = {
     return { user: user.toSafeObject() };
   },
 
-  async verifyEmail({ email, otp }) {
+  async verifyEmail({ email, otp }, meta = {}) {
     const cleanEmail = email.toLowerCase().trim();
     const user = await User.findOne({ email: cleanEmail });
     if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
@@ -133,7 +141,7 @@ export const authService = {
 
     // Success — mark verified, clear OTPs, and only NOW issue the session.
     user.isEmailVerified = true;
-    const { accessToken, refreshToken } = issueSession(user, true);
+    const { accessToken, refreshToken } = await issueSession(user, true, meta);
     await user.save();
     await Otp.deleteMany({ email: cleanEmail, type: "verify" });
 
@@ -162,7 +170,7 @@ export const authService = {
     return { message: "Code sent. Check your email." };
   },
 
-  async login({ username, password, remember = true }) {
+  async login({ username, password, remember = true }, meta = {}) {
     const cleanUsername = username.toLowerCase().trim();
     const user = await User.findOne({ username: cleanUsername }).select("+passwordHash +refreshTokenHash");
     if (!user) throw new AppError("Invalid username or password", 401, "INVALID_CREDENTIALS");
@@ -180,8 +188,10 @@ export const authService = {
       );
     }
 
-    // Verification passed — only now issue the session.
-    const { accessToken, refreshToken } = issueSession(user, remember);
+    // Verification passed — only now issue the session. This adds a device
+    // session; any token still in `refreshTokenHash` from before per-device
+    // sessions is left alone so that device can migrate on its next refresh.
+    const { accessToken, refreshToken } = await issueSession(user, remember, meta);
     // backfill: accounts created before isOwner/isCofounder existed get flagged here
     // (pre-save hook covers all future saves)
     try {
@@ -196,7 +206,7 @@ export const authService = {
     return { user: safe, accessToken, refreshToken, remember };
   },
 
-  async refresh({ refreshToken: raw }) {
+  async refresh({ refreshToken: raw }, meta = {}) {
     if (!raw) throw new AppError("Missing refresh token", 401, "NO_REFRESH_TOKEN");
     let decoded;
     try {
@@ -206,7 +216,7 @@ export const authService = {
     }
 
     const user = await User.findById(decoded.id).select("+refreshTokenHash");
-    if (!user || !user.refreshTokenHash) throw new AppError("Session not found. Log in again.", 401, "SESSION_NOT_FOUND");
+    if (!user) throw new AppError("Session not found. Log in again.", 401, "SESSION_NOT_FOUND");
     if (user.isSuspended) throw new AppError("Account suspended. Contact support.", 403, "ACCOUNT_SUSPENDED");
     if (!user.isEmailVerified) {
       throw new AppError(
@@ -218,28 +228,40 @@ export const authService = {
       );
     }
 
-    const incomingHash = hashToken(raw);
-    if (incomingHash !== user.refreshTokenHash) throw new AppError("Session revoked. Log in again.", 401, "SESSION_REVOKED");
+    // Validation, rotation and legacy migration all live in sessionService:
+    // a token with no `sid` is a pre-sessions token and is upgraded in place.
+    const { session, refreshToken } = await sessionService.rotate(user, raw, decoded, meta);
+    const accessToken = signAccessToken({
+      id: user._id,
+      username: user.username,
+      role: user.role,
+      sid: session._id.toString(),
+    });
 
-    // rotate
-    const remember = true; // could decode exp to decide, but keep 7d for rotated
-    const newAccess = signAccessToken({ id: user._id, username: user.username, role: user.role });
-    const newRefresh = signRefreshToken({ id: user._id }, remember);
-    user.refreshTokenHash = hashToken(newRefresh);
-    await user.save();
-
-    return { accessToken: newAccess, refreshToken: newRefresh, remember, user: user.toSafeObject() };
+    return {
+      accessToken,
+      refreshToken,
+      remember: session.remember,
+      user: user.toSafeObject(),
+    };
   },
 
+  // Signs out THIS device only — other devices keep their sessions. Use
+  // DELETE /api/auth/sessions to sign out everywhere else.
   async logout(userId, refreshTokenRaw) {
-    if (userId) {
-      await User.findByIdAndUpdate(userId, { $set: { refreshTokenHash: null } });
-    } else if (refreshTokenRaw) {
-      try {
-        const decoded = verifyRefreshToken(refreshTokenRaw);
-        await User.findByIdAndUpdate(decoded.id, { $set: { refreshTokenHash: null } });
-      } catch {}
+    if (!refreshTokenRaw) return;
+    let decoded;
+    try {
+      decoded = verifyRefreshToken(refreshTokenRaw);
+    } catch {
+      return; // expired/invalid token: the session row expires on its own TTL
     }
+    if (decoded?.sid) {
+      await sessionService.revokeById(decoded.id || userId, decoded.sid);
+      return;
+    }
+    // Token from before per-device sessions: clear the single legacy hash.
+    if (decoded?.id) await User.findByIdAndUpdate(decoded.id, { $set: { refreshTokenHash: null } });
   },
 
   async forgotPassword({ email }) {
@@ -278,11 +300,29 @@ export const authService = {
     if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
 
     user.passwordHash = await bcrypt.hash(newPassword, 10);
-    // revoke existing sessions for security
+    // A reset signs every device out: whoever holds the old refresh tokens
+    // loses them, including a stolen phone.
     user.refreshTokenHash = null;
     await user.save();
+    await sessionService.revokeAll(user._id);
 
     return { message: "Password updated. Please log in with your new password." };
+  },
+
+  async listSessions(userId, currentSessionId = null) {
+    const sessions = await sessionService.list(userId, currentSessionId);
+    return { sessions, count: sessions.length };
+  },
+
+  async revokeSession(userId, sessionId) {
+    const removed = await sessionService.revokeById(userId, sessionId);
+    if (!removed) throw new AppError("Session not found", 404, "SESSION_NOT_FOUND");
+  },
+
+  // "Sign out everywhere else". When the caller's session can't be identified
+  // (an access token minted before per-device sessions) every session goes.
+  async revokeOtherSessions(userId, currentSessionId = null) {
+    return sessionService.revokeAll(userId, { exceptSessionId: currentSessionId });
   },
 
   async getMe(userId) {

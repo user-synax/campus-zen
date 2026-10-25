@@ -45,7 +45,7 @@ export function SafetyReports() {
   };
 
   return (
-    <section aria-label="Reports and appeals" className="mt-4 overflow-hidden rounded-[16px] border border-[var(--cz-border)]">
+    <section aria-label="Reports and appeals" className="overflow-hidden rounded-[16px] border border-[var(--cz-border)]">
       <p className="flex items-center gap-2 border-b border-[var(--cz-border)] px-4 py-3 text-[15px] font-bold leading-[20px]">
         <Flag className="h-4 w-4" aria-hidden /> My reports
       </p>

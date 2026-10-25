@@ -72,6 +72,14 @@ export const reportLimiter = rateLimit({
   handler: jsonHandler("Too many reports. Try again later."),
 });
 
+export const sessionsLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: jsonHandler("Too many session requests. Slow down."),
+});
+
 export const adminLoginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15m
   max: 10,

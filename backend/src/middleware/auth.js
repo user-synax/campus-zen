@@ -43,6 +43,9 @@ export async function protect(req, res, next) {
 
     req.user = user;
     req.userId = user._id;
+    // Which device session this request belongs to. Absent on tokens minted
+    // before per-device sessions — callers must treat null as "unknown".
+    req.sessionId = decoded.sid || null;
     next();
   } catch (err) {
     next(err);

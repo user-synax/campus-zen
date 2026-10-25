@@ -47,7 +47,7 @@ export function FollowRequests() {
   };
 
   return (
-    <section aria-label="Follow requests" className="mt-4 overflow-hidden rounded-[16px] border border-[var(--cz-border)]">
+    <section aria-label="Follow requests" className="overflow-hidden rounded-[16px] border border-[var(--cz-border)]">
       <p className="flex items-center gap-2 border-b border-[var(--cz-border)] px-4 py-3 text-[15px] font-bold leading-[20px]">
         <UserPlus className="h-4 w-4" aria-hidden /> Follow requests
         {incoming.length > 0 ? (

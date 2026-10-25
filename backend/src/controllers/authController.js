@@ -1,6 +1,7 @@
 import { authService } from "../services/authService.js";
 import { setAuthCookies, clearAuthCookies } from "../utils/cookies.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { describeRequest } from "../utils/device.js";
 
 export const authController = {
   signup: asyncHandler(async (req, res) => {
@@ -15,7 +16,10 @@ export const authController = {
   }),
 
   verifyEmail: asyncHandler(async (req, res) => {
-    const { user, accessToken, refreshToken, remember } = await authService.verifyEmail(req.body);
+    const { user, accessToken, refreshToken, remember } = await authService.verifyEmail(
+      req.body,
+      describeRequest(req),
+    );
     setAuthCookies(res, { accessToken, refreshToken, remember });
     res.json({
       success: true,
@@ -32,7 +36,10 @@ export const authController = {
 
   login: asyncHandler(async (req, res) => {
     const { username, password, remember } = req.body;
-    const { user, accessToken, refreshToken, remember: rem } = await authService.login({ username, password, remember });
+    const { user, accessToken, refreshToken, remember: rem } = await authService.login(
+      { username, password, remember },
+      describeRequest(req),
+    );
     setAuthCookies(res, { accessToken, refreshToken, remember: rem });
     res.json({
       success: true,
@@ -44,9 +51,12 @@ export const authController = {
 
   refresh: asyncHandler(async (req, res) => {
     const raw = req.body?.refreshToken || req.cookies?.refreshToken;
-    const { accessToken, refreshToken, user } = await authService.refresh({ refreshToken: raw });
-    // keep original remember window 7d for simplicity
-    setAuthCookies(res, { accessToken, refreshToken, remember: true });
+    const { accessToken, refreshToken, remember, user } = await authService.refresh(
+      { refreshToken: raw },
+      describeRequest(req),
+    );
+    // keep the device's original remember window (7d or 1d)
+    setAuthCookies(res, { accessToken, refreshToken, remember });
     res.json({ success: true, message: "Token refreshed", data: { user, accessToken, refreshToken } });
   }),
 
@@ -81,5 +91,27 @@ export const authController = {
     const { username } = req.query;
     const result = await authService.checkUsername(username || "");
     res.json({ success: true, data: result });
+  }),
+
+  // ── Signed-in devices ──────────────────────────────────────────
+  sessions: asyncHandler(async (req, res) => {
+    const data = await authService.listSessions(req.user._id, req.sessionId);
+    res.json({ success: true, data });
+  }),
+
+  revokeSession: asyncHandler(async (req, res) => {
+    await authService.revokeSession(req.user._id, req.params.id);
+    res.json({ success: true, message: "Device signed out" });
+  }),
+
+  revokeOtherSessions: asyncHandler(async (req, res) => {
+    const revoked = await authService.revokeOtherSessions(req.user._id, req.sessionId);
+    res.json({
+      success: true,
+      message: revoked
+        ? `Signed out ${revoked} other device${revoked === 1 ? "" : "s"}`
+        : "No other devices were signed in",
+      data: { revoked },
+    });
   }),
 };

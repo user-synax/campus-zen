@@ -131,6 +131,13 @@ export const api = {
   logout: () => request("/api/auth/logout", { method: "POST" }),
   me: () => request("/api/auth/me", { method: "GET" }),
   refresh: () => request("/api/auth/refresh", { method: "POST" }),
+  listSessions: () => request("/api/auth/sessions", { method: "GET" }),
+  revokeSession: (id) =>
+    request(`/api/auth/sessions/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    }),
+  revokeOtherSessions: () =>
+    request("/api/auth/sessions", { method: "DELETE" }),
   forgotPassword: (payload) =>
     request("/api/auth/forgot-password", { method: "POST", body: payload }),
   resetPassword: (payload) =>

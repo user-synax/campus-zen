@@ -3,7 +3,7 @@ import { z } from "zod";
 import { validate } from "../middleware/validate.js";
 import { authController } from "../controllers/authController.js";
 import { protect } from "../middleware/auth.js";
-import { signupLimiter, loginLimiter, verifyLimiter, forgotLimiter, resendLimiter, checkUsernameLimiter, refreshLimiter } from "../middleware/rateLimiter.js";
+import { signupLimiter, loginLimiter, verifyLimiter, forgotLimiter, resendLimiter, checkUsernameLimiter, refreshLimiter, sessionsLimiter } from "../middleware/rateLimiter.js";
 
 const router = Router();
 
@@ -68,6 +68,8 @@ const checkQuery = z.object({
   username: z.string().trim().toLowerCase().min(1).max(20),
 });
 
+const sessionIdParam = z.object({ id: z.string().regex(/^[a-f\d]{24}$/i, "Invalid id") });
+
 // routes
 router.get("/check-username", checkUsernameLimiter, validate(checkQuery, "query"), authController.checkUsername);
 
@@ -80,5 +82,10 @@ router.post("/logout", authController.logout);
 router.get("/me", protect, authController.me);
 router.post("/forgot-password", forgotLimiter, validate(forgotSchema), authController.forgotPassword);
 router.post("/reset-password", verifyLimiter, validate(resetSchema), authController.resetPassword);
+
+// signed-in devices — list, sign one out, or sign out everywhere else
+router.get("/sessions", protect, sessionsLimiter, authController.sessions);
+router.delete("/sessions", protect, sessionsLimiter, authController.revokeOtherSessions);
+router.delete("/sessions/:id", protect, sessionsLimiter, validate(sessionIdParam, "params"), authController.revokeSession);
 
 export default router;

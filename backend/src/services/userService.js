@@ -610,7 +610,7 @@ export const userService = {
   async purge(userId) {
     const user = await User.findById(userId).select("_id username").lean();
     if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
-    const [{ Post }, { Comment }, { Like }, { Repost }, { Bookmark }, { PollVote }, { Follow }, { Block }, { Notification }, { Report }, { FollowRequest }, { Appeal }, { VerificationRequest }] = await Promise.all([
+    const [{ Post }, { Comment }, { Like }, { Repost }, { Bookmark }, { PollVote }, { Follow }, { Block }, { Notification }, { Report }, { FollowRequest }, { Appeal }, { VerificationRequest }, { Session }] = await Promise.all([
       import("../models/Post.js"),
       import("../models/Comment.js"),
       import("../models/Like.js"),
@@ -624,6 +624,7 @@ export const userService = {
       import("../models/FollowRequest.js"),
       import("../models/Appeal.js"),
       import("../models/VerificationRequest.js"),
+      import("../models/Session.js"),
     ]);
     const postIds = (await Post.find({ author: userId }).select("_id").lean()).map((p) => p._id);
     await Promise.all([
@@ -639,6 +640,7 @@ export const userService = {
       FollowRequest.deleteMany({ $or: [{ requester: userId }, { target: userId }] }),
       Appeal.deleteMany({ appellant: userId }),
       VerificationRequest.deleteMany({ user: userId }),
+      Session.deleteMany({ user: userId }),
       User.updateOne({ _id: userId, pinnedPost: { $exists: true } }, { $unset: { pinnedPost: 1 } }),
     ]);
     // Repair follower/following counters for affected users (best-effort).
