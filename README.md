@@ -39,6 +39,8 @@ Sign up → Verify email (OTP) → Discover students → Follow → Post → Lik
 
 Intentionally small MVP: text-first posts (500 chars), chronological feeds, in-app notifications, block/report moderation. No DMs, no reels, no recommendation black box — see `PRD.md` for the full scope and explicit non-goals.
 
+[![Architecture diagram](https://gitdiagram.com/diagram-badge.svg)](https://gitdiagram.com/user-synax/campus-zen?utm_source=readme&utm_medium=badge)
+
 ## ✨ Features
 
 **Auth & accounts**
