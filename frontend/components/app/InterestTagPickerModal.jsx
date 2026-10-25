@@ -76,7 +76,7 @@ export function InterestTagPickerModal({
           {hint ? (
             <p
               aria-live="polite"
-              className="mt-2 text-[12.5px] font-semibold text-[var(--cz-error)]"
+              className="mt-2 text-[12.5px]  font-semibold text-[var(--cz-error)]"
             >
               {hint}
             </p>

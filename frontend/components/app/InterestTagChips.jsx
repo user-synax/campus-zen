@@ -19,6 +19,7 @@ const chipCard = "h-[24px] px-2 text-[12px]";
 // active = crisp inner ring in the tag's own text color
 const chipActive = "shadow-[inset_0_0_0_1.5px_currentColor]";
 const chipDisabled = "opacity-40";
+const cursorHover = "hover:cursor-pointer"
 
 function ChipInner({ tag, active, condensed }) {
   const Icon = tag.icon;
@@ -47,6 +48,7 @@ export function InterestTagPick({ tag, active, disabled, onToggle }) {
       className={cn(
         chipBase,
         chipTap,
+        cursorHover,
         tag.tone,
         active && chipActive,
         disabled && !active && chipDisabled,
@@ -62,7 +64,7 @@ export function InterestTagPicker({ selected, max = 3, onToggle }) {
   return (
     <fieldset
       aria-label="Post topics — optional, pick up to 3"
-      className="flex flex-wrap gap-1.5"
+      className="flex flex-wrap  gap-1.5"
     >
       {INTEREST_TAGS.map((tag) => (
         <InterestTagPick

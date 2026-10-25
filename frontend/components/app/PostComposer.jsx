@@ -574,7 +574,7 @@ export function PostComposer({ user, onCreated }) {
                 disabled={pollOpen || items.length >= MEDIA_LIMITS.MAX_FILES}
                 aria-label="Add photos, GIF or video"
                 title="Photos, GIFs, video (25MB / 60s). Tip: Cmd+Enter to post"
-                className="grid h-[40px] w-[40px] shrink-0 place-items-center rounded-full text-[var(--cz-accent)] transition-colors hover:bg-[var(--cz-accent-soft)] disabled:opacity-40 disabled:hover:bg-transparent sm:h-[44px] sm:w-[44px]"
+                className="grid hover:cursor-pointer h-[40px] w-[40px] shrink-0 place-items-center rounded-full text-[var(--cz-accent)] transition-colors hover:bg-[var(--cz-accent-soft)] disabled:opacity-40 disabled:hover:bg-transparent sm:h-[44px] sm:w-[44px]"
               >
                 {items.some((it) => it.kind === "video") ? (
                   <Film
@@ -600,7 +600,7 @@ export function PostComposer({ user, onCreated }) {
                 aria-label={pollOpen ? "Remove poll" : "Add poll"}
                 aria-pressed={pollOpen}
                 className={cn(
-                  "grid h-[40px] w-[40px] shrink-0 place-items-center rounded-full transition-colors sm:h-[44px] sm:w-[44px]",
+                  "grid h-[40px] w-[40px] hover:cursor-pointer shrink-0 place-items-center rounded-full transition-colors sm:h-[44px] sm:w-[44px]",
                   pollOpen
                     ? "bg-[var(--cz-accent-soft)] text-[var(--cz-accent)]"
                     : "text-[var(--cz-accent)] hover:bg-[var(--cz-accent-soft)]",
@@ -628,7 +628,7 @@ export function PostComposer({ user, onCreated }) {
                 }
                 title="Post topics (optional) — pick up to 3, they route this post into the Interest Hub"
                 className={cn(
-                  "relative grid h-[40px] w-[40px] shrink-0 place-items-center rounded-full transition-colors sm:h-[44px] sm:w-[44px]",
+                  "relative grid hover:cursor-pointer h-[40px] w-[40px] shrink-0 place-items-center rounded-full transition-colors sm:h-[44px] sm:w-[44px]",
                   tags.length
                     ? "bg-[var(--cz-accent-soft)] text-[var(--cz-accent)]"
                     : "text-[var(--cz-accent)] hover:bg-[var(--cz-accent-soft)]",
@@ -663,7 +663,7 @@ export function PostComposer({ user, onCreated }) {
                 aria-label={isSensitive ? "Unmark as 18+" : "Mark as 18+"}
                 title="Mark media as 18+ — blurred unless viewer enables Show 18+"
                 className={cn(
-                  "grid h-[30px] min-w-[44px] shrink-0 place-items-center rounded-full border px-2 text-[13px] font-extrabold tracking-wide transition-colors sm:h-[32px] sm:min-w-[48px]",
+                  "grid h-[30px] hover:cursor-pointer min-w-[44px] shrink-0 place-items-center rounded-full border px-2 text-[13px] font-extrabold tracking-wide transition-colors sm:h-[32px] sm:min-w-[48px]",
                   isSensitive
                     ? "border-[var(--cz-error)] bg-[var(--cz-error)] text-white"
                     : "border-[var(--cz-border-strong)] text-[var(--cz-text-secondary)] hover:bg-[var(--cz-surface-strong)] hover:text-[var(--cz-text-primary)]",
