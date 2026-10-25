@@ -2,9 +2,9 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  Bookmark,
-  BadgeCheck,
   BarChart3,
+  BadgeCheck,
+  Bookmark,
   ChevronRight,
   FileText,
   Loader2,
@@ -12,10 +12,12 @@ import {
   LogOut,
   Moon,
   School,
+  Search,
   Shield,
   Sun,
   User,
   Users,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -24,6 +26,7 @@ import { CzImage } from "@/components/app/CzImage";
 import { PageHeader } from "@/components/app/PageHeader";
 import { AccountData } from "@/components/app/AccountData";
 import { ContentSettings } from "@/components/app/ContentSettings";
+import { DevicesSettings } from "@/components/app/DevicesSettings";
 import { FollowRequests } from "@/components/app/FollowRequests";
 import { PrivacySettings } from "@/components/app/PrivacySettings";
 import { PushSettings } from "@/components/app/PushSettings";
@@ -34,18 +37,55 @@ import { useBlocks, useMe } from "@/lib/hooks/queries";
 import { applyTheme, persistTheme, readTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
-function SectionHeading({ title, sub }) {
-  return (
-    <div className="mb-2 mt-6">
-      <h2 className="text-[13px] font-extrabold uppercase tracking-wide text-[var(--cz-text-secondary)]">
-        {title}
-      </h2>
-      {sub ? (
-        <p className="mt-0.5 text-[13px] text-[var(--cz-text-secondary)]">{sub}</p>
-      ) : null}
-    </div>
-  );
+// Search matches against a group's title plus its keyword bag, so "dark mode"
+// finds Appearance and "unfollow" finds People without a hit in the visible copy.
+function matches(query, ...texts) {
+  if (!query) return true;
+  return texts.join(" ").toLowerCase().includes(query);
 }
+
+const EXPLORE = [
+  {
+    href: "/u",
+    Icon: Users,
+    title: "Discover students",
+    sub: "By college and course",
+    keywords: "students people discover find search college course directory",
+  },
+  {
+    href: "/c",
+    Icon: School,
+    title: "Discover colleges",
+    sub: "Browse all campuses",
+    keywords: "colleges campuses schools browse directory",
+  },
+  {
+    href: "/app/profile",
+    Icon: User,
+    title: "Your profile",
+    sub: "Posts, replies and media",
+    keywords: "profile posts replies media your account",
+  },
+  {
+    href: "/app/bookmarks",
+    Icon: Bookmark,
+    title: "Bookmarks",
+    sub: "Private to you",
+    keywords: "bookmarks saved posts private",
+  },
+  {
+    href: "/app/analytics",
+    Icon: BarChart3,
+    title: "Analytics",
+    sub: "Views, likes and top posts",
+    keywords: "analytics insights views likes reach top posts stats",
+  },
+];
+
+const LEGAL = [
+  { href: "/privacy", Icon: Lock, title: "Privacy policy", keywords: "privacy policy legal data" },
+  { href: "/terms", Icon: FileText, title: "Terms of service", keywords: "terms service legal rules" },
+];
 
 export default function MenuPage() {
   const router = useRouter();
@@ -57,6 +97,15 @@ export default function MenuPage() {
   const [unblocking, setUnblocking] = useState(null);
   const [showBlocked, setShowBlocked] = useState(false);
   const [theme, setTheme] = useState("light");
+  const [query, setQuery] = useState("");
+
+  const q = query.trim().toLowerCase();
+  // Rows inside a group filter themselves, so a group whose title matches but
+  // whose rows don't is dropped instead of leaving an empty heading behind.
+  const exploreItems = EXPLORE.filter((i) =>
+    matches(q, i.title, i.sub, i.keywords),
+  );
+  const legalItems = LEGAL.filter((i) => matches(q, i.title, i.keywords));
 
   // Blocked list loads lazily, only when the section is expanded, so the
   // Menu tab paints instantly.
@@ -107,6 +156,7 @@ export default function MenuPage() {
     applyTheme(next);
     persistTheme(next);
   };
+
   const initial = (
     user?.fullName?.[0] ||
     user?.username?.[0] ||
@@ -118,198 +168,191 @@ export default function MenuPage() {
   const iconWrap =
     "grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[var(--cz-surface-strong)] text-[var(--cz-text-primary)]";
   const chevron = "h-[18px] w-[18px] shrink-0 text-[var(--cz-text-secondary)]";
+  const card =
+    "overflow-hidden rounded-[16px] border border-[var(--cz-border)]";
 
-  return (
-    <div>
-      <PageHeader title="Menu" />
-
-      <div className="p-4">
-        {/* ── Account ─────────────────────────────────────────── */}
-        <SectionHeading title="Account" />
-        <Link
-          href="/app/profile"
-          aria-label="View your profile"
-          className="flex items-center gap-3 rounded-[16px] border border-[var(--cz-border)] p-4 transition-colors hover:bg-[var(--cz-surface-strong)]"
-        >
-          <span className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[18px] font-bold text-[var(--cz-text-primary)]">
-            {user?.avatarUrl ? (
-              <CzImage
-                src={user.avatarUrl}
-                alt=""
-                className="h-full w-full rounded-full"
-                imgClassName="h-full w-full"
-              />
-            ) : (
-              initial
-            )}
+  const profileRow = (
+    <Link
+      href="/app/profile"
+      aria-label="View your profile"
+      className="flex items-center gap-3 p-4 transition-colors hover:bg-[var(--cz-surface-strong)]"
+    >
+      <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[16px] font-bold text-[var(--cz-text-primary)]">
+        {user?.avatarUrl ? (
+          <CzImage
+            src={user.avatarUrl}
+            alt=""
+            className="h-full w-full rounded-full"
+            imgClassName="h-full w-full"
+          />
+        ) : (
+          initial
+        )}
+      </span>
+      <span className="min-w-0 flex-1">
+        {loadingUser ? (
+          <span className="block space-y-2" aria-hidden="true">
+            <span className="t-shimmer block h-4 w-32 rounded-full" />
+            <span className="t-shimmer block h-3 w-24 rounded-full" />
           </span>
-          <span className="min-w-0 flex-1">
-            {loadingUser ? (
-              <span className="block space-y-2" aria-hidden="true">
-                <span className="t-shimmer block h-4 w-32 rounded-full" />
-                <span className="t-shimmer block h-3 w-24 rounded-full" />
-              </span>
-            ) : (
-              <>
-                <span className="flex items-center gap-1">
-                  <span className="truncate text-[20px] leading-6 font-extrabold">
-                    {user?.fullName || "CampusZen Student"}
-                  </span>
-                  <UserBadge user={user} size="md" />
-                </span>
-                <span className="mt-0.5 block truncate text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">
-                  @{user?.username || "username"}
-                </span>
-              </>
-            )}
-          </span>
-          <ChevronRight className={chevron} aria-hidden />
-        </Link>
-
-        <Link
-          href="/app/verified"
-          aria-label="Get verified"
-          className="mt-3 flex items-center gap-3 rounded-[16px] border border-[var(--cz-border)] p-4 transition-colors hover:bg-[var(--cz-surface-strong)]"
-        >
-          <span className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[16px] font-bold text-[var(--cz-text-primary)]">
-            {user?.avatarUrl ? (
-              <CzImage
-                src={user.avatarUrl}
-                alt=""
-                className="h-full w-full rounded-full"
-                imgClassName="h-full w-full"
-              />
-            ) : (
-              initial
-            )}
-          </span>
-          <span className="min-w-0 flex-1">
+        ) : (
+          <>
             <span className="flex items-center gap-1">
-              <span className="truncate text-[15px] font-extrabold">
+              <span className="truncate text-[16px] leading-[21px] font-extrabold">
                 {user?.fullName || "CampusZen Student"}
               </span>
-              <UserBadge user={user ? { ...user, isVerified: true } : null} size="sm" />
+              <UserBadge user={user} size="md" />
             </span>
-            <span className="mt-0.5 flex items-center gap-1 text-[14px] font-bold text-[var(--cz-accent)]">
-              <BadgeCheck className="h-4 w-4" aria-hidden />
-              {user?.isVerified ? "Verified" : "Get Verified"}
+            <span className="mt-0.5 block truncate text-[14px] leading-[19px] text-[var(--cz-text-secondary)]">
+              @{user?.username || "username"}
             </span>
-            <span className="block truncate text-[13px] text-[var(--cz-text-secondary)]">
-              {user?.isVerified
-                ? "Blue tick active on your profile"
-                : "50+ posts or 100+ followers — preview your tick"}
-            </span>
-          </span>
-          <ChevronRight className={chevron} aria-hidden />
-        </Link>
+          </>
+        )}
+      </span>
+      <ChevronRight className={chevron} aria-hidden />
+    </Link>
+  );
 
-        {/* ── Explore ─────────────────────────────────────────── */}
-        <SectionHeading title="Explore" />
-        <nav
-          aria-label="Menu"
-          className="divide-y divide-[var(--cz-border)] overflow-hidden rounded-[16px] border border-[var(--cz-border)]"
-        >
-          {[
-            {
-              href: "/u",
-              Icon: Users,
-              title: "Discover students",
-              sub: "By college and course",
-            },
-            {
-              href: "/c",
-              Icon: School,
-              title: "Discover colleges",
-              sub: "Browse all campuses",
-            },
-            {
-              href: "/app/profile",
-              Icon: User,
-              title: "View profile",
-              sub: "Posts, replies and media",
-            },
-            {
-              href: "/app/bookmarks",
-              Icon: Bookmark,
-              title: "Bookmarks",
-              sub: "Private to you",
-            },
-            {
-              href: "/app/analytics",
-              Icon: BarChart3,
-              title: "Analytics",
-              sub: "Views, likes and top posts",
-            },
-          ].map(({ href, Icon, title, sub }) => (
-            <Link key={href} href={href} className={rowBase}>
-              <span className={iconWrap}>
-                <Icon className="h-4 w-4" aria-hidden />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[15px] font-bold leading-[20px]">
-                  {title}
-                </span>
-                <span className="block text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">
-                  {sub}
-                </span>
-              </span>
-              <ChevronRight className={chevron} aria-hidden />
-            </Link>
-          ))}
-        </nav>
+  const verifiedRow = (
+    <Link
+      href="/app/verified"
+      aria-label="Verification status"
+      className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--cz-surface-strong)]"
+    >
+      <span className={iconWrap}>
+        <BadgeCheck className="h-4 w-4" aria-hidden />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[15px] font-bold leading-[20px]">
+          Verified badge
+        </span>
+        <span className="block truncate text-[13px] text-[var(--cz-text-secondary)]">
+          {user?.isVerified
+            ? "Active on your profile"
+            : "50+ posts or 100+ followers — preview your tick"}
+        </span>
+      </span>
+      <span
+        className={cn(
+          "shrink-0 text-[14px] font-bold",
+          user?.isVerified
+            ? "text-[var(--cz-text-secondary)]"
+            : "text-[var(--cz-accent)]",
+        )}
+      >
+        {user?.isVerified ? "On" : "Get"}
+      </span>
+      <ChevronRight className={chevron} aria-hidden />
+    </Link>
+  );
 
-        {/* ── Preferences: how CampusZen looks, notifies, and what it shows */}
-        <SectionHeading
-          title="Preferences"
-          sub="Appearance, notifications, and content filtering."
-        />
-        <div className="flex flex-col gap-3">
-          <div className="overflow-hidden rounded-[16px] border border-[var(--cz-border)]">
-            <p className="border-b border-[var(--cz-border)] px-4 py-3 text-[15px] font-bold leading-[20px] text-[var(--cz-text-secondary)]">
-              Appearance
-            </p>
-            <div className="grid grid-cols-2">
-              {[
-                { id: "light", label: "Light", Icon: Sun },
-                { id: "dark", label: "Dark", Icon: Moon },
-              ].map(({ id, label, Icon }, i) => {
-                const on = theme === id;
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => setThemeAndApply(id)}
-                    aria-pressed={on}
-                    className={cn(
-                      "flex cursor-pointer items-center justify-center gap-2 py-4 text-[15px] font-bold transition-colors hover:bg-[var(--cz-surface-strong)]",
-                      i === 0 ? "border-r border-[var(--cz-border)]" : null,
-                      on
-                        ? "bg-[var(--cz-accent-soft)] text-[var(--cz-accent)]"
-                        : "text-[var(--cz-text-primary)]",
-                    )}
-                  >
-                    <Icon className="h-[18px] w-[18px]" aria-hidden />
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <PushSettings />
-          {user ? <ContentSettings user={user} /> : null}
+  // One entry per settings group. Rendering from data keeps the search honest:
+  // the same predicate decides what is visible and whether to show "no results".
+  const groups = [
+    {
+      id: "account",
+      title: "Account",
+      keywords: "profile name username handle avatar photo edit identity verified badge tick",
+      render: () => (
+        <div className={`${card} divide-y divide-[var(--cz-border)]`}>
+          {profileRow}
+          {verifiedRow}
         </div>
-
-        {/* ── Privacy & safety: who sees you, who reaches you, who you blocked */}
-        <SectionHeading
-          title="Privacy & safety"
-          sub="Visibility, interactions, blocked accounts, and reports."
-        />
-        <div className="flex flex-col gap-3">
-          {user ? <PrivacySettings user={user} /> : null}
+      ),
+    },
+    {
+      id: "explore",
+      title: "Explore",
+      shown: !q || exploreItems.length > 0,
+      keywords: "students colleges profile bookmarks analytics discover browse",
+      render: () => {
+        if (!exploreItems.length) return null;
+        return (
+          <nav
+            aria-label="Explore"
+            className={`${card} divide-y divide-[var(--cz-border)]`}
+          >
+            {exploreItems.map(({ href, Icon, title, sub }) => (
+              <Link key={href} href={href} className={rowBase}>
+                <span className={iconWrap}>
+                  <Icon className="h-4 w-4" aria-hidden />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[15px] font-bold leading-[20px]">
+                    {title}
+                  </span>
+                  <span className="block truncate text-[13px] leading-[18px] text-[var(--cz-text-secondary)]">
+                    {sub}
+                  </span>
+                </span>
+                <ChevronRight className={chevron} aria-hidden />
+              </Link>
+            ))}
+          </nav>
+        );
+      },
+    },
+    {
+      id: "appearance",
+      title: "Appearance",
+      keywords: "theme dark light mode color colour display",
+      render: () => (
+        <div className={`${card} grid grid-cols-2`}>
+          {[
+            { id: "light", label: "Light", Icon: Sun },
+            { id: "dark", label: "Dark", Icon: Moon },
+          ].map(({ id, label, Icon }, i) => {
+            const on = theme === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setThemeAndApply(id)}
+                aria-pressed={on}
+                className={cn(
+                  "flex cursor-pointer items-center justify-center gap-2 py-3.5 text-[15px] font-bold transition-colors hover:bg-[var(--cz-surface-strong)]",
+                  i === 0 ? "border-r border-[var(--cz-border)]" : null,
+                  on
+                    ? "bg-[var(--cz-accent-soft)] text-[var(--cz-accent)]"
+                    : "text-[var(--cz-text-primary)]",
+                )}
+              >
+                <Icon className="h-[18px] w-[18px]" aria-hidden />
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      ),
+    },
+    {
+      id: "notifications",
+      title: "Notifications",
+      keywords: "push alerts bell device browser os closed app",
+      render: () => <PushSettings />,
+    },
+    {
+      id: "content",
+      title: "Content",
+      keywords: "18+ sensitive mature blur spoiler date of birth age dob reveal",
+      render: () => (user ? <ContentSettings user={user} /> : null),
+    },
+    {
+      id: "privacy",
+      title: "Privacy",
+      keywords:
+        "private account approval followers reply replies mention mentions visibility college course year hide hidden who can",
+      render: () => (user ? <PrivacySettings user={user} /> : null),
+    },
+    {
+      id: "people",
+      title: "People",
+      keywords:
+        "follow requests followers following requests approve decline block blocked unblock unfollow remove",
+      render: () => (
+        <div className="flex flex-col gap-2.5">
           <FollowRequests />
-
-          <div className="overflow-hidden rounded-[16px] border border-[var(--cz-border)]">
+          <div className={card}>
             <button
               type="button"
               onClick={() => setShowBlocked((v) => !v)}
@@ -379,7 +422,7 @@ export default function MenuPage() {
                           <span className="block truncate text-[15px] font-bold leading-[20px]">
                             {u.fullName || u.username}
                           </span>
-                          <span className="block truncate text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">
+                          <span className="block truncate text-[13px] leading-[18px] text-[var(--cz-text-secondary)]">
                             @{u.username}
                           </span>
                         </span>
@@ -402,40 +445,130 @@ export default function MenuPage() {
               </div>
             ) : null}
           </div>
-
-          <SafetyReports />
         </div>
-
-        {/* ── Data & legal ────────────────────────────────────── */}
-        <SectionHeading title="Data & legal" sub="Export, policies, and account status." />
-        <div className="flex flex-col gap-3">
+      ),
+    },
+    {
+      id: "safety",
+      title: "Safety",
+      keywords: "reports appeals moderation flag abuse review status",
+      render: () => <SafetyReports />,
+    },
+    {
+      id: "security",
+      title: "Security",
+      keywords: "devices sessions sign out log out login password where signed in",
+      render: () => <DevicesSettings />,
+    },
+    {
+      id: "data",
+      title: "Your data",
+      keywords:
+        "export download delete deactivate restore account json privacy policy terms legal data",
+      render: () => (
+        <div className="flex flex-col gap-2.5">
           {user ? <AccountData user={user} /> : null}
+          {legalItems.length ? (
           <nav
             aria-label="Legal"
-            className="divide-y divide-[var(--cz-border)] overflow-hidden rounded-[16px] border border-[var(--cz-border)]"
+            className={`${card} divide-y divide-[var(--cz-border)]`}
           >
-            {[
-              { href: "/privacy", Icon: Lock, title: "Privacy policy" },
-              { href: "/terms", Icon: FileText, title: "Terms of service" },
-            ].map(({ href, Icon, title }) => (
-              <Link key={href} href={href} className={rowBase}>
-                <span className={iconWrap}>
-                  <Icon className="h-4 w-4" aria-hidden />
-                </span>
-                <span className="min-w-0 flex-1 text-[15px] font-bold leading-[20px]">
-                  {title}
-                </span>
-                <ChevronRight className={chevron} aria-hidden />
-              </Link>
-            ))}
+            {legalItems.map(
+              ({ href, Icon, title }) => (
+                <Link key={href} href={href} className={rowBase}>
+                  <span className={iconWrap}>
+                    <Icon className="h-4 w-4" aria-hidden />
+                  </span>
+                  <span className="min-w-0 flex-1 text-[15px] font-bold leading-[20px]">
+                    {title}
+                  </span>
+                  <ChevronRight className={chevron} aria-hidden />
+                </Link>
+              ),
+            )}
           </nav>
+          ) : null}
         </div>
+      ),
+    },
+  ];
+
+  const visible = groups.filter(
+    (g) => g.shown !== false && matches(q, g.title, g.keywords),
+  );
+
+  return (
+    <div>
+      <PageHeader title="Settings" />
+
+      {/* Sticky search: filters the groups below without leaving the page. */}
+      <div
+        role="search"
+        className="sticky top-[106px] z-10 border-b border-[var(--cz-border)] bg-[var(--cz-bg)]/95 px-4 py-2.5 backdrop-blur md:top-[53px]"
+      >
+        <div className="flex h-[38px] items-center gap-2 rounded-full bg-[var(--cz-surface-strong)] px-3">
+          <Search
+            className="h-4 w-4 shrink-0 text-[var(--cz-text-secondary)]"
+            aria-hidden
+          />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search settings"
+            aria-label="Search settings"
+            className="h-full w-full min-w-0 bg-transparent text-[15px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)] [&::-webkit-search-cancel-button]:hidden"
+          />
+          {query ? (
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              aria-label="Clear search"
+              className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[var(--cz-text-secondary)] hover:bg-[var(--cz-border)] hover:text-[var(--cz-text-primary)]"
+            >
+              <X className="h-[15px] w-[15px]" aria-hidden />
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="px-4 py-4">
+        {visible.length === 0 ? (
+          <div className="py-16 text-center">
+            <Search
+              className="mx-auto h-7 w-7 text-[var(--cz-text-secondary)]"
+              aria-hidden
+            />
+            <p className="mt-3 text-[15px] font-bold text-[var(--cz-text-primary)]">
+              No settings found
+            </p>
+            <p className="mt-1 text-[14px] text-[var(--cz-text-secondary)]">
+              Nothing matches “{query.trim()}”.
+            </p>
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              className="mt-4 h-[36px] rounded-full border border-[var(--cz-border-strong)] px-4 text-[14px] font-bold text-[var(--cz-text-primary)] hover:bg-[var(--cz-surface-strong)]"
+            >
+              Clear search
+            </button>
+          </div>
+        ) : (
+          visible.map((group) => (
+            <section key={group.id} className="mb-7 last:mb-0">
+              <h2 className="mb-2 px-1 text-[12px] font-extrabold uppercase tracking-[0.08em] text-[var(--cz-text-secondary)]">
+                {group.title}
+              </h2>
+              <div className="flex flex-col gap-2.5">{group.render()}</div>
+            </section>
+          ))
+        )}
 
         <button
           type="button"
           onClick={onLogout}
           disabled={loggingOut}
-          className="mt-6 flex min-h-[52px] w-full cursor-pointer items-center justify-center gap-2 rounded-full px-4 py-3 text-[15px] font-bold text-[var(--cz-error)] transition-colors hover:bg-[color-mix(in_srgb,var(--cz-error)_10%,transparent)] disabled:opacity-50"
+          className="mt-6 flex min-h-[48px] w-full cursor-pointer items-center justify-center gap-2 rounded-full px-4 py-3 text-[15px] font-bold text-[var(--cz-error)] transition-colors hover:bg-[color-mix(in_srgb,var(--cz-error)_10%,transparent)] disabled:opacity-50"
         >
           {loggingOut ? (
             <Loader2 className="h-[18px] w-[18px] animate-spin" aria-hidden />

@@ -11,14 +11,14 @@ import { feedPage, useUnreadCount } from "@/lib/hooks/queries";
 import { cn } from "@/lib/utils";
 
 // Mobile tab bar — exactly 5 tabs:
-// Home · Search · Post · Notifications · Menu
-// Profile lives under Menu → View profile, so the bar stays thumb-sized.
+// Home · Search · Post · Notifications · Settings
+// Profile lives under Settings → Your profile, so the bar stays thumb-sized.
 const items = [
   { href: "/app", label: "Home", icon: Home, exact: true },
   { href: "/app/search", label: "Search", icon: Search },
   { href: "/app/create", label: "Post", icon: Plus, isCreate: true },
   { href: "/app/notifications", label: "Notifications", icon: Bell, badge: true },
-  { href: "/app/menu", label: "Menu", icon: Menu, exact: true },
+  { href: "/app/menu", label: "Settings", icon: Menu, exact: true },
 ];
 
 export function BottomNav() {
