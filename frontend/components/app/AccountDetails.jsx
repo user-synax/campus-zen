@@ -7,6 +7,7 @@ import {
   GraduationCap,
   Mail,
   School,
+  ShieldAlert,
   ShieldCheck,
   UserRound,
 } from "lucide-react";
@@ -70,8 +71,22 @@ export function AccountDetails({ user, loading = false }) {
   const lastLogin = formatAccountDateTime(user?.lastLoginAt);
   const statusSince =
     formatAccountDate(
-      status === "suspended" ? user?.suspendedAt : user?.accountStatusAt,
+      status === "suspended"
+        ? user?.suspendedAt
+        : status === "banned"
+          ? user?.bannedAt
+          : status === "restricted"
+            ? user?.restrictedAt || user?.accountStatusAt
+            : user?.accountStatusAt,
     ) || joined;
+  const statusReason =
+    status === "banned"
+      ? user?.banReason || user?.accountStatusReason
+      : user?.accountStatusReason;
+  const restrictionUntil =
+    status === "restricted"
+      ? formatAccountDateTime(user?.restrictedUntil)
+      : null;
 
   if (loading && !user) {
     return (
@@ -126,10 +141,35 @@ export function AccountDetails({ user, loading = false }) {
         <p className="mt-2 text-[14px] leading-[19px] text-[var(--cz-text-secondary)]">
           {meta.description}
         </p>
-        {user?.accountStatusReason ? (
+        {restrictionUntil ? (
+          <div className="mt-2 flex items-start gap-2 rounded-[12px] bg-[color-mix(in_srgb,var(--cz-warn)_10%,transparent)] p-3 text-[13px] leading-[18px] text-[var(--cz-text-primary)]">
+            <Clock3
+              className="mt-0.5 h-4 w-4 shrink-0 text-[var(--cz-warn)]"
+              aria-hidden
+            />
+            <p>
+              Read-only until{" "}
+              <span className="font-bold">{restrictionUntil}</span>. This lifts
+              automatically — you do not need to do anything.
+            </p>
+          </div>
+        ) : null}
+        {status === "banned" ? (
+          <div className="mt-2 flex items-start gap-2 rounded-[12px] bg-[color-mix(in_srgb,var(--cz-error)_9%,transparent)] p-3 text-[13px] leading-[18px] text-[var(--cz-text-primary)]">
+            <ShieldAlert
+              className="mt-0.5 h-4 w-4 shrink-0 text-[var(--cz-error)]"
+              aria-hidden
+            />
+            <p>
+              This ban is permanent until an administrator reverses it. Sign-in,
+              sessions, and public visibility are blocked.
+            </p>
+          </div>
+        ) : null}
+        {statusReason ? (
           <p className="mt-2 rounded-[12px] bg-[var(--cz-surface-strong)] p-3 text-[14px] leading-[19px] text-[var(--cz-text-primary)]">
             <span className="font-bold">Reason: </span>
-            {user.accountStatusReason}
+            {statusReason}
           </p>
         ) : null}
       </div>
@@ -148,10 +188,18 @@ export function AccountDetails({ user, loading = false }) {
           }
         />
         <Row Icon={UserRound} label="Full name" value={user?.fullName} />
-        <Row Icon={AtSign} label="Username" value={user?.username ? `@${user.username}` : null} />
+        <Row
+          Icon={AtSign}
+          label="Username"
+          value={user?.username ? `@${user.username}` : null}
+        />
         <Row Icon={School} label="College" value={user?.college} />
         <Row Icon={GraduationCap} label="Course" value={user?.course} />
-        <Row Icon={CalendarDays} label="Academic year" value={user?.academicYear} />
+        <Row
+          Icon={CalendarDays}
+          label="Academic year"
+          value={user?.academicYear}
+        />
         <Row Icon={CalendarDays} label="Member since" value={joined} />
         <Row Icon={Clock3} label="Last login" value={lastLogin} />
       </div>

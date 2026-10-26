@@ -8,8 +8,10 @@ import {
   CheckCheck,
   Heart,
   Loader2,
+  Megaphone,
   MessageCircle,
   Repeat2,
+  ShieldCheck,
   Trash2,
   UserPlus,
 } from "lucide-react";
@@ -19,10 +21,11 @@ import { CzImage } from "@/components/app/CzImage";
 import { EmptyState, PostSkeleton } from "@/components/app/EmptyState";
 import { PageHeader } from "@/components/app/PageHeader";
 import { PushSettings } from "@/components/app/PushSettings";
-import { withAvatarRing } from "@/lib/avatar";
+import { BrandMark } from "@/components/BrandLogo";
 import { Button } from "@/components/ui/button";
 import { UserBadge } from "@/components/ui/verified-badge";
 import { api } from "@/lib/api";
+import { withAvatarRing } from "@/lib/avatar";
 import {
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
@@ -39,6 +42,8 @@ const NOTIF_ICON = {
   reply: { Icon: MessageCircle, className: "text-[var(--cz-accent)]" },
   repost: { Icon: Repeat2, className: "text-[var(--cz-repost)]" },
   mention: { Icon: AtSign, className: "text-[var(--cz-accent)]" },
+  admin_broadcast: { Icon: Megaphone, className: "text-[var(--cz-accent)]" },
+  admin_notice: { Icon: ShieldCheck, className: "text-[var(--cz-accent)]" },
 };
 
 // Marks an unread card read after ~1s in view. Fires once per card.
@@ -85,6 +90,7 @@ const TYPE_TABS = [
   { id: "reply", label: "Replies" },
   { id: "repost", label: "Reposts" },
   { id: "mention", label: "Mentions" },
+  { id: "admin_broadcast", label: "Announcements" },
 ];
 
 export default function NotificationsPage() {
@@ -100,8 +106,16 @@ export default function NotificationsPage() {
   // SSE for real-time notifications (replaces polling)
   useSSE();
 
-  const { data, fetchNextPage, hasNextPage, isPending, isFetchingNextPage, isError, error, refetch } =
-    useNotifications(filter, typeFilter);
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isPending,
+    isFetchingNextPage,
+    isError,
+    error,
+    refetch,
+  } = useNotifications(filter, typeFilter);
 
   const notifications =
     data?.pages?.flatMap((p) => p.data?.notifications || []) || [];
@@ -209,6 +223,7 @@ export default function NotificationsPage() {
           <div className="flex items-center gap-1">
             {unreadInView > 0 ? (
               <button
+                type="button"
                 onClick={markAll}
                 disabled={markingAll}
                 aria-label="Mark all as read"
@@ -223,6 +238,7 @@ export default function NotificationsPage() {
             ) : null}
             {readInView > 0 ? (
               <button
+                type="button"
                 onClick={clearRead}
                 disabled={clearing}
                 aria-label="Delete read notifications"
@@ -255,6 +271,7 @@ export default function NotificationsPage() {
         ].map((t) => (
           <button
             key={t.id}
+            type="button"
             onClick={() => setFilter(t.id)}
             aria-pressed={filter === t.id}
             className={`h-[32px] cursor-pointer rounded-full px-4 text-[15px] font-bold transition-colors ${
@@ -278,7 +295,11 @@ export default function NotificationsPage() {
         <EmptyState
           icon={Bell}
           title="Couldn't load notifications"
-          description={error?.data?.message || error?.message || "Check your connection and try again."}
+          description={
+            error?.data?.message ||
+            error?.message ||
+            "Check your connection and try again."
+          }
           actionLabel="Try again"
           onAction={() => refetch()}
         />
@@ -302,6 +323,8 @@ export default function NotificationsPage() {
               className: "text-[var(--cz-text-secondary)]",
             };
             const Glyph = glyph.Icon;
+            const isAdminMessage =
+              n.type === "admin_broadcast" || n.type === "admin_notice";
             return (
               <AutoRead
                 key={n._id}
@@ -312,30 +335,51 @@ export default function NotificationsPage() {
                 <div
                   className={`cz-row relative flex gap-3 px-4 py-3 ${n.read ? "" : "bg-[var(--cz-accent-softer)]"}`}
                 >
-                  <Link
-                    href={`/u/${n.actor?.username || ""}`}
-                    className="shrink-0"
-                  >
-                    <span className={withAvatarRing(n.actor, "grid h-10 w-10 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[13px] font-bold text-[var(--cz-text-primary)]")}>
-                      {n.actor?.avatarUrl ? (
-                        <CzImage
-                          src={n.actor.avatarUrl}
-                          alt={n.actor.username}
-                          className="h-full w-full rounded-full"
-                          imgClassName="h-full w-full"
-                        />
-                      ) : (
-                        (n.actor?.username || "U").slice(0, 1).toUpperCase()
-                      )}
-                      {/* unread marker — a blue dot on the avatar, per DESIGN.md */}
-                      {!n.read ? (
-                        <span
-                          aria-label="Unread"
-                          className="absolute bottom-0 right-0 h-[10px] w-[10px] rounded-full bg-[var(--cz-accent)] ring-2 ring-[var(--cz-bg)]"
-                        />
-                      ) : null}
+                  {isAdminMessage ? (
+                    <span className="shrink-0">
+                      <span className="relative block h-10 w-10 overflow-hidden rounded-full bg-[var(--cz-bg)] ring-1 ring-[var(--cz-border-strong)]">
+                        <BrandMark size={40} className="rounded-full" />
+                        {!n.read ? (
+                          <span
+                            role="img"
+                            aria-label="Unread"
+                            className="absolute bottom-0 right-0 h-[10px] w-[10px] rounded-full bg-[var(--cz-accent)] ring-2 ring-[var(--cz-bg)]"
+                          />
+                        ) : null}
+                      </span>
                     </span>
-                  </Link>
+                  ) : (
+                    <Link
+                      href={`/u/${n.actor?.username || ""}`}
+                      className="shrink-0"
+                    >
+                      <span
+                        className={withAvatarRing(
+                          n.actor,
+                          "grid h-10 w-10 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[13px] font-bold text-[var(--cz-text-primary)]",
+                        )}
+                      >
+                        {n.actor?.avatarUrl ? (
+                          <CzImage
+                            src={n.actor.avatarUrl}
+                            alt={n.actor.username}
+                            className="h-full w-full rounded-full"
+                            imgClassName="h-full w-full"
+                          />
+                        ) : (
+                          (n.actor?.username || "U").slice(0, 1).toUpperCase()
+                        )}
+                        {/* unread marker — a blue dot on the avatar, per DESIGN.md */}
+                        {!n.read ? (
+                          <span
+                            role="img"
+                            aria-label="Unread"
+                            className="absolute bottom-0 right-0 h-[10px] w-[10px] rounded-full bg-[var(--cz-accent)] ring-2 ring-[var(--cz-bg)]"
+                          />
+                        ) : null}
+                      </span>
+                    </Link>
+                  )}
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
@@ -355,28 +399,52 @@ export default function NotificationsPage() {
                             strokeWidth={1.9}
                             aria-hidden
                           />
-                          <span>
-                            <Link
-                              href={`/u/${n.actor?.username || ""}`}
-                              className={cn(
-                                "hover:underline",
-                                !n.read && "font-bold",
-                              )}
-                            >
-                              {n.actor?.fullName || n.actor?.username}
-                            </Link>{" "}
-                            <UserBadge user={n.actor} size="sm" />{" "}
-                            {n.type === "follow"
-                              ? "followed you"
-                              : n.type === "like"
-                                ? "liked your post"
-                                : n.type === "reply"
-                                  ? "replied to your post"
-                                  : n.type === "mention"
-                                    ? "mentioned you"
-                                    : "reposted your post"}
-                          </span>
+                          {isAdminMessage ? (
+                            <span className="min-w-0">
+                              <span className="mr-1.5 inline-flex items-center rounded-full bg-[var(--cz-accent-soft)] px-1.5 py-0.5 align-[2px] text-[10px] font-extrabold uppercase tracking-[0.06em] text-[var(--cz-accent)]">
+                                Admin
+                              </span>
+                              <span
+                                className={
+                                  !n.read ? "font-bold" : "font-medium"
+                                }
+                              >
+                                {n.title ||
+                                  (n.type === "admin_broadcast"
+                                    ? "Announcement from CampusZen"
+                                    : "Account update")}
+                              </span>
+                            </span>
+                          ) : (
+                            <span>
+                              <Link
+                                href={`/u/${n.actor?.username || ""}`}
+                                className={cn(
+                                  "hover:underline",
+                                  !n.read && "font-bold",
+                                )}
+                              >
+                                {n.actor?.fullName || n.actor?.username}
+                              </Link>{" "}
+                              <UserBadge user={n.actor} size="sm" />{" "}
+                              {n.type === "follow"
+                                ? "followed you"
+                                : n.type === "like"
+                                  ? "liked your post"
+                                  : n.type === "reply"
+                                    ? "replied to your post"
+                                    : n.type === "mention"
+                                      ? "mentioned you"
+                                      : "reposted your post"}
+                            </span>
+                          )}
                         </p>
+
+                        {isAdminMessage && n.body ? (
+                          <p className="mt-1.5 whitespace-pre-wrap text-[15px] leading-[20px] text-[var(--cz-text-primary)]">
+                            {n.body}
+                          </p>
+                        ) : null}
 
                         {n.post?.text ? (
                           <Link
@@ -400,6 +468,7 @@ export default function NotificationsPage() {
                       <div className="flex shrink-0 items-center">
                         {!n.read ? (
                           <button
+                            type="button"
                             onClick={() => markRead(n._id)}
                             aria-label="Mark as read"
                             className="grid h-[36px] w-[36px] place-items-center rounded-full text-[var(--cz-text-primary)] transition-colors hover:bg-[var(--cz-surface-strong)]"
@@ -408,6 +477,7 @@ export default function NotificationsPage() {
                           </button>
                         ) : (
                           <button
+                            type="button"
                             onClick={() => deleteOne(n._id)}
                             aria-label="Delete notification"
                             className="grid h-[36px] w-[36px] place-items-center rounded-full text-[var(--cz-text-primary)] transition-colors hover:bg-[color-mix(in_srgb,var(--cz-error)_10%,transparent)] hover:text-[var(--cz-error)]"

@@ -1,8 +1,10 @@
 import app from "./app.js";
 import { connectDB, disconnectDB } from "./config/db.js";
 import { env } from "./config/env.js";
+import { sweepExpiredRestrictions } from "./utils/accountState.js";
 
 let server;
+let restrictionSweep;
 
 async function start() {
   try {
@@ -16,9 +18,18 @@ async function start() {
     console.log(`[server] CampusZen API listening on http://localhost:${env.PORT}  env=${env.NODE_ENV}  frontend=${env.FRONTEND_URL}`);
   });
 
+  // Temporary restrictions lift themselves. Lazy checks at request time are
+  // the hard guarantee; this sweep keeps dashboards and stats truthful.
+  sweepExpiredRestrictions().catch(() => {});
+  restrictionSweep = setInterval(() => {
+    sweepExpiredRestrictions().catch(() => {});
+  }, 5 * 60 * 1000);
+  restrictionSweep.unref?.();
+
   // graceful shutdown
   const shutdown = async (signal) => {
     console.log(`[server] ${signal} received, shutting down...`);
+    if (restrictionSweep) clearInterval(restrictionSweep);
     if (server) {
       server.close(async () => {
         try {

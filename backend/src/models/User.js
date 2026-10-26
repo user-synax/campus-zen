@@ -3,7 +3,7 @@ import { env } from "../config/env.js";
 
 // Account standing shown to the owner on /menu and set from the admin
 // dashboard. "good" is the default; the rest are moderation decisions.
-export const ACCOUNT_STATUSES = ["good", "limited", "restricted", "suspended"];
+export const ACCOUNT_STATUSES = ["good", "limited", "restricted", "suspended", "banned"];
 
 const userSchema = new mongoose.Schema(
   {
@@ -132,6 +132,18 @@ const userSchema = new mongoose.Schema(
     // Optional note the owner sees next to a non-good status.
     accountStatusReason: { type: String, default: null, maxlength: 500 },
     accountStatusAt: { type: Date, default: null },
+    // Temporary read-only restriction. accountStatus is "restricted" while
+    // active; restrictedUntil drives the auto-lift (see utils/accountState.js).
+    restrictedUntil: { type: Date, default: null, index: true },
+    restrictedAt: { type: Date, default: null },
+    restrictionReason: { type: String, default: null, maxlength: 500 },
+    // Permanent ban: no login, no sessions, and content hidden from the app.
+    // Distinct from isSuspended / isDeactivated so unban can restore cleanly.
+    isBanned: { type: Boolean, default: false, index: true },
+    bannedAt: { type: Date, default: null },
+    banReason: { type: String, default: null, maxlength: 500 },
+    // True only when the ban itself flipped isDeactivated; unban reverts it.
+    banSetDeactivated: { type: Boolean, default: false },
     // badge tiers — owner (red, exactly OWNER_EMAIL), cofounder (lavender,
     // exactly COFOUNDER_EMAIL), pro (gold, future subscription), verified
     // (blue, admin-granted via verification appeals). isOwner/isCofounder sync from email on save

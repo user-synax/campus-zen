@@ -192,6 +192,11 @@ export const userService = {
     if (user.isDeactivated && String(viewerId || "") !== String(user._id)) {
       throw new AppError("This profile is unavailable", 404, "USER_NOT_FOUND");
     }
+    // A permanent ban hides the profile from everyone, including a stale
+    // session that has not been revoked yet.
+    if (user.isBanned && String(viewerId || "") !== String(user._id)) {
+      throw new AppError("This profile is unavailable", 404, "USER_NOT_FOUND");
+    }
 
     if (viewerId && String(viewerId) !== String(user._id)) {
       const rel = await blockService.relationOf(viewerId, user._id);
@@ -220,6 +225,13 @@ export const userService = {
         "accountStatus",
         "accountStatusReason",
         "accountStatusAt",
+        "restrictedUntil",
+        "restrictedAt",
+        "restrictionReason",
+        "isBanned",
+        "bannedAt",
+        "banReason",
+        "banSetDeactivated",
       ]) {
         delete safe[k];
       }

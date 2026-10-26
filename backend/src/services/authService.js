@@ -174,6 +174,12 @@ export const authService = {
     const cleanUsername = username.toLowerCase().trim();
     const user = await User.findOne({ username: cleanUsername }).select("+passwordHash +refreshTokenHash");
     if (!user) throw new AppError("Invalid username or password", 401, "INVALID_CREDENTIALS");
+    if (user.isBanned) {
+      throw new AppError("This account has been permanently banned.", 403, "ACCOUNT_BANNED", null, {
+        reason: user.banReason || null,
+        bannedAt: user.bannedAt || null,
+      });
+    }
     if (user.isSuspended) throw new AppError("Account suspended. Contact support.", 403, "ACCOUNT_SUSPENDED");
 
     const ok = await bcrypt.compare(password, user.passwordHash);
@@ -217,6 +223,12 @@ export const authService = {
 
     const user = await User.findById(decoded.id).select("+refreshTokenHash");
     if (!user) throw new AppError("Session not found. Log in again.", 401, "SESSION_NOT_FOUND");
+    // A permanent ban is final: reject the refresh and drop any device row
+    // that somehow survived the ban action.
+    if (user.isBanned) {
+      await sessionService.revokeAll(user._id);
+      throw new AppError("This account has been permanently banned.", 403, "ACCOUNT_BANNED");
+    }
     // A suspended account keeps a refreshable (read-only) session so it can
     // open /menu, read its standing and sign out. protect() still rejects
     // every write, and login() still refuses to mint a fresh session.

@@ -1,16 +1,21 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { Loader2, ShieldAlert } from "lucide-react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { BottomNav } from "@/components/app/BottomNav";
 import { AccountSuspended } from "@/components/app/AccountSuspended";
+import { BottomNav } from "@/components/app/BottomNav";
 import { LeftNav } from "@/components/app/LeftNav";
 import { OfflineBanner } from "@/components/app/OfflineBanner";
 import { PushEnableBanner } from "@/components/app/PushEnableBanner";
 import { RightMinimal } from "@/components/app/RightMinimal";
 import { ThemeToggle } from "@/components/app/ThemeToggle";
 import { BrandMark } from "@/components/BrandLogo";
+import {
+  formatAccountDateTime,
+  isRestrictionActive,
+} from "@/lib/accountStatus";
 import { redirectToVerify } from "@/lib/authRedirect";
 import { useCurrentUser } from "@/lib/hooks/useRequireSession";
 import { useSSE } from "@/lib/hooks/useSSE";
@@ -46,6 +51,8 @@ export function AppShell({ children, requireAuth = false }) {
   // A suspended account keeps a read-only session: it gets the standing
   // notice instead of the app, and /menu so it can still read its own record.
   const suspended = suspendedSession || Boolean(user?.isSuspended);
+  const restricted = isRestrictionActive(user);
+  const restrictedUntil = formatAccountDateTime(user?.restrictedUntil);
   const onMenu = pathname === "/app/menu";
 
   // /app/a/<username>/<slug> — the long-form reader. On xl the right rail
@@ -68,7 +75,15 @@ export function AppShell({ children, requireAuth = false }) {
       return;
     }
     if (requireAuth && (signedOut || failed)) router.replace("/login");
-  }, [loading, signedOut, failed, requireAuth, router, needsVerification, pendingEmail]);
+  }, [
+    loading,
+    signedOut,
+    failed,
+    requireAuth,
+    router,
+    needsVerification,
+    pendingEmail,
+  ]);
 
   // Only the auth-gated segments wait on the session. The public profile at
   // /u/[username] renders immediately and the sign-in redirect happens
@@ -105,6 +120,32 @@ export function AppShell({ children, requireAuth = false }) {
         <BrandMark size={26} priority />
         <ThemeToggle className="h-[40px] w-[40px]" />
       </header>
+
+      {/* Temporary restriction: still signed in and browsing, but the API
+          rejects every engagement write until the deadline passes. */}
+      {restricted && !suspended ? (
+        <div className="border-b border-[color-mix(in_srgb,var(--cz-warn)_35%,var(--cz-border))] bg-[color-mix(in_srgb,var(--cz-warn)_10%,var(--cz-bg))]">
+          <div className="mx-auto flex max-w-[1275px] items-start gap-2 px-4 py-2.5 text-[14px] leading-[19px] text-[var(--cz-text-primary)]">
+            <ShieldAlert
+              className="mt-0.5 h-[18px] w-[18px] shrink-0 text-[var(--cz-warn)]"
+              aria-hidden
+            />
+            <p className="min-w-0 flex-1">
+              <span className="font-bold">
+                Your account is temporarily restricted.
+              </span>{" "}
+              You can browse, but posting and interactions are paused
+              {restrictedUntil ? ` until ${restrictedUntil}` : ""}.{" "}
+              <Link
+                href="/app/menu"
+                className="font-bold text-[var(--cz-accent)] hover:underline"
+              >
+                Details
+              </Link>
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       <div
         className={cn(

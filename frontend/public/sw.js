@@ -26,7 +26,7 @@ self.addEventListener("push", (event) => {
     body: data.body || "You have a new notification",
     icon: data.icon || "/campusZen.png",
     badge: data.badge || "/icon.svg",
-    tag: "campuszen",
+    tag: data.tag || "campuszen",
     data: {
       url: data.url || "/app/notifications",
       notifId: data.notifId || null,

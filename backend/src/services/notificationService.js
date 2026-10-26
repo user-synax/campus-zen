@@ -150,4 +150,81 @@ export const notificationService = {
     const res = await Notification.deleteMany({ recipient: recipientId, read: true });
     return { message: "Read notifications cleared", deleted: res.deletedCount };
   },
+
+  // ── Admin messages ────────────────────────────────────────────────────────
+  // One-off system message (restriction, unban, etc.). Always actorless so
+  // the client renders the CampusZen mark + "Admin" label.
+  async createAdminNotice({ recipient, title, body, type = "admin_notice" }) {
+    const result = await this.createAdminMessages({
+      recipients: [recipient],
+      title,
+      body,
+      type,
+    });
+    return result;
+  },
+
+  // Bulk in-app + Web Push delivery. insertMany keeps this one round-trip for
+  // the whole audience; SSE events go out per recipient so open tabs update
+  // instantly, and OS push is fired in the background (never blocks).
+  async createAdminMessages({
+    recipients,
+    title,
+    body,
+    type = "admin_broadcast",
+    broadcastId = null,
+  }) {
+    const ids = [...new Set((recipients || []).map((id) => String(id)).filter(Boolean))];
+    if (!ids.length) return { created: 0, recipientCount: 0 };
+    const cleanTitle = String(title || "").trim().slice(0, 120);
+    const cleanBody = String(body || "").trim().slice(0, 1000);
+    if (!cleanTitle || !cleanBody) {
+      const err = new Error("Title and message are required");
+      err.statusCode = 400;
+      err.code = "INVALID_ADMIN_MESSAGE";
+      throw err;
+    }
+
+    const docs = ids.map((recipient) => ({
+      recipient,
+      actor: null,
+      type,
+      title: cleanTitle,
+      body: cleanBody,
+      broadcast: broadcastId || null,
+      read: false,
+    }));
+    const inserted = await Notification.insertMany(docs, { ordered: false });
+
+    for (const notif of inserted) {
+      pushNotification(notif.recipient, {
+        _id: notif._id,
+        actor: null,
+        type: notif.type,
+        title: notif.title,
+        body: notif.body,
+        broadcast: notif.broadcast,
+        post: null,
+        read: false,
+        createdAt: notif.createdAt,
+      });
+    }
+
+    setImmediate(() => {
+      import("./pushService.js")
+        .then(async ({ pushService }) => {
+          if (!pushService.isEnabled()) return;
+          const payload = pushService.buildAdminPayload({
+            title: cleanTitle,
+            body: cleanBody,
+            broadcastId,
+            type,
+          });
+          await pushService.sendToUsers(ids, payload);
+        })
+        .catch(() => {});
+    });
+
+    return { created: inserted.length, recipientCount: ids.length };
+  },
 };

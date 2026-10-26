@@ -166,7 +166,10 @@ export const api = {
         qs.set(k, String(v));
     });
     const q = qs.toString();
-    return request(`/api/users/me/follow-requests/incoming${q ? `?${q}` : ""}`, { method: "GET" });
+    return request(
+      `/api/users/me/follow-requests/incoming${q ? `?${q}` : ""}`,
+      { method: "GET" },
+    );
   },
   getOutgoingRequests: (params = {}) => {
     const qs = new URLSearchParams();
@@ -175,17 +178,31 @@ export const api = {
         qs.set(k, String(v));
     });
     const q = qs.toString();
-    return request(`/api/users/me/follow-requests/outgoing${q ? `?${q}` : ""}`, { method: "GET" });
+    return request(
+      `/api/users/me/follow-requests/outgoing${q ? `?${q}` : ""}`,
+      { method: "GET" },
+    );
   },
   acceptFollowRequest: (requestId) =>
-    request(`/api/users/me/follow-requests/${encodeURIComponent(requestId)}/accept`, { method: "POST" }),
+    request(
+      `/api/users/me/follow-requests/${encodeURIComponent(requestId)}/accept`,
+      { method: "POST" },
+    ),
   declineFollowRequest: (requestId) =>
-    request(`/api/users/me/follow-requests/${encodeURIComponent(requestId)}/decline`, { method: "POST" }),
+    request(
+      `/api/users/me/follow-requests/${encodeURIComponent(requestId)}/decline`,
+      { method: "POST" },
+    ),
   exportData: () => request("/api/users/me/export", { method: "GET" }),
-  deactivateAccount: () => request("/api/users/me/deactivate", { method: "POST" }),
-  reactivateAccount: () => request("/api/users/me/reactivate", { method: "POST" }),
+  deactivateAccount: () =>
+    request("/api/users/me/deactivate", { method: "POST" }),
+  reactivateAccount: () =>
+    request("/api/users/me/reactivate", { method: "POST" }),
   deleteAccount: (confirm) =>
-    request("/api/users/me", { method: "DELETE", body: confirm ? { confirm } : {} }),
+    request("/api/users/me", {
+      method: "DELETE",
+      body: confirm ? { confirm } : {},
+    }),
   getUserPosts: (username, params = {}) => {
     const qs = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => {
@@ -319,7 +336,10 @@ export const api = {
     return request(`/api/reports/me${q ? `?${q}` : ""}`, { method: "GET" });
   },
   appealReport: (reportId, payload) =>
-    request(`/api/reports/${encodeURIComponent(reportId)}/appeal`, { method: "POST", body: payload }),
+    request(`/api/reports/${encodeURIComponent(reportId)}/appeal`, {
+      method: "POST",
+      body: payload,
+    }),
   fileAppeal: (payload) =>
     request("/api/reports/appeals", { method: "POST", body: payload }),
   getMyAppeals: (params = {}) => {
@@ -329,7 +349,9 @@ export const api = {
         qs.set(k, String(v));
     });
     const q = qs.toString();
-    return request(`/api/reports/appeals/me${q ? `?${q}` : ""}`, { method: "GET" });
+    return request(`/api/reports/appeals/me${q ? `?${q}` : ""}`, {
+      method: "GET",
+    });
   },
   getFollowers: (id, params = {}) => {
     const qs = new URLSearchParams();
@@ -369,7 +391,9 @@ export const api = {
     if (files.length) {
       const form = new FormData();
       if (text) form.append("text", text);
-      files.forEach((f) => form.append("media", f));
+      files.forEach((f) => {
+        form.append("media", f);
+      });
       posters.forEach((p) => {
         if (p) form.append("posters", p, "poster.jpg");
       });
@@ -381,7 +405,12 @@ export const api = {
     }
     return request("/api/posts", {
       method: "POST",
-      body: { text, poll, interestTags: tags.length ? tags : undefined, isSensitive: isSensitive || undefined },
+      body: {
+        text,
+        poll,
+        interestTags: tags.length ? tags : undefined,
+        isSensitive: isSensitive || undefined,
+      },
     });
   },
   createAnonymousPost: (text, media, extra = {}) => {
@@ -392,12 +421,17 @@ export const api = {
     if (files.length) {
       const form = new FormData();
       if (text) form.append("text", text);
-      files.forEach((f) => form.append("media", f));
+      files.forEach((f) => {
+        form.append("media", f);
+      });
       if (meta) form.append("mediaMeta", JSON.stringify(meta));
       if (isSensitive) form.append("isSensitive", "true");
       return request("/api/posts/anonymous", { method: "POST", form });
     }
-    return request("/api/posts/anonymous", { method: "POST", body: { text, isSensitive: isSensitive || undefined } });
+    return request("/api/posts/anonymous", {
+      method: "POST",
+      body: { text, isSensitive: isSensitive || undefined },
+    });
   },
   getAnonymousFeed: (params = {}) => {
     const qs = new URLSearchParams();
@@ -406,7 +440,9 @@ export const api = {
         qs.set(k, String(v));
     });
     const q = qs.toString();
-    return request(`/api/posts/anonymous/feed${q ? `?${q}` : ""}`, { method: "GET" });
+    return request(`/api/posts/anonymous/feed${q ? `?${q}` : ""}`, {
+      method: "GET",
+    });
   },
   createArticle: ({ title, description, body }, media, extra = {}) => {
     const files = Array.isArray(media) ? media : media ? [media] : [];
@@ -418,7 +454,9 @@ export const api = {
       form.append("title", title);
       if (description) form.append("description", description);
       form.append("body", body);
-      files.forEach((f) => form.append("media", f));
+      files.forEach((f) => {
+        form.append("media", f);
+      });
       posters.forEach((p) => {
         if (p) form.append("posters", p, "poster.jpg");
       });
@@ -426,12 +464,21 @@ export const api = {
       if (isSensitive) form.append("isSensitive", "true");
       return request("/api/posts/articles", { method: "POST", form });
     }
-    return request("/api/posts/articles", { method: "POST", body: { title, description, body, isSensitive: isSensitive || undefined } });
+    return request("/api/posts/articles", {
+      method: "POST",
+      body: { title, description, body, isSensitive: isSensitive || undefined },
+    });
   },
   updateArticle: (id, payload) =>
-    request(`/api/posts/articles/${encodeURIComponent(id)}`, { method: "PATCH", body: payload }),
+    request(`/api/posts/articles/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: payload,
+    }),
   getArticle: (username, slug) =>
-    request(`/api/posts/articles/${encodeURIComponent(username)}/${encodeURIComponent(slug)}`, { method: "GET" }),
+    request(
+      `/api/posts/articles/${encodeURIComponent(username)}/${encodeURIComponent(slug)}`,
+      { method: "GET" },
+    ),
   getArticles: (params = {}) => {
     const qs = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => {
@@ -451,7 +498,10 @@ export const api = {
     });
     qs.set("kind", "article");
     const q = qs.toString();
-    return request(`/api/users/${encodeURIComponent(username)}/posts${q ? `?${q}` : ""}`, { method: "GET" });
+    return request(
+      `/api/users/${encodeURIComponent(username)}/posts${q ? `?${q}` : ""}`,
+      { method: "GET" },
+    );
   },
   votePoll: (id, optionIndex) =>
     request(`/api/posts/${encodeURIComponent(id)}/vote`, {
@@ -501,7 +551,10 @@ export const api = {
   recordPostView: (id) =>
     request(`/api/posts/${encodeURIComponent(id)}/view`, { method: "POST" }),
   getAnalyticsOverview: (range = "24h") =>
-    request(`/api/posts/analytics/overview?range=${encodeURIComponent(range)}`, { method: "GET" }),
+    request(
+      `/api/posts/analytics/overview?range=${encodeURIComponent(range)}`,
+      { method: "GET" },
+    ),
   repostPost: (id) =>
     request(`/api/posts/${encodeURIComponent(id)}/repost`, { method: "POST" }),
   unrepostPost: (id) =>
@@ -623,6 +676,48 @@ export const api = {
   adminLogout: () => request("/api/admin/logout", { method: "POST" }),
   adminMe: () => request("/api/admin/me", { method: "GET" }),
   adminStats: () => request("/api/admin/stats", { method: "GET" }),
+  adminUsers: (params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "")
+        qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(`/api/admin/users${q ? `?${q}` : ""}`, { method: "GET" });
+  },
+  adminUser: (id) =>
+    request(`/api/admin/users/${encodeURIComponent(id)}`, { method: "GET" }),
+  adminRestrictUser: (id, durationMinutes, reason) =>
+    request(`/api/admin/users/${encodeURIComponent(id)}/restrict`, {
+      method: "POST",
+      body: reason ? { durationMinutes, reason } : { durationMinutes },
+    }),
+  adminUnrestrictUser: (id) =>
+    request(`/api/admin/users/${encodeURIComponent(id)}/unrestrict`, {
+      method: "POST",
+    }),
+  adminBanUser: (id, reason) =>
+    request(`/api/admin/users/${encodeURIComponent(id)}/ban`, {
+      method: "POST",
+      body: reason ? { reason } : {},
+    }),
+  adminUnbanUser: (id) =>
+    request(`/api/admin/users/${encodeURIComponent(id)}/unban`, {
+      method: "POST",
+    }),
+  adminBroadcasts: (params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "")
+        qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(`/api/admin/broadcasts${q ? `?${q}` : ""}`, {
+      method: "GET",
+    });
+  },
+  adminSendBroadcast: (payload) =>
+    request("/api/admin/broadcasts", { method: "POST", body: payload }),
   adminReports: (params = {}) => {
     const qs = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => {
@@ -680,7 +775,9 @@ export const api = {
         qs.set(k, String(v));
     });
     const q = qs.toString();
-    return request(`/api/admin/verifications${q ? `?${q}` : ""}`, { method: "GET" });
+    return request(`/api/admin/verifications${q ? `?${q}` : ""}`, {
+      method: "GET",
+    });
   },
   adminReviewVerification: (id, payload) =>
     request(`/api/admin/verifications/${encodeURIComponent(id)}`, {

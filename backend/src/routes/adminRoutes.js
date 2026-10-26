@@ -59,6 +59,38 @@ const setVerifiedSchema = z.object({
   isVerified: z.boolean(),
 });
 
+const usersQuerySchema = z.object({
+  q: z.string().trim().max(80).optional().default(""),
+  status: z
+    .enum(["all", "good", "restricted", "suspended", "banned", "verified", "unverified", "deactivated"])
+    .optional()
+    .default("all"),
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(25),
+  sort: z.enum(["recent", "active", "oldest", "name", "posts", "followers"]).optional().default("recent"),
+});
+
+const restrictSchema = z.object({
+  durationMinutes: z.coerce.number().int().min(5).max(43200),
+  reason: z.string().trim().max(500).optional(),
+});
+
+const banSchema = z.object({
+  reason: z.string().trim().max(500).optional(),
+});
+
+const broadcastSchema = z.object({
+  title: z.string().trim().min(1, "Title is required").max(120),
+  body: z.string().trim().min(1, "Message is required").max(1000),
+  audience: z.enum(["all", "selected"]).optional().default("all"),
+  userIds: z.array(z.string().regex(/^[a-f\d]{24}$/i, "Invalid user id")).max(500).optional().default([]),
+});
+
+const broadcastQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(50).optional().default(20),
+});
+
 const idParamSchema = z.object({
   id: z.string().regex(/^[a-f\d]{24}$/i, "Invalid id"),
 });
@@ -70,6 +102,20 @@ router.post("/logout", adminController.logout);
 // everything below requires the adminToken cookie
 router.get("/me", requireAdmin, adminController.me);
 router.get("/stats", requireAdmin, adminController.stats);
+router.get("/users", requireAdmin, validate(usersQuerySchema, "query"), adminController.listUsers);
+router.get("/users/:id", requireAdmin, validate(idParamSchema, "params"), adminController.getUser);
+router.post(
+  "/users/:id/restrict",
+  requireAdmin,
+  validate(idParamSchema, "params"),
+  validate(restrictSchema),
+  adminController.restrictUser
+);
+router.post("/users/:id/unrestrict", requireAdmin, validate(idParamSchema, "params"), adminController.unrestrictUser);
+router.post("/users/:id/ban", requireAdmin, validate(idParamSchema, "params"), validate(banSchema), adminController.banUser);
+router.post("/users/:id/unban", requireAdmin, validate(idParamSchema, "params"), adminController.unbanUser);
+router.get("/broadcasts", requireAdmin, validate(broadcastQuerySchema, "query"), adminController.listBroadcasts);
+router.post("/broadcasts", requireAdmin, validate(broadcastSchema), adminController.sendBroadcast);
 router.get("/reports", requireAdmin, validate(reportsQuerySchema, "query"), adminController.listReports);
 router.patch("/reports/:id", requireAdmin, validate(idParamSchema, "params"), validate(resolveSchema), adminController.resolveReport);
 router.get("/appeals", requireAdmin, validate(appealQuerySchema, "query"), adminController.listAppeals);

@@ -16,10 +16,10 @@ export const ACCOUNT_STATUS = {
       "Some actions are limited while we review your account. You can still browse and post.",
   },
   restricted: {
-    label: "Restricted",
+    label: "Temporarily restricted",
     tone: "warn",
     description:
-      "Your account is restricted. Some features are unavailable until this is lifted.",
+      "You can browse CampusZen, but posting, replying, liking, following and bookmarking are paused until this lifts automatically.",
   },
   suspended: {
     label: "Suspended",
@@ -27,15 +27,34 @@ export const ACCOUNT_STATUS = {
     description:
       "Your account is suspended. You can view your details and sign out, but you cannot post.",
   },
+  banned: {
+    label: "Banned",
+    tone: "error",
+    description:
+      "This account has been permanently banned and can no longer sign in or use CampusZen.",
+  },
 };
 
 export function accountStatusMeta(status) {
   return ACCOUNT_STATUS[status] || ACCOUNT_STATUS.good;
 }
 
+// A restriction whose deadline has passed is already lifted, even if the
+// server sweep has not rewritten the row yet.
+export function isRestrictionActive(user, now = Date.now()) {
+  if (!user || user.isBanned) return false;
+  if (user.accountStatus !== "restricted") return false;
+  if (!user.restrictedUntil) return false;
+  return new Date(user.restrictedUntil).getTime() > now;
+}
+
 export function effectiveAccountStatus(user) {
   if (!user) return "good";
+  if (user.isBanned) return "banned";
   if (user.isSuspended) return "suspended";
+  if (user.accountStatus === "restricted" && !isRestrictionActive(user)) {
+    return "good";
+  }
   return ACCOUNT_STATUS[user.accountStatus] ? user.accountStatus : "good";
 }
 

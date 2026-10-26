@@ -4,9 +4,10 @@ import { AlertCircle, Eye, EyeOff, Loader2, LogIn } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
+import { AccountBanned } from "@/components/app/AccountBanned";
+import { AccountSuspended } from "@/components/app/AccountSuspended";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { GuestGuard } from "@/components/auth/GuestGuard";
-import { AccountSuspended } from "@/components/app/AccountSuspended";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FloatingInput } from "@/components/ui/input";
@@ -26,6 +27,9 @@ export default function LoginPage() {
   // A suspended account cannot be signed in to — it gets a standing notice
   // with a way out instead of the password form.
   const [suspended, setSuspended] = useState(false);
+  // A permanent ban is checked before the password, so it gets its own
+  // terminal notice. Kept in state so the form can be restored.
+  const [banned, setBanned] = useState(null);
 
   const userRef = useRef(null);
   const pwRef = useRef(null);
@@ -73,6 +77,13 @@ export default function LoginPage() {
         router.push(verifyEmailPath(email));
         return;
       }
+      if (err.status === 403 && data.code === "ACCOUNT_BANNED") {
+        setBanned({
+          reason: data.meta?.reason || null,
+          bannedAt: data.meta?.bannedAt || null,
+        });
+        return;
+      }
       if (err.status === 403 && data.code === "ACCOUNT_SUSPENDED") {
         setSuspended(true);
         return;
@@ -109,7 +120,19 @@ export default function LoginPage() {
 
   return (
     <GuestGuard>
-      {suspended ? (
+      {banned ? (
+        <div className="min-h-dvh bg-[var(--cz-bg)] px-4 py-8">
+          <AccountBanned
+            reason={banned.reason}
+            bannedAt={banned.bannedAt}
+            onBack={() => {
+              setBanned(null);
+              setPassword("");
+              setServerMsg(null);
+            }}
+          />
+        </div>
+      ) : suspended ? (
         <div className="min-h-dvh bg-[var(--cz-bg)] px-4 py-8">
           <AccountSuspended
             onSignedOut={() => {
@@ -120,109 +143,117 @@ export default function LoginPage() {
           />
         </div>
       ) : (
-      <AuthShell title="Sign in to CampusZen">
-        <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
-          {serverMsg ? (
-            <div className="flex items-start gap-2 rounded-[4px] bg-[color-mix(in_srgb,var(--cz-error)_10%,transparent)] px-3 py-2.5 text-[15px] leading-[20px] text-[var(--cz-error)]">
-              <AlertCircle
-                className="mt-0.5 h-[18px] w-[18px] shrink-0"
-                aria-hidden
-              />
-              <span>{serverMsg.text}</span>
-            </div>
-          ) : null}
+        <AuthShell title="Sign in to CampusZen">
+          <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
+            {serverMsg ? (
+              <div className="flex items-start gap-2 rounded-[4px] bg-[color-mix(in_srgb,var(--cz-error)_10%,transparent)] px-3 py-2.5 text-[15px] leading-[20px] text-[var(--cz-error)]">
+                <AlertCircle
+                  className="mt-0.5 h-[18px] w-[18px] shrink-0"
+                  aria-hidden
+                />
+                <span>{serverMsg.text}</span>
+              </div>
+            ) : null}
 
-          <FloatingInput
-            ref={userRef}
-            id="username"
-            label="Username"
-            prefix="@"
-            autoComplete="username"
-            value={username}
-            error={errors.username}
-            shaking={!!shake.username}
-            onChange={(e) => {
-              setUsername(
-                e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""),
-              );
-              if (errors.username)
-                setErrors((p) => ({ ...p, username: undefined }));
-              setServerMsg(null);
-            }}
-          />
-
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-end">
-              <Link
-                href="/forgot-password"
-                className="text-[15px] font-bold text-[var(--cz-accent)] hover:underline"
-              >
-                Forgot password?
-              </Link>
-            </div>
             <FloatingInput
-              ref={pwRef}
-              id="password"
-              prefix="&#8226;"
-              label="Password"
-              type={showPw ? "text" : "password"}
-              autoComplete="current-password"
-              value={password}
-              error={errors.password}
-              shaking={!!shake.password}
+              ref={userRef}
+              id="username"
+              label="Username"
+              prefix="@"
+              autoComplete="username"
+              value={username}
+              error={errors.username}
+              shaking={!!shake.username}
               onChange={(e) => {
-                setPassword(e.target.value);
-                if (errors.password)
-                  setErrors((p) => ({ ...p, password: undefined }));
+                setUsername(
+                  e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""),
+                );
+                if (errors.username)
+                  setErrors((p) => ({ ...p, username: undefined }));
                 setServerMsg(null);
               }}
-              suffix={
-                <button
-                  type="button"
-                  aria-label={showPw ? "Hide password" : "Show password"}
-                  onClick={() => setShowPw((v) => !v)}
-                  className="-mr-1 grid h-[32px] w-[32px] place-items-center rounded-full text-[var(--cz-text-secondary)] transition-colors hover:bg-[var(--cz-border)] hover:text-[var(--cz-text-primary)]"
-                >
-                  <span className="t-icon-swap" data-state={showPw ? "b" : "a"}>
-                    <span className="t-icon" data-icon="a">
-                      <Eye className="h-[18px] w-[18px]" aria-hidden />
-                    </span>
-                    <span className="t-icon" data-icon="b">
-                      <EyeOff className="h-[18px] w-[18px]" aria-hidden />
-                    </span>
-                  </span>
-                </button>
-              }
             />
-          </div>
 
-          <Checkbox
-            id="remember"
-            checked={remember}
-            onChange={setRemember}
-            label="Remember me"
-          />
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-end">
+                <Link
+                  href="/forgot-password"
+                  className="text-[15px] font-bold text-[var(--cz-accent)] hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+              <FloatingInput
+                ref={pwRef}
+                id="password"
+                prefix="&#8226;"
+                label="Password"
+                type={showPw ? "text" : "password"}
+                autoComplete="current-password"
+                value={password}
+                error={errors.password}
+                shaking={!!shake.password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (errors.password)
+                    setErrors((p) => ({ ...p, password: undefined }));
+                  setServerMsg(null);
+                }}
+                suffix={
+                  <button
+                    type="button"
+                    aria-label={showPw ? "Hide password" : "Show password"}
+                    onClick={() => setShowPw((v) => !v)}
+                    className="-mr-1 grid h-[32px] w-[32px] place-items-center rounded-full text-[var(--cz-text-secondary)] transition-colors hover:bg-[var(--cz-border)] hover:text-[var(--cz-text-primary)]"
+                  >
+                    <span
+                      className="t-icon-swap"
+                      data-state={showPw ? "b" : "a"}
+                    >
+                      <span className="t-icon" data-icon="a">
+                        <Eye className="h-[18px] w-[18px]" aria-hidden />
+                      </span>
+                      <span className="t-icon" data-icon="b">
+                        <EyeOff className="h-[18px] w-[18px]" aria-hidden />
+                      </span>
+                    </span>
+                  </button>
+                }
+              />
+            </div>
 
-          <Button type="submit" disabled={loading} size="lg" className="w-full">
-            {loading ? (
-              <Loader2 className="h-[18px] w-[18px] animate-spin" />
-            ) : (
-              <LogIn className="h-[18px] w-[18px]" aria-hidden />
-            )}
-            {loading ? "Signing in…" : "Sign in"}
-          </Button>
+            <Checkbox
+              id="remember"
+              checked={remember}
+              onChange={setRemember}
+              label="Remember me"
+            />
 
-          <p className="text-center text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">
-            Don&apos;t have an account?{" "}
-            <Link
-              href="/signup"
-              className="font-bold text-[var(--cz-accent)] hover:underline"
+            <Button
+              type="submit"
+              disabled={loading}
+              size="lg"
+              className="w-full"
             >
-              Sign up
-            </Link>
-          </p>
-        </form>
-      </AuthShell>
+              {loading ? (
+                <Loader2 className="h-[18px] w-[18px] animate-spin" />
+              ) : (
+                <LogIn className="h-[18px] w-[18px]" aria-hidden />
+              )}
+              {loading ? "Signing in…" : "Sign in"}
+            </Button>
+
+            <p className="text-center text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">
+              Don&apos;t have an account?{" "}
+              <Link
+                href="/signup"
+                className="font-bold text-[var(--cz-accent)] hover:underline"
+              >
+                Sign up
+              </Link>
+            </p>
+          </form>
+        </AuthShell>
       )}
     </GuestGuard>
   );

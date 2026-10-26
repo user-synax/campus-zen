@@ -26,6 +26,54 @@ export const adminController = {
     res.json({ success: true, data });
   }),
 
+  listUsers: asyncHandler(async (req, res) => {
+    const { q, status, page, limit, sort } = req.query;
+    const data = await adminService.listUsers({ q, status, page, limit, sort });
+    res.json({ success: true, data });
+  }),
+
+  getUser: asyncHandler(async (req, res) => {
+    const data = await adminService.getUserDetails(req.params.id);
+    res.json({ success: true, data });
+  }),
+
+  restrictUser: asyncHandler(async (req, res) => {
+    const { durationMinutes, reason } = req.body;
+    const user = await adminService.restrictUser(req.params.id, { durationMinutes, reason });
+    res.json({ success: true, message: "User restricted", data: { user } });
+  }),
+
+  unrestrictUser: asyncHandler(async (req, res) => {
+    const user = await adminService.unrestrictUser(req.params.id);
+    res.json({ success: true, message: "Restriction lifted", data: { user } });
+  }),
+
+  banUser: asyncHandler(async (req, res) => {
+    const { reason } = req.body || {};
+    const user = await adminService.banUser(req.params.id, reason);
+    res.json({ success: true, message: "User permanently banned", data: { user } });
+  }),
+
+  unbanUser: asyncHandler(async (req, res) => {
+    const user = await adminService.unbanUser(req.params.id);
+    res.json({ success: true, message: "User unbanned", data: { user } });
+  }),
+
+  sendBroadcast: asyncHandler(async (req, res) => {
+    const { title, body, audience, userIds } = req.body;
+    const data = await adminService.sendBroadcast(
+      { title, body, audience, userIds },
+      req.admin?.email
+    );
+    res.json({ success: true, message: "Broadcast sent", data });
+  }),
+
+  listBroadcasts: asyncHandler(async (req, res) => {
+    const { page, limit } = req.query;
+    const data = await adminService.listBroadcasts({ page, limit });
+    res.json({ success: true, data });
+  }),
+
   listReports: asyncHandler(async (req, res) => {
     const { status = "open", page = 1, limit = 20 } = req.query;
     const data = await adminService.listReports({ status, page, limit });

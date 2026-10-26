@@ -64,7 +64,7 @@ async function protectSSE(req, res, next) {
       res.end(JSON.stringify({ success: false, message: "Invalid session" }));
       return;
     }
-    const user = await User.findById(decoded.id).select("_id isEmailVerified");
+    const user = await User.findById(decoded.id).select("_id isEmailVerified isBanned");
     if (!user) {
       res.writeHead(401, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ success: false, message: "User no longer exists" }));
@@ -73,6 +73,11 @@ async function protectSSE(req, res, next) {
     if (!user.isEmailVerified) {
       res.writeHead(403, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ success: false, code: "EMAIL_NOT_VERIFIED", message: "Verify your email to continue" }));
+      return;
+    }
+    if (user.isBanned) {
+      res.writeHead(403, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: false, code: "ACCOUNT_BANNED", message: "This account has been permanently banned" }));
       return;
     }
     req.user = user;

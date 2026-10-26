@@ -27,6 +27,8 @@ const TYPE_COPY = {
   mention: "mentioned you",
   report_update: "update on your report",
   appeal_update: "update on your appeal",
+  admin_broadcast: "sent an announcement",
+  admin_notice: "sent you an account notice",
 };
 
 function notifUrl(type, postId) {
@@ -122,6 +124,60 @@ export const pushService = {
     return { sent, removed };
   },
 
+  // Broadcast fan-out. Subscriptions for every recipient are loaded in one
+  // query, then delivered with bounded concurrency so a large audience cannot
+  // exhaust sockets or the event loop.
+  async sendToUsers(userIds, payload, { concurrency = 20 } = {}) {
+    if (!ensureConfigured()) return { sent: 0, removed: 0, skipped: true };
+    const ids = [...new Set((userIds || []).map((id) => String(id)).filter(Boolean))];
+    if (!ids.length) return { sent: 0, removed: 0, users: 0, devices: 0 };
+
+    const subs = await PushSubscription.find({ user: { $in: ids } }).lean();
+    if (!subs.length) return { sent: 0, removed: 0, users: 0, devices: 0 };
+
+    const body = JSON.stringify(payload);
+    let sent = 0;
+    const dead = [];
+    let cursor = 0;
+    const limit = Math.max(1, Math.min(50, Number(concurrency) || 20));
+
+    async function worker() {
+      while (cursor < subs.length) {
+        const s = subs[cursor++];
+        try {
+          await webpush.sendNotification(
+            { endpoint: s.endpoint, keys: s.keys },
+            body,
+            { TTL: 28 * 24 * 3600, urgency: "normal" }
+          );
+          sent += 1;
+        } catch (err) {
+          if (err?.statusCode === 404 || err?.statusCode === 410) {
+            dead.push(s.endpoint);
+          }
+        }
+      }
+    }
+
+    await Promise.all(Array.from({ length: Math.min(limit, subs.length) }, worker));
+
+    let removed = 0;
+    if (dead.length) {
+      const res = await PushSubscription.deleteMany({ endpoint: { $in: dead } });
+      removed = res.deletedCount || dead.length;
+    }
+    PushSubscription.updateMany(
+      { user: { $in: ids }, endpoint: { $nin: dead } },
+      { $set: { lastUsedAt: new Date() } }
+    ).catch(() => {});
+    return {
+      sent,
+      removed,
+      users: new Set(subs.map((s) => String(s.user))).size,
+      devices: subs.length,
+    };
+  },
+
   buildPayload({ type, actorName, actorUsername, postPreview, postId, notifId, unreadCount }) {
     const action = TYPE_COPY[type] || "sent you a notification";
     const title = actorName || "CampusZen";
@@ -140,6 +196,27 @@ export const pushService = {
       type,
       notifId: notifId ? String(notifId) : null,
       unreadCount: unreadCount ?? null,
+      timestamp: Date.now(),
+    };
+  },
+
+  // Admin announcements: title carries the "Admin" label, the CampusZen mark
+  // is the icon, and the tag is per-broadcast so several announcements stack
+  // instead of replacing each other.
+  buildAdminPayload({ title, body, broadcastId = null, type = "admin_broadcast" }) {
+    const cleanTitle = String(title || "Announcement").slice(0, 80);
+    return {
+      title: `Admin · ${cleanTitle}`,
+      body: String(body || "").slice(0, 200),
+      icon: "/campusZen.png",
+      badge: "/icon.svg",
+      tag: broadcastId ? `broadcast-${String(broadcastId)}` : `admin-${type}-${Date.now()}`,
+      url: "/app/notifications",
+      type,
+      label: "Admin",
+      source: "campuszen-admin",
+      notifId: null,
+      unreadCount: null,
       timestamp: Date.now(),
     };
   },
