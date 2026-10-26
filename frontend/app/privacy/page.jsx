@@ -67,34 +67,62 @@ export default function PrivacyPage() {
           Privacy Policy
         </h1>
         <p className="mt-2 text-[13px] text-[var(--cz-text-tertiary)]">
-          Last updated 25 Sep 2026
+          Last updated 26 Oct 2026
         </p>
         <p className="mt-6 max-w-[62ch] text-[15px] leading-[22px] text-[var(--cz-text-secondary)]">
-          CampusZen collects only what is needed to run a student social
-          network — accounts, profiles, posts and interactions. We don&apos;t
-          sell your data. This policy explains what we collect and how we use
-          it during the MVP and beyond (V1–V3).
+          CampusZen collects only what is needed to run a student social network
+          — accounts, profiles, posts and interactions. We don&apos;t sell your
+          data. This policy explains what we collect and how we use it across
+          the service today.
         </p>
 
         <div className="mt-10 space-y-9">
           <Section title="1. Data we collect">
             <Bullets>
               <li>
-                <Strong>Account:</Strong> full name, username, email
-                (gmail.com / proton.me in MVP), hashed password, OTP
-                verification state.
+                <Strong>Account:</Strong> full name, username, email (gmail.com
+                / proton.me for new signups), hashed password, email
+                verification state, account status, badges (owner, pro,
+                verified), and last login time.
               </li>
               <li>
-                <Strong>Profile:</Strong> display name, bio, college,
-                course/branch, academic year, avatar, follower counts.
+                <Strong>Profile:</Strong> display name, bio, college, college
+                slug, course/branch, academic year, avatar, cover image, accent
+                color, pinned post, social links (GitHub, X, LinkedIn,
+                Instagram), follower/following/post counts, and privacy settings
+                (private account, reply and mention policies, per-field
+                visibility, sensitive-content preference).
               </li>
               <li>
-                <Strong>Content:</Strong> posts (text up to 500 chars), likes,
-                replies, reposts, follow edges, reports and blocks.
+                <Strong>Date of birth:</Strong> if you set it, stored once and
+                never editable, used only for the 18+ content gate.
+              </li>
+              <li>
+                <Strong>Content:</Strong> posts (text up to 500 chars), media
+                attachments (images, GIFs, short video with posters), polls (2–4
+                options and votes), long-form articles (up to 50,000 chars),
+                replies (up to 500 chars), reposts, bookmarks, follow edges,
+                blocks, reports, appeals, follow requests, hashtags, mentions,
+                interest tags, view counts, and anonymous hub posts (author
+                retained for moderation).
+              </li>
+              <li>
+                <Strong>Notifications:</Strong> in-app notifications for
+                follows, likes, replies, reposts, mentions, follow requests,
+                report/appeal updates, and admin broadcasts.
+              </li>
+              <li>
+                <Strong>Push & sessions:</Strong> Web Push subscription
+                endpoints and keys, device user agent and platform, session
+                records per signed-in device (IP address, device label, remember
+                preference, expiry), and OTP records (hashed, with attempt
+                counts and expiry).
               </li>
               <li>
                 <Strong>Technical:</Strong> session cookie, device and
-                rate-limit logs. No DMs, location or payments in MVP.
+                rate-limit logs, post view events (viewer and day), and
+                verification requests (counts and message). No location or
+                payments.
               </li>
             </Bullets>
           </Section>
@@ -103,36 +131,94 @@ export default function PrivacyPage() {
             <Bullets>
               <li>
                 Create and secure your account, verify email, and keep you
-                logged in via HTTP-only cookies.
+                logged in via HTTP-only cookies across devices.
               </li>
               <li>
-                Show discover, the following feed (sorted newest first),
-                search, and notifications for follow, like, reply and repost.
+                Show discover, the following feed (cursor-paginated), search,
+                college pages, interest hubs, and notifications for follow,
+                like, reply, repost and mention.
               </li>
-              <li>Moderate reports and enforce blocks.</li>
-              <li>Improve performance on low-end devices and mobile networks.</li>
+              <li>
+                Power anonymous hub posts, bookmarks, polls, articles, and
+                author analytics (views and engagement over 24h/7d).
+              </li>
+              <li>
+                Moderate reports, appeals and verification requests, and enforce
+                blocks and account statuses.
+              </li>
+              <li>
+                Send transactional email (OTP verification and password reset)
+                and optional OS-level push notifications.
+              </li>
+              <li>
+                Improve performance on low-end devices and mobile networks.
+              </li>
             </Bullets>
           </Section>
 
-          <Section title="3. Sharing & retention">
+          <Section title="3. Sharing & third parties">
             <p>
               We don&apos;t sell or rent your data. We share only with the
-              infrastructure needed to run the service (hosting, MongoDB, the
-              email OTP provider) under strict confidentiality. Posts and
-              profiles are visible according to your follow settings; the MVP
-              has no private-post scope yet.
+              infrastructure needed to run the service, under strict
+              confidentiality:
             </p>
+            <Bullets>
+              <li>
+                <Strong>MongoDB</Strong> — primary data storage.
+              </li>
+              <li>
+                <Strong>Appwrite</Strong> — file storage for avatars, covers and
+                post media (server-side only).
+              </li>
+              <li>
+                <Strong>Resend or Gmail SMTP</Strong> — delivery of OTP and
+                password-reset emails.
+              </li>
+              <li>
+                <Strong>Web Push (VAPID)</Strong> — OS-level notifications when
+                the app is closed.
+              </li>
+              <li>
+                <Strong>Vercel</Strong> — hosting, plus anonymous usage and
+                performance analytics (Analytics and Speed Insights).
+              </li>
+            </Bullets>
             <p>
-              We retain data until you delete your account or content. Session
-              logs are rotated periodically.
+              Posts and profiles are visible according to your privacy settings;
+              private accounts require follow approval, and academic fields can
+              be hidden or followers-only. Content you mark sensitive is blurred
+              by default for other viewers.
             </p>
           </Section>
 
-          <Section title="4. Your choices & rights">
+          <Section title="4. Retention & deletion">
+            <p>
+              We retain data until you delete your account or content. You can
+              delete individual posts at any time. Account deletion removes your
+              data; deactivation hides your account for a 30-day grace period
+              before permanent purge. You can export your data at any time. OTP
+              and session records expire automatically. Session and view logs
+              are rotated periodically.
+            </p>
+          </Section>
+
+          <Section title="5. Your choices & rights">
             <Bullets>
               <li>
-                Edit your profile, delete your posts, unfollow or block users
-                at any time.
+                Edit your profile, privacy settings, pinned post, and social
+                links at any time.
+              </li>
+              <li>
+                Delete your posts, unfollow or block users, and manage follow
+                requests at any time.
+              </li>
+              <li>
+                Opt in or out of sensitive content, and set your date of birth
+                once for the 18+ gate.
+              </li>
+              <li>
+                Manage push notification subscriptions and signed-in sessions
+                from your settings.
               </li>
               <li>
                 Request export or deletion via{" "}
@@ -145,26 +231,73 @@ export default function PrivacyPage() {
                 .
               </li>
               <li>
-                Opt out of non-essential notifications once notification
-                preferences ship in V1.
+                Appeal moderation decisions and verification outcomes through
+                the in-app appeals flow.
               </li>
             </Bullets>
           </Section>
 
-          <Section title="5. Security">
+          <Section title="6. Security">
             <p>
               Passwords are hashed, auth uses secure HTTP-only cookies, inputs
               are validated with Zod, and sensitive routes are rate limited and
-              checked for authorization. No system is 100% secure — use a
-              strong, unique password and don&apos;t reuse it.
+              checked for authorization. Sessions are tracked per device with
+              replay protection. No system is 100% secure — use a strong, unique
+              password and don&apos;t reuse it.
             </p>
           </Section>
 
-          <Section title="6. Changes">
+          <Section title="7. Children">
             <p>
-              As we add image uploads, hashtags, bookmarks and verification
-              (V1), we&apos;ll update this policy and notify you in-app.
-              Continued use after an update means you accept the changes.
+              CampusZen is not intended for users under 13. We do not knowingly
+              collect personal data from children under 13. If you believe a
+              child under 13 has created an account, contact us and we will
+              remove it.
+            </p>
+          </Section>
+
+          <Section title="8. Cookies & tracking">
+            <p>
+              We use a session cookie (HTTP-only) to keep you signed in, a theme
+              cookie to remember light/dark mode, and Vercel Analytics and Speed
+              Insights for anonymous usage and performance measurement. You can
+              disable analytics cookies in your browser; the app still works
+              without them.
+            </p>
+          </Section>
+
+          <Section title="9. Changes">
+            <p>
+              As we ship new features we&apos;ll update this policy and notify
+              you in-app. Continued use after an update means you accept the
+              changes.
+            </p>
+          </Section>
+
+          <Section title="10. Contact">
+            <p>
+              For data and privacy requests contact{" "}
+              <a
+                href="mailto:privacy@campuszen.tech"
+                className="text-[var(--cz-accent)] hover:underline"
+              >
+                privacy@campuszen.tech
+              </a>
+              . For security issues contact{" "}
+              <a
+                href="mailto:user-synax@proton.me"
+                className="text-[var(--cz-accent)] hover:underline"
+              >
+                user-synax@proton.me
+              </a>
+              . General questions:{" "}
+              <a
+                href="mailto:support@campuszen.tech"
+                className="text-[var(--cz-accent)] hover:underline"
+              >
+                support@campuszen.tech
+              </a>
+              .
             </p>
           </Section>
         </div>
