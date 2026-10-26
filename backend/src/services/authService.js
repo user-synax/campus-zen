@@ -198,13 +198,12 @@ export const authService = {
     // session; any token still in `refreshTokenHash` from before per-device
     // sessions is left alone so that device can migrate on its next refresh.
     const { accessToken, refreshToken } = await issueSession(user, remember, meta);
-    // backfill: accounts created before isOwner/isCofounder existed get flagged here
+    // backfill: accounts created before isOwner existed get flagged here
     // (pre-save hook covers all future saves)
     try {
       const { env } = await import("../config/env.js");
       const clean = String(user.email || "").toLowerCase().trim();
       user.isOwner = clean === env.OWNER_EMAIL;
-      user.isCofounder = clean === env.COFOUNDER_EMAIL;
     } catch {}
     await user.save();
 
@@ -342,7 +341,7 @@ export const authService = {
   async getMe(userId) {
     const user = await User.findById(userId).populate({
       path: "pinnedPost",
-      populate: { path: "author", select: "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isCofounder" },
+      populate: { path: "author", select: "fullName username avatarUrl isEmailVerified isVerified isPro isOwner" },
     });
     if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
     return user.toSafeObject();

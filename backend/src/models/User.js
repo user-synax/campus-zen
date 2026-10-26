@@ -144,13 +144,12 @@ const userSchema = new mongoose.Schema(
     banReason: { type: String, default: null, maxlength: 500 },
     // True only when the ban itself flipped isDeactivated; unban reverts it.
     banSetDeactivated: { type: Boolean, default: false },
-    // badge tiers — owner (red, exactly OWNER_EMAIL), cofounder (lavender,
-    // exactly COFOUNDER_EMAIL), pro (gold, future subscription), verified
-    // (blue, admin-granted via verification appeals). isOwner/isCofounder sync from email on save
-    // so no email ever leaks to clients for badge checks.
+    // badge tiers — owner (red, exactly OWNER_EMAIL), pro (gold, future
+    // subscription), verified (blue, admin-granted via verification appeals).
+    // isOwner syncs from email on save so no email ever leaks to clients for
+    // badge checks.
     isPro: { type: Boolean, default: false },
     isOwner: { type: Boolean, default: false, index: true },
-    isCofounder: { type: Boolean, default: false, index: true },
     // manual blue-tick — granted from /admin after appeal review.
     // Replaces the old isEmailVerified-driven badge.
     isVerified: { type: Boolean, default: false, index: true },
@@ -173,15 +172,13 @@ userSchema.methods.toSafeObject = function () {
   return obj;
 };
 
-// Owner + co-founder flags follow the email — single source of truth is
-// OWNER_EMAIL / COFOUNDER_EMAIL, so clients never need the email address
-// to decide the red / lavender badge.
+// Owner flag follows the email — single source of truth is OWNER_EMAIL, so
+// clients never need the email address to decide the red badge.
 userSchema.pre("save", function (next) {
   try {
     if (this.isNew || this.isModified("email")) {
       const clean = String(this.email || "").toLowerCase().trim();
       this.isOwner = clean === env.OWNER_EMAIL;
-      this.isCofounder = clean === env.COFOUNDER_EMAIL;
     }
   } catch {}
   next();

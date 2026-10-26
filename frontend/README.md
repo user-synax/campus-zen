@@ -53,7 +53,7 @@ frontend/
 │   ├── media.js                 # Post media validation (image/gif/video limits, posters)
 │   ├── optimistic.js            # patchPostEverywhere / patchUserEverywhere
 │   ├── railCache.js             # Right-rail trends/suggestions cache
-│   ├── avatar.js                # Avatar ring helpers (owner/cofounder)
+│   ├── avatar.js                # Avatar ring helpers (owner)
 │   ├── college.js               # College slug/href helpers
 │   ├── hiddenPosts.js           # LocalStorage hidden/reported posts
 │   └── utils.js                 # cn() helper

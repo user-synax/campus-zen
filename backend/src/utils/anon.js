@@ -46,7 +46,6 @@ export function maskAnonAuthor(anonAlias) {
     isVerified: false,
     isPro: false,
     isOwner: false,
-    isCofounder: false,
     isAnonymousView: true,
   };
 }

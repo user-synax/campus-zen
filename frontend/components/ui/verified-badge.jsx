@@ -24,8 +24,6 @@ const verifiedBadgeToneClassNames = {
   neutral: "text-[var(--cz-text-secondary)]",
   // Founder badge — red, exactly one account (Founder_EMAIL)
   Founder: "text-[#e11d48]",
-  // cofounder badge — lavender, exactly one account (COFOUNDER_EMAIL)
-  cofounder: "text-[#a78bfa]",
   // pro badge — gold, future subscription tier
   pro: "text-[#eab308]",
 };
@@ -35,7 +33,6 @@ const verifiedBadgeToneClassNames = {
 // white-in-dark-mode instead of red/lavender/gold). Inline style always wins.
 const verifiedBadgeToneStyles = {
   Founder: { color: "#dd0e3b" },
-  cofounder: { color: "#a78bfa" },
   pro: { color: "#eab308" },
 };
 
@@ -127,13 +124,12 @@ export { VerifiedBadge };
 export default VerifiedBadge;
 
 // ─── Badge tiers ─────────────────────────────────────────────────────────────
-// Founder (red) > cofounder (lavender) > pro (gold) > verified (blue).
-// Only Founder_EMAIL ever resolves to Founder; only COFOUNDER_EMAIL ever
-// resolves to cofounder; pro reads user.isPro (subscription later);
-// verified reads user.isVerified (admin-granted via verification appeals:
-// 50+ posts OR 100+ followers). Email verification no longer grants a badge.
+// Founder (red) > pro (gold) > verified (blue).
+// Only Founder_EMAIL ever resolves to Founder; pro reads user.isPro
+// (subscription later); verified reads user.isVerified (admin-granted via
+// verification appeals: 50+ posts OR 100+ followers). Email verification no
+// longer grants a badge.
 export const Founder_EMAIL = "usersynax@gmail.com";
-export const COFOUNDER_EMAIL = "yashvardhan4646@gmail.com";
 
 export function getBadgeKind(user) {
   if (!user) return null;
@@ -146,13 +142,6 @@ export function getBadgeKind(user) {
     (email && email === Founder_EMAIL)
   )
     return "Founder";
-  if (
-    user.isCofounder ||
-    String(user.email || "")
-      .toLowerCase()
-      .trim() === COFOUNDER_EMAIL
-  )
-    return "cofounder";
   if (user.isPro) return "pro";
   if (user.isVerified) return "verified";
   return null;
@@ -160,14 +149,12 @@ export function getBadgeKind(user) {
 
 export function badgeToneFor(kind) {
   if (kind === "Founder") return "Founder";
-  if (kind === "cofounder") return "cofounder";
   if (kind === "pro") return "pro";
   return "brand";
 }
 
 export function badgeLabelFor(kind) {
   if (kind === "Founder") return "Founder";
-  if (kind === "cofounder") return "Co-founder";
   if (kind === "pro") return "Pro user";
   return "Verified user";
 }

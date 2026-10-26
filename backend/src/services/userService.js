@@ -119,7 +119,7 @@ export const userService = {
     const candidates = await User.find({ _id: { $nin: excluded }, isPrivate: { $ne: true }, isDeactivated: { $ne: true } })
       .sort({ createdAt: -1 })
       .limit(poolSize)
-      .select("fullName username avatarUrl bio college course academicYear followersCount createdAt isEmailVerified isVerified isPro isOwner isCofounder")
+      .select("fullName username avatarUrl bio college course academicYear followersCount createdAt isEmailVerified isVerified isPro isOwner")
       .lean();
 
     let mutualCounts = {};
@@ -182,7 +182,7 @@ export const userService = {
     if (!user) {
       user = await User.findOne({ username: clean }).populate({
         path: "pinnedPost",
-        populate: { path: "author", select: "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isCofounder" },
+        populate: { path: "author", select: "fullName username avatarUrl isEmailVerified isVerified isPro isOwner" },
       });
       if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
       cache.set(cacheKey, user, TTL.USER_PROFILE);

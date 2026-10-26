@@ -1359,7 +1359,7 @@ bun run start
 - `APPWRITE_*` — Appwrite storage credentials (`APPWRITE_ENDPOINT/PROJECT_ID/API_KEY/BUCKET_ID`, optional `APPWRITE_VIDEO_BUCKET_ID`)
 - `ADMIN_EMAIL` + `ADMIN_PASSKEY` — Enable `/api/admin/*` + `/admin` (optional `ADMIN_TOKEN_EXPIRES`)
 - `VAPID_PUBLIC/PRIVATE_KEY/SUBJECT` — Web Push (public key also goes to frontend)
-- `OWNER_EMAIL` + `COFOUNDER_EMAIL` — Owner/cofounder badge sync (red/lavender badge, set on User pre-save)
+- `OWNER_EMAIL` — Owner badge sync (red badge, set on User pre-save)
 
 ### Production Checklist
 
