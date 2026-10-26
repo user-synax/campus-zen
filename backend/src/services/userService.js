@@ -204,10 +204,25 @@ export const userService = {
       }
     }
     let safe = user.toSafeObject();
-    // DOB is own-only — never leak to other viewers (directory, profiles).
+    // Own-only fields. A public profile is a profile card, never an account
+    // record: email, verification state, login history and moderation
+    // standing stay with the owner (they surface on /menu for the owner).
     if (String(viewerId || "") !== String(user._id)) {
-      delete safe.dob;
-      delete safe.dobSetAt;
+      for (const k of [
+        "email",
+        "isEmailVerified",
+        "dob",
+        "dobSetAt",
+        "lastLoginAt",
+        "isSuspended",
+        "suspendedAt",
+        "suspendReason",
+        "accountStatus",
+        "accountStatusReason",
+        "accountStatusAt",
+      ]) {
+        delete safe[k];
+      }
     }
     let isFollowing = false;
     if (viewerId && String(viewerId) !== String(user._id)) {

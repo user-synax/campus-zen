@@ -24,13 +24,26 @@ export function useCurrentUser() {
   const needsVerification =
     verifyRequired ||
     Boolean(data?.data?.user && data.data.user.isEmailVerified === false);
+  // A suspended account is a state, not a failure: it keeps a read-only
+  // session so the shell can show the standing notice (and /menu) instead of
+  // bouncing the user back to sign-in, where they could not sign in again.
+  const suspended =
+    (isError &&
+      error?.status === 403 &&
+      error?.data?.code === "ACCOUNT_SUSPENDED") ||
+    Boolean(data?.data?.user?.isSuspended);
   return {
     user: data?.data?.user || null,
     loading: isPending,
+    suspended,
     // A 401 is the expected "signed out" signal, not a failure worth
     // surfacing; anything else is a real error the query layer already logs.
     signedOut: isError && error?.status === 401,
-    failed: isError && error?.status !== 401 && !needsVerification,
+    failed:
+      isError &&
+      error?.status !== 401 &&
+      !needsVerification &&
+      !suspended,
     needsVerification,
     pendingEmail: error?.data?.meta?.email || null,
   };

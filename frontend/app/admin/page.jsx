@@ -10,8 +10,6 @@ import {
   LogOut,
   ShieldCheck,
   Trash2,
-  UserCheck,
-  UserX,
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
@@ -231,7 +229,12 @@ export default function AdminPage() {
     }
   };
 
-  const doSuspend = async (report) => {
+  // Account standing as the owner sees it on /menu. isSuspended wins — it
+  // is the flag the API enforces — so a stale stored value never lies here.
+  const accountStatusOf = (target) =>
+    target?.isSuspended ? "suspended" : target?.accountStatus || "good";
+
+  const doSetStatus = async (report, status) => {
     const userId =
       report.targetType === "user"
         ? String(report.targetId)
@@ -239,22 +242,28 @@ export default function AdminPage() {
     if (!userId) return;
     const reason = (suspendReason[report._id] || "").trim();
     if (
+      status === "suspended" &&
       !confirm(
         `Suspend @${report.target?.username || "user"}? They will be logged out immediately.`,
       )
     )
       return;
-    markActing(report._id, "suspending");
+    markActing(report._id, `status-${status}`);
     try {
-      await api.adminSuspendUser(userId, reason || undefined);
+      await api.adminSetAccountStatus(userId, status, reason || undefined);
       setReports((prev) =>
         prev.map((r) =>
           r._id === report._id
             ? {
                 ...r,
-                status: "actioned",
                 target: r.target
-                  ? { ...r.target, isSuspended: true }
+                  ? {
+                      ...r.target,
+                      accountStatus: status,
+                      accountStatusReason:
+                        status === "good" ? null : reason || null,
+                      isSuspended: status === "suspended",
+                    }
                   : r.target,
               }
             : r,
@@ -262,36 +271,7 @@ export default function AdminPage() {
       );
       fetchStats();
     } catch (err) {
-      alert(err.data?.message || err.message || "Suspend failed");
-    } finally {
-      clearActing(report._id);
-    }
-  };
-
-  const doUnsuspend = async (report) => {
-    const userId =
-      report.targetType === "user"
-        ? String(report.targetId)
-        : report.target?._id;
-    if (!userId) return;
-    markActing(report._id, "unsuspending");
-    try {
-      await api.adminUnsuspendUser(userId);
-      setReports((prev) =>
-        prev.map((r) =>
-          r._id === report._id
-            ? {
-                ...r,
-                target: r.target
-                  ? { ...r.target, isSuspended: false }
-                  : r.target,
-              }
-            : r,
-        ),
-      );
-      fetchStats();
-    } catch (err) {
-      alert(err.data?.message || err.message || "Failed");
+      alert(err.data?.message || err.message || "Status update failed");
     } finally {
       clearActing(report._id);
     }
@@ -640,11 +620,13 @@ export default function AdminPage() {
                       <span className="text-[var(--cz-text-secondary)]">
                         {" "}
                         · {r.target.fullName || ""}
-                        {r.target.isSuspended ? " · SUSPENDED" : ""}
                       </span>
                       {r.target.bio ? (
                         <span className="mt-1 block">{r.target.bio}</span>
                       ) : null}
+                      <span className="mt-1 block text-[12px] font-bold uppercase text-[var(--cz-text-secondary)]">
+                        Status: {accountStatusOf(r.target)}
+                      </span>
                     </p>
                   )}
                 </div>
@@ -658,7 +640,7 @@ export default function AdminPage() {
                         [r._id]: e.target.value,
                       }))
                     }
-                    placeholder="Suspend reason (optional, shown internally)"
+                    placeholder="Status reason (optional, shown to the account owner)"
                     maxLength={500}
                     className="mt-2 h-[36px] w-full rounded-xl border border-[var(--cz-border-strong)] bg-transparent px-3 text-[14px] outline-none placeholder:text-[var(--cz-text-secondary)] focus:border-[var(--cz-accent)]"
                   />
@@ -697,25 +679,21 @@ export default function AdminPage() {
                     </Button>
                   ) : null}
                   {r.targetType === "user" && r.target && !r.targetMissing ? (
-                    r.target.isSuspended ? (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        disabled={busy}
-                        onClick={() => doUnsuspend(r)}
+                    <label className="flex items-center gap-2 text-[13px] font-bold text-[var(--cz-text-secondary)]">
+                      Account status
+                      <select
+                        aria-label={`Account status for @${r.target.username || "user"}`}
+                        value={accountStatusOf(r.target)}
+                        disabled={busy || Boolean(acting[r._id])}
+                        onChange={(e) => doSetStatus(r, e.target.value)}
+                        className="h-[32px] rounded-full border border-[var(--cz-border-strong)] bg-[var(--cz-bg)] px-3 text-[13px] font-bold text-[var(--cz-text-primary)] outline-none focus:border-[var(--cz-accent)] disabled:opacity-50"
                       >
-                        <UserCheck className="h-4 w-4" aria-hidden /> Unsuspend
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="dangerSolid"
-                        size="sm"
-                        disabled={busy}
-                        onClick={() => doSuspend(r)}
-                      >
-                        <UserX className="h-4 w-4" aria-hidden /> Suspend user
-                      </Button>
-                    )
+                        <option value="good">Good</option>
+                        <option value="limited">Limited</option>
+                        <option value="restricted">Restricted</option>
+                        <option value="suspended">Suspended</option>
+                      </select>
+                    </label>
                   ) : null}
                 </div>
               </article>

@@ -25,6 +25,7 @@ import { useEffect, useState } from "react";
 import { CzImage } from "@/components/app/CzImage";
 import { PageHeader } from "@/components/app/PageHeader";
 import { AccountData } from "@/components/app/AccountData";
+import { AccountDetails } from "@/components/app/AccountDetails";
 import { ContentSettings } from "@/components/app/ContentSettings";
 import { DevicesSettings } from "@/components/app/DevicesSettings";
 import { FollowRequests } from "@/components/app/FollowRequests";
@@ -93,6 +94,10 @@ export default function MenuPage() {
   // Reuse the shell's cached session — no second /me on tab open.
   const { data: meData, isPending: loadingUser } = useMe();
   const user = meData?.data?.user || null;
+  // A suspended account keeps a read-only session: it can see its standing
+  // and its own record, nothing else. The API rejects every write anyway;
+  // hiding the sections keeps the page honest instead of half-broken.
+  const readOnly = Boolean(user?.isSuspended);
   const [loggingOut, setLoggingOut] = useState(false);
   const [unblocking, setUnblocking] = useState(null);
   const [showBlocked, setShowBlocked] = useState(false);
@@ -252,11 +257,15 @@ export default function MenuPage() {
     {
       id: "account",
       title: "Account",
-      keywords: "profile name username handle avatar photo edit identity verified badge tick",
+      keywords:
+        "profile name username handle avatar photo edit identity verified badge tick email address details status standing good limited restricted suspended member since joined last login",
       render: () => (
-        <div className={`${card} divide-y divide-[var(--cz-border)]`}>
-          {profileRow}
-          {verifiedRow}
+        <div className="flex flex-col gap-2.5">
+          <div className={`${card} divide-y divide-[var(--cz-border)]`}>
+            {profileRow}
+            {verifiedRow}
+          </div>
+          {user ? <AccountDetails user={user} loading={loadingUser} /> : null}
         </div>
       ),
     },
@@ -493,9 +502,11 @@ export default function MenuPage() {
     },
   ];
 
-  const visible = groups.filter(
-    (g) => g.shown !== false && matches(q, g.title, g.keywords),
-  );
+  const visible = groups
+    // Suspended sessions see the Account group only — status, own details,
+    // and the sign-out button at the bottom of the page.
+    .filter((g) => (readOnly ? g.id === "account" : true))
+    .filter((g) => g.shown !== false && matches(q, g.title, g.keywords));
 
   return (
     <div>

@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { validate } from "../middleware/validate.js";
 import { authController } from "../controllers/authController.js";
-import { protect } from "../middleware/auth.js";
+import { protect, protectAllowSuspended } from "../middleware/auth.js";
 import { signupLimiter, loginLimiter, verifyLimiter, forgotLimiter, resendLimiter, checkUsernameLimiter, refreshLimiter, sessionsLimiter } from "../middleware/rateLimiter.js";
 
 const router = Router();
@@ -79,7 +79,10 @@ router.post("/resend-otp", resendLimiter, validate(resendSchema), authController
 router.post("/login", loginLimiter, validate(loginSchema), authController.login);
 router.post("/refresh", refreshLimiter, authController.refresh);
 router.post("/logout", authController.logout);
-router.get("/me", protect, authController.me);
+// A suspended account may still read its own record: the app shell needs it
+// to explain the suspension and offer a way out, and every write path stays
+// behind plain protect().
+router.get("/me", protectAllowSuspended, authController.me);
 router.post("/forgot-password", forgotLimiter, validate(forgotSchema), authController.forgotPassword);
 router.post("/reset-password", verifyLimiter, validate(resetSchema), authController.resetPassword);
 

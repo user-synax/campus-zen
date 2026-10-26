@@ -4,6 +4,7 @@ import { Loader2 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { BottomNav } from "@/components/app/BottomNav";
+import { AccountSuspended } from "@/components/app/AccountSuspended";
 import { LeftNav } from "@/components/app/LeftNav";
 import { OfflineBanner } from "@/components/app/OfflineBanner";
 import { PushEnableBanner } from "@/components/app/PushEnableBanner";
@@ -33,15 +34,26 @@ import { cn } from "@/lib/utils";
 export function AppShell({ children, requireAuth = false }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, loading, signedOut, failed, needsVerification, pendingEmail } =
-    useCurrentUser();
+  const {
+    user,
+    loading,
+    signedOut,
+    failed,
+    needsVerification,
+    pendingEmail,
+    suspended: suspendedSession,
+  } = useCurrentUser();
+  // A suspended account keeps a read-only session: it gets the standing
+  // notice instead of the app, and /menu so it can still read its own record.
+  const suspended = suspendedSession || Boolean(user?.isSuspended);
+  const onMenu = pathname === "/app/menu";
 
   // /app/a/<username>/<slug> — the long-form reader. On xl the right rail
   // unmounts and the main column grows to fill the freed width.
   const isArticleReader = Boolean(pathname?.startsWith("/app/a/"));
 
   // One live-notification stream for the whole shell.
-  useSSE();
+  useSSE(!suspended);
 
   // /app/* has no guest reading experience, so a signed-out visitor goes to
   // sign in. /u and /c don't: their own pages gate themselves with
@@ -75,7 +87,10 @@ export function AppShell({ children, requireAuth = false }) {
     );
   }
 
-  if (requireAuth && !user) return null;
+  if (requireAuth && !user && !suspended) return null;
+
+  // The standing notice renders without a user record too (an error state
+  // where /me itself was refused): it still has to offer a way out.
 
   // Redirect is in flight — don't flash the app frame for an unverified
   // account (also covers /u and /c, which are not requireAuth).
@@ -84,7 +99,7 @@ export function AppShell({ children, requireAuth = false }) {
   return (
     <div className="min-h-dvh bg-[var(--cz-bg)] text-[var(--cz-text-primary)]">
       <OfflineBanner />
-      {user ? <PushEnableBanner /> : null}
+      {user && !suspended ? <PushEnableBanner /> : null}
       {/* mobile top bar */}
       <header className="sticky top-0 z-30 flex h-[53px] items-center justify-between border-b border-[var(--cz-border)] bg-[var(--cz-bg)]/85 px-4 backdrop-blur md:hidden">
         <BrandMark size={26} priority />
@@ -111,7 +126,11 @@ export function AppShell({ children, requireAuth = false }) {
         >
           {/* room for the mobile tab bar */}
           <div className="pb-[calc(53px+env(safe-area-inset-bottom))] md:pb-0">
-            {children}
+            {requireAuth && suspended && !onMenu ? (
+              <AccountSuspended user={user} />
+            ) : (
+              children
+            )}
           </div>
         </main>
 

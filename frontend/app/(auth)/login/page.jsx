@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { GuestGuard } from "@/components/auth/GuestGuard";
+import { AccountSuspended } from "@/components/app/AccountSuspended";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FloatingInput } from "@/components/ui/input";
@@ -22,6 +23,9 @@ export default function LoginPage() {
   const [errors, setErrors] = useState({});
   const [shake, setShake] = useState({});
   const [serverMsg, setServerMsg] = useState(null);
+  // A suspended account cannot be signed in to — it gets a standing notice
+  // with a way out instead of the password form.
+  const [suspended, setSuspended] = useState(false);
 
   const userRef = useRef(null);
   const pwRef = useRef(null);
@@ -69,6 +73,10 @@ export default function LoginPage() {
         router.push(verifyEmailPath(email));
         return;
       }
+      if (err.status === 403 && data.code === "ACCOUNT_SUSPENDED") {
+        setSuspended(true);
+        return;
+      }
       if (err.status === 401) {
         setErrors({ password: "Invalid username or password" });
         triggerShake("password");
@@ -101,6 +109,17 @@ export default function LoginPage() {
 
   return (
     <GuestGuard>
+      {suspended ? (
+        <div className="min-h-dvh bg-[var(--cz-bg)] px-4 py-8">
+          <AccountSuspended
+            onSignedOut={() => {
+              setSuspended(false);
+              setPassword("");
+              setServerMsg(null);
+            }}
+          />
+        </div>
+      ) : (
       <AuthShell title="Sign in to CampusZen">
         <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
           {serverMsg ? (
@@ -204,6 +223,7 @@ export default function LoginPage() {
           </p>
         </form>
       </AuthShell>
+      )}
     </GuestGuard>
   );
 }

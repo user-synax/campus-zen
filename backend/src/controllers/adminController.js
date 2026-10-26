@@ -54,6 +54,12 @@ export const adminController = {
     res.json({ success: true, message: "User unsuspended", data: { user } });
   }),
 
+  setAccountStatus: asyncHandler(async (req, res) => {
+    const { status, reason } = req.body || {};
+    const user = await adminService.setAccountStatus(req.params.id, status, reason);
+    res.json({ success: true, message: `Account status set to ${status}`, data: { user } });
+  }),
+
   listAppeals: asyncHandler(async (req, res) => {
     const { status = "open", page = 1, limit = 20 } = req.query;
     const data = await adminService.listAppeals({ status, page, limit });

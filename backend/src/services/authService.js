@@ -217,7 +217,9 @@ export const authService = {
 
     const user = await User.findById(decoded.id).select("+refreshTokenHash");
     if (!user) throw new AppError("Session not found. Log in again.", 401, "SESSION_NOT_FOUND");
-    if (user.isSuspended) throw new AppError("Account suspended. Contact support.", 403, "ACCOUNT_SUSPENDED");
+    // A suspended account keeps a refreshable (read-only) session so it can
+    // open /menu, read its standing and sign out. protect() still rejects
+    // every write, and login() still refuses to mint a fresh session.
     if (!user.isEmailVerified) {
       throw new AppError(
         "Verify your email before continuing.",

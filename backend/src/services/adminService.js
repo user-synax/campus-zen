@@ -2,14 +2,14 @@ import { Report } from "../models/Report.js";
 import { Appeal } from "../models/Appeal.js";
 import { VerificationRequest } from "../models/VerificationRequest.js";
 import { Post } from "../models/Post.js";
-import { User } from "../models/User.js";
+import { User, ACCOUNT_STATUSES } from "../models/User.js";
 import { Comment } from "../models/Comment.js";
 import { Like } from "../models/Like.js";
 import { Repost } from "../models/Repost.js";
 import { Bookmark } from "../models/Bookmark.js";
 import { PollVote } from "../models/PollVote.js";
 import { AppError } from "../utils/AppError.js";
-import { cache } from "../utils/cache.js";
+import { cache, CacheKeys } from "../utils/cache.js";
 import { verifyAdminCredentials, isAdminConfigured } from "../middleware/adminAuth.js";
 
 function invalidatePostCaches(postId, authorId) {
@@ -78,7 +78,7 @@ export const adminService = {
             return { ...r, target: post || null, targetMissing: !post };
           }
           const user = await User.findById(r.targetId)
-            .select("fullName username avatarUrl bio college isSuspended createdAt")
+            .select("fullName username avatarUrl bio college isSuspended accountStatus accountStatusReason createdAt")
             .lean();
           return { ...r, target: user || null, targetMissing: !user };
         } catch {
@@ -158,8 +158,12 @@ export const adminService = {
     user.isSuspended = true;
     user.suspendedAt = new Date();
     user.suspendReason = reason ? String(reason).slice(0, 500) : null;
+    user.accountStatus = "suspended";
+    user.accountStatusReason = user.suspendReason;
+    user.accountStatusAt = new Date();
     user.refreshTokenHash = null; // force logout everywhere
     await user.save();
+    cache.del(CacheKeys.userProfile(user.username)); // standing rides on the profile payload
     await Report.updateMany({ targetType: "user", targetId: userId, status: "open" }, { $set: { status: "actioned" } });
     return user.toSafeObject();
   },
@@ -170,7 +174,51 @@ export const adminService = {
     user.isSuspended = false;
     user.suspendedAt = null;
     user.suspendReason = null;
+    // Only the suspended standing is cleared — a limited/restricted review
+    // still stands until an admin lifts it separately.
+    if (user.accountStatus === "suspended") {
+      user.accountStatus = "good";
+      user.accountStatusReason = null;
+      user.accountStatusAt = new Date();
+    }
     await user.save();
+    cache.del(CacheKeys.userProfile(user.username));
+    return user.toSafeObject();
+  },
+
+  // Account standing as the owner sees it on /menu. "suspended" is the only
+  // value that also flips the enforcement flag; limited/restricted are
+  // advisory until the app chooses to gate on them.
+  async setAccountStatus(userId, status, reason) {
+    if (!ACCOUNT_STATUSES.includes(status)) {
+      throw new AppError(`Status must be one of: ${ACCOUNT_STATUSES.join(", ")}`, 400, "INVALID_STATUS");
+    }
+    const user = await User.findById(userId);
+    if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+    const clean = reason ? String(reason).slice(0, 500) : null;
+    user.accountStatus = status;
+    user.accountStatusReason = status === "good" ? null : clean;
+    user.accountStatusAt = new Date();
+    if (status === "suspended") {
+      if (!user.isSuspended) user.suspendedAt = new Date();
+      user.isSuspended = true;
+      user.suspendReason = clean;
+      user.refreshTokenHash = null; // force logout everywhere
+    } else if (user.isSuspended) {
+      user.isSuspended = false;
+      user.suspendedAt = null;
+      user.suspendReason = null;
+    }
+    await user.save();
+    cache.del(CacheKeys.userProfile(user.username)); // standing rides on the profile payload
+    // Same side effect as suspendUser: suspending settles the open reports
+    // on that account so they do not sit in the queue forever.
+    if (status === "suspended") {
+      await Report.updateMany(
+        { targetType: "user", targetId: userId, status: "open" },
+        { $set: { status: "actioned" } },
+      );
+    }
     return user.toSafeObject();
   },
 

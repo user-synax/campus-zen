@@ -13,7 +13,7 @@ function accessTokenFrom(req) {
   return bearerToken(req) || req.cookies?.accessToken || null;
 }
 
-export async function protect(req, res, next) {
+async function authenticate(req, res, next, { allowSuspended = false } = {}) {
   try {
     const token = accessTokenFrom(req);
     if (!token) throw new AppError("Not authenticated. Please log in.", 401, "UNAUTHENTICATED");
@@ -28,7 +28,12 @@ export async function protect(req, res, next) {
 
     const user = await User.findById(decoded.id).select("+refreshTokenHash");
     if (!user) throw new AppError("User no longer exists.", 401, "USER_NOT_FOUND");
-    if (user.isSuspended) throw new AppError("Account suspended. Contact support.", 403, "ACCOUNT_SUSPENDED");
+    // Suspended accounts keep a session so they can see WHY they are blocked
+    // (the standing card on /menu) and sign out again — every write path is
+    // still protect()-gated, so the session stays read-only.
+    if (user.isSuspended && !allowSuspended) {
+      throw new AppError("Account suspended. Contact support.", 403, "ACCOUNT_SUSPENDED");
+    }
     // Hard gate: a session is not valid for app access until the email is
     // verified. Only /api/auth/verify-email + /resend-otp (unprotected) work.
     if (!user.isEmailVerified) {
@@ -50,6 +55,16 @@ export async function protect(req, res, next) {
   } catch (err) {
     next(err);
   }
+}
+
+export async function protect(req, res, next) {
+  return authenticate(req, res, next);
+}
+
+// Same as protect, but a suspended session stays usable for read-only calls
+// (GET /me). Only routes that must work FOR a suspended account use this.
+export async function protectAllowSuspended(req, res, next) {
+  return authenticate(req, res, next, { allowSuspended: true });
 }
 
 // Optional auth — sets req.user if valid token, else null, never throws

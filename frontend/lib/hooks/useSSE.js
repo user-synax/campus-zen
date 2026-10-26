@@ -28,12 +28,16 @@ function getToken() {
     ?.split("=")[1];
 }
 
-export function useSSE() {
+export function useSSE(enabled = true) {
   const queryClient = useQueryClient();
   const clientRef = useRef(queryClient);
   clientRef.current = queryClient;
 
   useEffect(() => {
+    // Nothing to stream for a signed-out or suspended session — connecting
+    // would only spin the 5s reconnect loop against a stream that rejects us.
+    if (!enabled) return;
+
     consumers += 1;
 
     function connect() {
@@ -148,5 +152,5 @@ export function useSSE() {
         close();
       }
     };
-  }, []);
+  }, [enabled]);
 }

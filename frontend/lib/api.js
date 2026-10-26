@@ -650,6 +650,11 @@ export const api = {
     request(`/api/admin/users/${encodeURIComponent(id)}/unsuspend`, {
       method: "PATCH",
     }),
+  adminSetAccountStatus: (id, status, reason) =>
+    request(`/api/admin/users/${encodeURIComponent(id)}/status`, {
+      method: "PATCH",
+      body: reason ? { status, reason } : { status },
+    }),
   adminAppeals: (params = {}) => {
     const qs = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => {

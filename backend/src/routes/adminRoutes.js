@@ -5,6 +5,7 @@ import { requireAdmin } from "../middleware/adminAuth.js";
 import { adminController } from "../controllers/adminController.js";
 import { adminLoginLimiter } from "../middleware/rateLimiter.js";
 import { REPORT_STATUSES } from "../models/Report.js";
+import { ACCOUNT_STATUSES } from "../models/User.js";
 
 const router = Router();
 
@@ -24,6 +25,11 @@ const resolveSchema = z.object({
 });
 
 const suspendSchema = z.object({
+  reason: z.string().trim().max(500).optional(),
+});
+
+const accountStatusSchema = z.object({
+  status: z.enum(ACCOUNT_STATUSES),
   reason: z.string().trim().max(500).optional(),
 });
 
@@ -71,6 +77,7 @@ router.patch("/appeals/:id", requireAdmin, validate(idParamSchema, "params"), va
 router.delete("/posts/:id", requireAdmin, validate(idParamSchema, "params"), adminController.deletePost);
 router.patch("/users/:id/suspend", requireAdmin, validate(idParamSchema, "params"), validate(suspendSchema), adminController.suspendUser);
 router.patch("/users/:id/unsuspend", requireAdmin, validate(idParamSchema, "params"), adminController.unsuspendUser);
+router.patch("/users/:id/status", requireAdmin, validate(idParamSchema, "params"), validate(accountStatusSchema), adminController.setAccountStatus);
 router.get("/verifications", requireAdmin, validate(verificationQuerySchema, "query"), adminController.listVerifications);
 router.patch("/verifications/:id", requireAdmin, validate(idParamSchema, "params"), validate(reviewVerificationSchema), adminController.reviewVerification);
 router.patch("/users/:id/verified", requireAdmin, validate(idParamSchema, "params"), validate(setVerifiedSchema), adminController.setUserVerified);

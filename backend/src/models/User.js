@@ -1,6 +1,10 @@
 import mongoose from "mongoose";
 import { env } from "../config/env.js";
 
+// Account standing shown to the owner on /menu and set from the admin
+// dashboard. "good" is the default; the rest are moderation decisions.
+export const ACCOUNT_STATUSES = ["good", "limited", "restricted", "suspended"];
+
 const userSchema = new mongoose.Schema(
   {
     fullName: {
@@ -115,6 +119,19 @@ const userSchema = new mongoose.Schema(
     isSuspended: { type: Boolean, default: false, index: true },
     suspendedAt: { type: Date, default: null },
     suspendReason: { type: String, default: null, maxlength: 500 },
+    // Account standing shown to the owner on /menu. Set from the admin
+    // dashboard; "suspended" is the only value that changes enforcement —
+    // isSuspended stays the flag protect()/login/refresh gate on, and the two
+    // are kept in sync wherever an admin changes this (see adminService).
+    accountStatus: {
+      type: String,
+      enum: ACCOUNT_STATUSES,
+      default: "good",
+      index: true,
+    },
+    // Optional note the owner sees next to a non-good status.
+    accountStatusReason: { type: String, default: null, maxlength: 500 },
+    accountStatusAt: { type: Date, default: null },
     // badge tiers — owner (red, exactly OWNER_EMAIL), cofounder (lavender,
     // exactly COFOUNDER_EMAIL), pro (gold, future subscription), verified
     // (blue, admin-granted via verification appeals). isOwner/isCofounder sync from email on save
