@@ -37,7 +37,7 @@ export function isProfileComplete(user) {
 export function computeAchievementTier({ user, totalLikes = 0, activeRecently = true }) {
   if (!user) return 0;
   const posts = Number(user.postCount) || 0;
-  const followers = Number(user.followersCount) || 0;
+  const followers = Number(user.qualityFollowers ?? user.followersCount) || 0;
   const likes = Number(totalLikes) || 0;
 
   // Evaluate highest tier whose rule passes.
@@ -76,7 +76,7 @@ export function progressToNext({ user, totalLikes = 0, activeRecently = true }) 
   const nextTier = tierInfo(nextLevel);
   // Heuristic progress: fraction of the most relevant threshold met.
   const posts = Number(user?.postCount) || 0;
-  const followers = Number(user?.followersCount) || 0;
+  const followers = Number(user?.qualityFollowers ?? user?.followersCount) || 0;
   let progress = 0;
   let hint = "";
   switch (nextLevel) {

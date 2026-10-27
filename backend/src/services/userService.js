@@ -576,22 +576,31 @@ export const userService = {
   // Daily posting streak: consecutive UTC days with at least one post/article.
   async updateStreak(userId) {
     const user = await User.findById(userId)
-      .select("streakCount lastStreakDate longestStreak username")
+      .select("streakCount lastStreakDate longestStreak lastPostAt username")
       .lean();
     if (!user) return { streakCount: 0 };
+
+    const now = new Date();
+    // Anti-gaming cooldown: a new streak day only counts when the previous
+    // counted post is at least 6 hours old. Bursts within 6h never extend.
+    const cooldownMs = 6 * 60 * 60 * 1000;
+    const cooldownOk = !user.lastPostAt || now.getTime() - new Date(user.lastPostAt).getTime() >= cooldownMs;
+
     const utcDay = (d) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-    const today = utcDay(new Date());
+    const today = utcDay(now);
     const last = user.lastStreakDate ? utcDay(new Date(user.lastStreakDate)) : null;
+
     let next = Number(user.streakCount) || 0;
-    if (!last || last.getTime() !== today.getTime()) {
+    if (cooldownOk && (!last || last.getTime() !== today.getTime())) {
       const yesterday = new Date(today.getTime() - 86400000);
       if (last && last.getTime() === yesterday.getTime()) next = (Number(user.streakCount) || 0) + 1;
       else next = 1;
     }
     const longest = Math.max(Number(user.longestStreak) || 0, next);
+
     const updated = await User.findByIdAndUpdate(
       userId,
-      { $set: { streakCount: next, lastStreakDate: today, longestStreak: longest } },
+      { $set: { streakCount: next, lastStreakDate: today, longestStreak: longest, lastPostAt: now } },
       { new: true },
     );
     if (updated) {

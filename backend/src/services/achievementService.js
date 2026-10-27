@@ -36,7 +36,31 @@ export const achievementService = {
     if (!user) return null;
     const likes = await totalLikesFor(userId);
     const active = isActiveRecently(user);
-    return { user, totalLikes: likes, activeRecently: active };
+    // Engagement quality: only followers active in the last 30 days count toward
+    // badge thresholds, so dead/fake followers can't farm tiers.
+    let qualityFollowers = Number(user.followersCount) || 0;
+    try {
+      const { Follow } = await import("../models/Follow.js");
+      const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const rows = await Follow.aggregate([
+        { $match: { following: new mongoose.Types.ObjectId(String(userId)) } },
+        {
+          $lookup: {
+            from: "users",
+            localField: "follower",
+            foreignField: "_id",
+            as: "followerDoc",
+          },
+        },
+        { $unwind: "$followerDoc" },
+        { $match: { "followerDoc.lastLoginAt": { $gte: since } } },
+        { $count: "n" },
+      ]);
+      if (rows?.[0]?.n != null) qualityFollowers = rows[0].n;
+    } catch {}
+    // Attach so computeAchievementTier can use it.
+    user.qualityFollowers = qualityFollowers;
+    return { user, totalLikes: likes, activeRecently: active, qualityFollowers };
   },
 
   async evaluate(userId) {

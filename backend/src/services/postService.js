@@ -491,6 +491,17 @@ async function uploadMediaFiles(files, posters, meta) {
 
 export const postService = {
   async create(authorId, text, mediaInput, pollInput, opts = {}) {
+    // Anti-gaming: daily post cap to prevent spam farming.
+    const dayStart = new Date();
+    dayStart.setUTCHours(0, 0, 0, 0);
+    const todayCount = await Post.countDocuments({
+      author: authorId,
+      createdAt: { $gte: dayStart },
+      kind: { $in: ["post", "article"] },
+    });
+    if (todayCount >= 20) {
+      throw new AppError("Daily post limit reached (20). Try again tomorrow.", 429, "DAILY_POST_LIMIT");
+    }
     const t = text?.trim() || "";
     if (t.length > 500) throw new AppError("Post must be 1-500 characters", 400, "INVALID_TEXT");
     // 1-3 interest tags required — they route the post into the Interest Hub
@@ -703,6 +714,16 @@ export const postService = {
   },
 
   async createArticle(authorId, { title, description, body }, mediaInput, opts = {}) {
+    const dayStart = new Date();
+    dayStart.setUTCHours(0, 0, 0, 0);
+    const todayCount = await Post.countDocuments({
+      author: authorId,
+      createdAt: { $gte: dayStart },
+      kind: { $in: ["post", "article"] },
+    });
+    if (todayCount >= 20) {
+      throw new AppError("Daily post limit reached (20). Try again tomorrow.", 429, "DAILY_POST_LIMIT");
+    }
     const t = String(title || "").trim();
     const d = String(description || "").trim();
     const b = String(body || "").trim();
@@ -1250,6 +1271,11 @@ export const postService = {
   async likePost(userId, postId) {
     const post = await Post.findById(postId).select("author isAnonymous");
     if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
+    // Anti-gaming: self-likes don't count toward engagement.
+    if (String(post.author) === String(userId)) {
+      const cur = await Post.findById(postId).select("likeCount").lean();
+      return { liked: true, likeCount: cur?.likeCount || 0 };
+    }
     await blockService.assertNoBlock(userId, post.author, "You can't interact with this account's posts.");
     if (!post.isAnonymous) await assertCanSeePost(userId, post.author);
     let inserted = false;

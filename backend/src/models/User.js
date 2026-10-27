@@ -85,6 +85,7 @@ const userSchema = new mongoose.Schema(
     streakCount: { type: Number, default: 0, min: 0 },
     lastStreakDate: { type: Date, default: null },
     longestStreak: { type: Number, default: 0, min: 0 },
+    lastPostAt: { type: Date, default: null },
     // ── Privacy & safety controls ──────────────────────────────────
     // Strict private: approval queue + followers-only visibility.
     isPrivate: { type: Boolean, default: false, index: true },
