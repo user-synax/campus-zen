@@ -9,6 +9,7 @@ import { AnimatedNumber } from "@/components/app/AnimatedNumber";
 import { CzImage } from "@/components/app/CzImage";
 import { Button } from "@/components/ui/button";
 import { UserBadge } from "@/components/ui/verified-badge";
+import { HighestAchievementBadge } from "@/components/ui/achievement-badge";
 import { api } from "@/lib/api";
 import { withAvatarRing } from "@/lib/avatar";
 import { collegeHrefFor } from "@/lib/college";
@@ -52,6 +53,7 @@ export function UserCard({ user: initialUser, isOwn, isGuest }) {
               {user.fullName || user.username}
             </span>
             <UserBadge user={user} size="sm" />
+            <HighestAchievementBadge user={user} size={12} />
           </span>
           <span className="block truncate text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">
             @{user.username}

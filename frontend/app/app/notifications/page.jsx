@@ -3,6 +3,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import {
   AtSign,
+  Award,
   Bell,
   Check,
   CheckCheck,
@@ -44,6 +45,7 @@ const NOTIF_ICON = {
   mention: { Icon: AtSign, className: "text-[var(--cz-accent)]" },
   admin_broadcast: { Icon: Megaphone, className: "text-[var(--cz-accent)]" },
   admin_notice: { Icon: ShieldCheck, className: "text-[var(--cz-accent)]" },
+  badge_unlock: { Icon: Award, className: "text-[var(--cz-accent)]" },
 };
 
 // Marks an unread card read after ~1s in view. Fires once per card.
@@ -324,7 +326,7 @@ export default function NotificationsPage() {
             };
             const Glyph = glyph.Icon;
             const isAdminMessage =
-              n.type === "admin_broadcast" || n.type === "admin_notice";
+              n.type === "admin_broadcast" || n.type === "admin_notice" || n.type === "badge_unlock";
             return (
               <AutoRead
                 key={n._id}

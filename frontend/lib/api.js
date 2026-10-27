@@ -155,6 +155,8 @@ export const api = {
   },
   updateMe: (payload) =>
     request("/api/users/me", { method: "PATCH", body: payload }),
+  getMyAchievements: () =>
+    request("/api/users/me/achievements", { method: "GET" }),
   updatePrivacy: (payload) =>
     request("/api/users/me/privacy", { method: "PATCH", body: payload }),
   setDobOnce: (dob) =>

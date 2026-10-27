@@ -37,6 +37,7 @@ import { useAnimatedMount } from "@/components/app/useAnimatedMount";
 import { useAutogrowTextarea } from "@/components/app/useAutogrowTextarea";
 import { Button } from "@/components/ui/button";
 import { UserBadge } from "@/components/ui/verified-badge";
+import { HighestAchievementBadge } from "@/components/ui/achievement-badge";
 import { api } from "@/lib/api";
 import { articleUrl, excerptOf } from "@/lib/articles";
 import { withAvatarRing } from "@/lib/avatar";
@@ -495,7 +496,10 @@ export function PostCard({
                     ANON
                   </span>
                 ) : (
-                  <UserBadge user={author} size="sm" />
+                  <>
+                    <UserBadge user={author} size="sm" />
+                    <HighestAchievementBadge user={author} size={14} />
+                  </>
                 )}
                 {post?.isSensitive ? (
                   <span className="inline-flex shrink-0 items-center rounded-full bg-[var(--cz-error)] px-2 py-0.5 text-[11px] font-extrabold tracking-wide text-white">

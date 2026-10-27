@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { BadgesTab } from "@/components/app/BadgesTab";
 import { BlockedProfile } from "@/components/app/BlockedProfile";
 import { EmptyState } from "@/components/app/EmptyState";
 import { FollowModal } from "@/components/app/FollowModal";
@@ -222,6 +223,8 @@ export default function PublicProfilePage() {
               pinnedPost={user.pinnedPost}
               onPinChange={(p) => patchUser({ pinnedPost: p })}
             />
+          ) : tab === "badges" ? (
+            <BadgesTab user={user} isOwn={!!isOwn} />
           ) : tab === "articles" ? (
             <TabArticles username={user.username} currentUser={me} />
           ) : tab === "replies" ? (

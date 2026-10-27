@@ -3,6 +3,7 @@
 import { Loader2, Settings } from "lucide-react";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { BadgesTab } from "@/components/app/BadgesTab";
 import { EditProfileModal } from "@/components/app/EditProfileModal";
 import { EmptyState } from "@/components/app/EmptyState";
 import { FollowModal } from "@/components/app/FollowModal";
@@ -76,7 +77,9 @@ export default function OwnProfilePage() {
 
       <ProfileTabs active={tab} onChange={setTab} />
 
-      {tab === "posts" ? (
+      {tab === "badges" ? (
+        <BadgesTab user={user} isOwn />
+      ) : tab === "posts" ? (
         <TabPosts
           username={user.username}
           currentUser={user}

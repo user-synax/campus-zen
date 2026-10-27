@@ -67,6 +67,9 @@ export const followService = {
       afterResponse(() =>
         notificationService.create({ recipient: followingId, actor: followerId, type: "follow" }),
       );
+      import("../services/achievementService.js")
+        .then(({ achievementService }) => achievementService.evaluate(followingId))
+        .catch(() => {});
     }
 
     // live counts — fetch fresh
@@ -132,7 +135,7 @@ export const followService = {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(lim)
-        .populate("requester", "fullName username avatarUrl bio college course academicYear followersCount followingCount isEmailVerified isVerified isPro isOwner")
+        .populate("requester", "fullName username avatarUrl bio college course academicYear followersCount followingCount isEmailVerified isVerified isPro isOwner achievementTier")
         .lean(),
       FollowRequest.countDocuments(filter),
     ]);
@@ -179,6 +182,9 @@ export const followService = {
       afterResponse(() =>
         notificationService.create({ recipient: req.requester, actor: req.target, type: "follow_accept" }),
       );
+      import("../services/achievementService.js")
+        .then(({ achievementService }) => achievementService.evaluate(req.target))
+        .catch(() => {});
     }
     cache.delPattern("user:*");
     cache.delPattern("feed:*");
@@ -210,7 +216,7 @@ export const followService = {
     const filter = { following: userId };
 
     const [rows, total] = await Promise.all([
-      Follow.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("follower", "fullName username avatarUrl bio college course academicYear followersCount followingCount isEmailVerified isVerified isPro isOwner").lean(),
+      Follow.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("follower", "fullName username avatarUrl bio college course academicYear followersCount followingCount isEmailVerified isVerified isPro isOwner achievementTier").lean(),
       Follow.countDocuments(filter),
     ]);
 
@@ -246,7 +252,7 @@ export const followService = {
     const filter = { follower: userId };
 
     const [rows, total] = await Promise.all([
-      Follow.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("following", "fullName username avatarUrl bio college course academicYear followersCount followingCount isEmailVerified isVerified isPro isOwner").lean(),
+      Follow.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("following", "fullName username avatarUrl bio college course academicYear followersCount followingCount isEmailVerified isVerified isPro isOwner achievementTier").lean(),
       Follow.countDocuments(filter),
     ]);
 

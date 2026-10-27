@@ -161,4 +161,10 @@ export const userController = {
     const user = await userService.setPinnedPost(req.user._id, null);
     res.json({ success: true, message: "Post unpinned", data: { user } });
   }),
+
+  getMyAchievements: asyncHandler(async (req, res) => {
+    const { achievementService } = await import("../services/achievementService.js");
+    const progress = await achievementService.getProgress(req.user._id);
+    res.json({ success: true, data: { progress } });
+  }),
 };

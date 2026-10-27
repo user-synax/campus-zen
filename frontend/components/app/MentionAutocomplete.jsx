@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CzImage } from "@/components/app/CzImage";
 import { UserBadge } from "@/components/ui/verified-badge";
+import { HighestAchievementBadge } from "@/components/ui/achievement-badge";
 import { useAnimatedMount } from "@/components/app/useAnimatedMount";
 import { api } from "@/lib/api";
 
@@ -212,6 +213,7 @@ export function MentionSuggest({ open, users, active, onSelect, onHover }) {
             <span className="flex items-center gap-1 text-[15px] font-bold leading-[20px] text-[var(--cz-text-primary)]">
               <span className="truncate">{u.fullName || u.username}</span>
               <UserBadge user={u} size="sm" />
+              <HighestAchievementBadge user={u} size={12} />
             </span>
             <span className="block truncate text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">
               @{u.username}

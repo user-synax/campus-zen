@@ -341,7 +341,7 @@ export const authService = {
   async getMe(userId) {
     const user = await User.findById(userId).populate({
       path: "pinnedPost",
-      populate: { path: "author", select: "fullName username avatarUrl isEmailVerified isVerified isPro isOwner" },
+      populate: { path: "author", select: "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier" },
     });
     if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
     return user.toSafeObject();

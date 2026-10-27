@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { api } from "../api";
 
 /**
@@ -79,6 +80,11 @@ export function useSSE(enabled = true) {
             return { ...old, pages: newPages };
           });
           client.invalidateQueries({ queryKey: ["unreadCount"] });
+          if (data?.type === "badge_unlock") {
+            toast.success(data.title || "Badge unlocked", {
+              description: data.body || undefined,
+            });
+          }
         } catch {}
       });
 

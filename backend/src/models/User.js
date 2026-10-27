@@ -77,6 +77,10 @@ const userSchema = new mongoose.Schema(
     followersCount: { type: Number, default: 0, min: 0 },
     followingCount: { type: Number, default: 0, min: 0 },
     postCount: { type: Number, default: 0, min: 0 },
+    // Highest achievement tier unlocked (0 = none, 1..9 = bronze..gold-3).
+    // Derived from posts/followers/likes/profile completeness; kept denormalized
+    // so feeds and profiles can render badges without recomputing.
+    achievementTier: { type: Number, default: 0, min: 0, max: 9, index: true },
 
     // ── Privacy & safety controls ──────────────────────────────────
     // Strict private: approval queue + followers-only visibility.

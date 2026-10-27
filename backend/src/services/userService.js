@@ -119,7 +119,7 @@ export const userService = {
     const candidates = await User.find({ _id: { $nin: excluded }, isPrivate: { $ne: true }, isDeactivated: { $ne: true } })
       .sort({ createdAt: -1 })
       .limit(poolSize)
-      .select("fullName username avatarUrl bio college course academicYear followersCount createdAt isEmailVerified isVerified isPro isOwner")
+      .select("fullName username avatarUrl bio college course academicYear followersCount createdAt isEmailVerified isVerified isPro isOwner achievementTier")
       .lean();
 
     let mutualCounts = {};
@@ -182,7 +182,7 @@ export const userService = {
     if (!user) {
       user = await User.findOne({ username: clean }).populate({
         path: "pinnedPost",
-        populate: { path: "author", select: "fullName username avatarUrl isEmailVerified isVerified isPro isOwner" },
+        populate: { path: "author", select: "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier" },
       });
       if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
       cache.set(cacheKey, user, TTL.USER_PROFILE);
@@ -276,6 +276,9 @@ export const userService = {
     if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
     cache.del(CacheKeys.userProfile(user.username));
     cache.delPattern("user:*");
+    import("../services/achievementService.js")
+      .then(({ achievementService }) => achievementService.evaluate(userId))
+      .catch(() => {});
     return user.toSafeObject();
   },
 
@@ -290,6 +293,9 @@ export const userService = {
     const current = await User.findById(userId).select("coverUrl").lean();
     const user = await User.findByIdAndUpdate(userId, { $set: { coverUrl: viewUrl } }, { new: true, runValidators: true });
     if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+    import("../services/achievementService.js")
+      .then(({ achievementService }) => achievementService.evaluate(userId))
+      .catch(() => {});
     if (current?.coverUrl && current.coverUrl !== viewUrl) {
       try {
         const { deleteFromAppwrite } = await import("../config/appwrite.js");
@@ -423,6 +429,9 @@ export const userService = {
       if (update.college) update.college = String(update.college).trim().replace(/\s+/g, " ").slice(0, 120);
       const user = await User.findByIdAndUpdate(userId, { $set: update }, { new: true, runValidators: true });
       if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+      import("../services/achievementService.js")
+        .then(({ achievementService }) => achievementService.evaluate(userId))
+        .catch(() => {});
       if (prevSlug !== nextSlug) {
         try {
           const { College } = await import("../models/College.js");
@@ -446,6 +455,9 @@ export const userService = {
     cache.delPattern("user:*");
     cache.delPattern("publicFeed:*");
     cache.delPattern("feed:*");
+    import("../services/achievementService.js")
+      .then(({ achievementService }) => achievementService.evaluate(userId))
+      .catch(() => {});
 
     // Going public: auto-fulfil pending follow requests into follows.
     if (update.isPrivate === false) {

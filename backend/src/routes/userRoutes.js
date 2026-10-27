@@ -169,6 +169,7 @@ const suggestionsQuery = z.object({
   limit: z.coerce.number().int().min(1).max(20).optional().default(6),
 });
 router.get("/me/suggestions", meLimiter, protect, validate(suggestionsQuery, "query"), userController.suggestions);
+router.get("/me/achievements", meLimiter, protect, userController.getMyAchievements);
 router.post("/:id/block", blockLimiter, protect, validate(idParam, "params"), blockController.block);
 router.delete("/:id/block", blockLimiter, protect, validate(idParam, "params"), blockController.unblock);
 

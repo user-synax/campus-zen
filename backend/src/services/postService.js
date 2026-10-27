@@ -521,6 +521,9 @@ export const postService = {
     });
     // Invalidate caches that include this post
     await User.findByIdAndUpdate(authorId, { $inc: { postCount: 1 } });
+    import("../services/achievementService.js")
+      .then(({ achievementService }) => achievementService.evaluate(authorId))
+      .catch(() => {});
     await notifyMentions(authorId, extractMentions(t), post._id);
     cache.delPattern("feed:*");
     cache.delPattern("publicFeed:*");
@@ -529,7 +532,7 @@ export const postService = {
     cache.delPattern("trending:*");
     cache.delPattern("hashtag:*");
     cache.delPattern(`media:${authorId}:*`);
-    const populated = await Post.findById(post._id).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner");
+    const populated = await Post.findById(post._id).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier");
     return populated;
   },
 
@@ -611,7 +614,7 @@ export const postService = {
     let post = cache.get(cacheKey);
 
     if (!post) {
-      post = await Post.findById(postId).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isPrivate").lean();
+      post = await Post.findById(postId).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier isPrivate").lean();
       if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
       cache.set(cacheKey, post, TTL.POST);
     }
@@ -692,7 +695,7 @@ export const postService = {
     cache.delPattern(`userPosts:${post.author}:*`);
     cache.delPattern("hashtag:*");
     cache.delPattern(`media:${post.author}:*`);
-    const populated = await Post.findById(post._id).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner");
+    const populated = await Post.findById(post._id).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier");
     return populated;
   },
 
@@ -729,9 +732,12 @@ export const postService = {
       isSensitive,
     });
     await User.findByIdAndUpdate(authorId, { $inc: { postCount: 1 } });
+    import("../services/achievementService.js")
+      .then(({ achievementService }) => achievementService.evaluate(authorId))
+      .catch(() => {});
     await notifyMentions(authorId, extractMentions(combined), post._id);
     invalidateArticleCaches(authorId, null, null);
-    const populated = await Post.findById(post._id).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner");
+    const populated = await Post.findById(post._id).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier");
     return { post: populated, slug };
   },
 
@@ -770,7 +776,7 @@ export const postService = {
     cache.del(CacheKeys.post(postId));
     const authorUser = await User.findById(post.author).select("username").lean();
     invalidateArticleCaches(post.author, authorUser?.username, post.slug);
-    const populated = await Post.findById(post._id).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner");
+    const populated = await Post.findById(post._id).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier");
     return populated;
   },
 
@@ -788,7 +794,7 @@ export const postService = {
       const user = await User.findOne({ username: uname }).select("_id username").lean();
       if (!user) throw new AppError("Article not found", 404, "ARTICLE_NOT_FOUND");
       post = await Post.findOne({ author: user._id, slug: s, kind: "article" })
-        .populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isPrivate")
+        .populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier isPrivate")
         .lean();
       if (!post) throw new AppError("Article not found", 404, "ARTICLE_NOT_FOUND");
       cache.set(cacheKey, post, TTL.POST);
@@ -844,7 +850,7 @@ export const postService = {
     const filter = { kind: "article" };
     if (hiddenSet.size) filter.author = { $nin: [...hiddenSet] };
     const [raw, total] = await Promise.all([
-      Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isPrivate").lean(),
+      Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier isPrivate").lean(),
       Post.countDocuments(filter),
     ]);
     let posts = await withoutBlockedAuthors(raw, viewerId);
@@ -873,7 +879,7 @@ export const postService = {
     if (!or.length) return { articles: [] };
     const posts = await Post.find({ $or: or })
       .select("title description body text slug author createdAt likeCount replyCount repostCount")
-      .populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isPrivate")
+      .populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier isPrivate")
       .lean();
     const hidden = viewerId ? await blockService.blockedIdsFor(viewerId) : [];
     const hideSet = new Set(hidden.map(String));
@@ -915,6 +921,11 @@ export const postService = {
     ]);
     // clamp
     if (!wasAnon) await User.updateOne({ _id: userId, postCount: { $lt: 0 } }, { $set: { postCount: 0 } });
+    if (!wasAnon) {
+      import("../services/achievementService.js")
+        .then(({ achievementService }) => achievementService.evaluate(userId))
+        .catch(() => {});
+    }
     // Invalidate caches
     cache.del(CacheKeys.post(postId));
     cache.delPattern("feed:*");
@@ -978,7 +989,7 @@ export const postService = {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(lim + 1)
-      .populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner")
+      .populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier")
       .lean();
     const hasMore = posts.length > lim;
     if (hasMore) posts.pop();
@@ -1040,7 +1051,7 @@ export const postService = {
     const hiddenSet = await hiddenAuthorFilter(viewerId);
     const filter = hiddenSet.size ? { author: { $nin: [...hiddenSet] }, ...NOT_ANON } : { ...NOT_ANON };
     // same limit+1 probe as feed — no countDocuments scan per scroll page
-    const raw = await Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim + 1).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isPrivate").lean();
+    const raw = await Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim + 1).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier isPrivate").lean();
     const hasMore = raw.length > lim;
     if (hasMore) raw.pop();
     const posts = await stripForViewer(raw);
@@ -1099,7 +1110,7 @@ export const postService = {
     const rows = await Post.find(filter)
       .sort({ createdAt: -1, _id: -1 })
       .limit(lim + 1)
-      .populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner")
+      .populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier")
       .lean();
     const hasMore = rows.length > lim;
     if (hasMore) rows.pop();
@@ -1135,7 +1146,7 @@ export const postService = {
       const idx = order.indexOf(state.lastId);
       if (idx >= 0) start = idx + 1;
     }
-    const { posts, end } = await consumeOrderSlice(order, start, lim, NOT_ANON, "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isPrivate");
+    const { posts, end } = await consumeOrderSlice(order, start, lim, NOT_ANON, "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier isPrivate");
     const visible = await stripViewerHiddenPosts(posts, viewerId);
     await hydrateFeedPosts(visible, viewerId);
     return cursorPageResult(state, order.length, end, visible, lim);
@@ -1151,7 +1162,7 @@ export const postService = {
       raw = await Post.find(NOT_ANON)
         .sort({ createdAt: -1, _id: -1 })
         .limit(lim)
-        .populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isPrivate")
+        .populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier isPrivate")
         .lean();
       cache.set(cacheKey, raw, TTL.LATEST);
     }
@@ -1173,7 +1184,7 @@ export const postService = {
       raw = await Post.find({ author: authorFilter, ...NOT_ANON })
         .sort({ createdAt: -1, _id: -1 })
         .limit(lim)
-        .populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner")
+        .populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier")
         .lean();
       cache.set(cacheKey, raw, TTL.LATEST);
     }
@@ -1205,7 +1216,7 @@ export const postService = {
     const rows = await Post.find(filter)
       .sort({ createdAt: -1, _id: -1 })
       .limit(lim + 1)
-      .populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isPrivate")
+      .populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier isPrivate")
       .lean();
     const hasMore = rows.length > lim;
     if (hasMore) rows.pop();
@@ -1249,6 +1260,10 @@ export const postService = {
         afterResponse(() =>
           notificationService.create({ recipient: post.author, actor: userId, type: "like", post: postId }),
         );
+        // Achievement: likes received can unlock tiers.
+        import("../services/achievementService.js")
+          .then(({ achievementService }) => achievementService.evaluate(post.author))
+          .catch(() => {});
       }
       afterResponse(() =>
         pushPostUpdate(post.author, { postId: String(postId), likeCount: updated.likeCount }),
@@ -1522,7 +1537,7 @@ export const postService = {
       return result;
     }
     const posts = await Post.find({ _id: { $in: postIds }, ...NOT_ANON })
-      .populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner")
+      .populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier")
       .lean();
     const map = new Map(posts.map((p) => [String(p._id), p]));
     let ordered = postIds.map((id) => map.get(String(id))).filter(Boolean);
@@ -1596,7 +1611,7 @@ export const postService = {
     // Invalidate only post + comments; feeds patch replyCount live via SSE
     cache.del(CacheKeys.post(postId));
     cache.delPattern(`comments:${postId}:*`);
-    const populated = await Comment.findById(comment._id).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner");
+    const populated = await Comment.findById(comment._id).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier");
     return { comment: populated, replyCount: updatedPost.replyCount };
   },
 
@@ -1618,7 +1633,7 @@ export const postService = {
       return cached;
     }
     const [comments, total] = await Promise.all([
-      Comment.find({ post: postId }).sort({ createdAt: 1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner").lean(),
+      Comment.find({ post: postId }).sort({ createdAt: 1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier").lean(),
       Comment.countDocuments({ post: postId }),
     ]);
     const out = post.isAnonymous ? maskAnonComments(comments, post, viewerId) : comments;
@@ -1652,7 +1667,7 @@ export const postService = {
       }
       filter = { _id: { $in: postIds }, ...NOT_ANON };
       // preserve like order
-      const posts = await Post.find(filter).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner").lean();
+      const posts = await Post.find(filter).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier").lean();
       const map = new Map(posts.map((p) => [String(p._id), p]));
       let ordered = postIds.map((id) => map.get(String(id))).filter(Boolean);
       ordered = ordered.filter((p) => !p.isAnonymous);
@@ -1691,7 +1706,7 @@ export const postService = {
         return result;
       }
       filter = { _id: { $in: postIds }, ...NOT_ANON };
-      const posts = await Post.find(filter).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner").lean();
+      const posts = await Post.find(filter).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier").lean();
       const map = new Map(posts.map((p) => [String(p._id), p]));
       let ordered = postIds.map((id) => map.get(String(id))).filter(Boolean);
       ordered = ordered.filter((p) => !p.isAnonymous);
@@ -1740,7 +1755,7 @@ export const postService = {
     }
 
     const [posts, total] = await Promise.all([
-      Post.find(filter).sort(sort).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner").lean(),
+      Post.find(filter).sort(sort).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier").lean(),
       Post.countDocuments(filter),
     ]);
 
@@ -1811,7 +1826,7 @@ export const postService = {
     const cached = cache.get(cacheKey);
     if (cached) return cached;
     const [comments, total] = await Promise.all([
-      Comment.find({ author: authorId }).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("post", "text author createdAt isAnonymous").populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner").lean(),
+      Comment.find({ author: authorId }).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("post", "text author createdAt isAnonymous").populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier").lean(),
       Comment.countDocuments({ author: authorId }),
     ]);
     // Anonymous hub replies never surface on profiles — hub-only.
@@ -1820,7 +1835,7 @@ export const postService = {
     const postAuthorIds = [...new Set(visible.map((c) => String(c.post?.author)).filter(Boolean))];
     if (postAuthorIds.length) {
       const authors = await User.find({ _id: { $in: postAuthorIds } })
-        .select("fullName username avatarUrl isEmailVerified isVerified isPro isOwner")
+        .select("fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier")
         .lean();
       const authorMap = new Map(authors.map((a) => [String(a._id), a]));
       for (const c of visible) {
@@ -1867,7 +1882,7 @@ export const postService = {
     const filter = { hashtags: tag, ...NOT_ANON };
     if (hiddenSet.size) filter.author = { $nin: [...hiddenSet] };
     const [rawPosts, total] = await Promise.all([
-      Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner isPrivate").lean(),
+      Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier isPrivate").lean(),
       Post.countDocuments(filter),
     ]);
     let posts = await withoutBlockedAuthors(rawPosts, viewerId);

@@ -13,6 +13,7 @@ import { AnimatedNumber } from "@/components/app/AnimatedNumber";
 import { CzImage } from "@/components/app/CzImage";
 import { Button } from "@/components/ui/button";
 import { UserBadge } from "@/components/ui/verified-badge";
+import { HighestAchievementBadge } from "@/components/ui/achievement-badge";
 import { withAvatarRing } from "@/lib/avatar";
 import { cn } from "@/lib/utils";
 
@@ -314,6 +315,7 @@ export function ProfileHeader({
           <h1 className="flex items-center gap-1.5 text-[20px] leading-6 font-extrabold text-[var(--cz-text-primary)]">
             <span className="truncate">{displayName}</span>
             <UserBadge user={user} size="md" />
+            <HighestAchievementBadge user={user} size={22} />
             {user.isPrivate ? (
               <span className="inline-flex items-center gap-1 rounded-full border border-[var(--cz-border-strong)] px-2 py-0.5 text-[12px] font-bold text-[var(--cz-text-secondary)]">
                 <Lock className="h-3 w-3" aria-hidden /> Private
@@ -437,6 +439,7 @@ const SocialLinks = memo(function SocialLinks({ entries }) {
 export function ProfileTabs({ active = "posts", onChange }) {
   const tabs = [
     { id: "posts", label: "Posts" },
+    { id: "badges", label: "Badges" },
     { id: "articles", label: "Articles" },
     { id: "replies", label: "Replies" },
     { id: "media", label: "Media" },

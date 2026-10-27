@@ -89,7 +89,7 @@ export const notificationService = {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(lim)
-        .populate("actor", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner")
+        .populate("actor", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier")
         .populate("post", "text")
         .lean(),
       Notification.countDocuments(query),
@@ -104,6 +104,35 @@ export const notificationService = {
       limit: lim,
       hasMore: skip + lim < total,
     };
+  },
+
+  async createBadgeUnlock(recipientId, level, name) {
+    const title = `You unlocked the ${name} badge`;
+    const body = `New achievement unlocked — ${name}. Check your profile to see all badges.`;
+    const notif = await Notification.create({
+      recipient: recipientId,
+      actor: null,
+      type: "badge_unlock",
+      title,
+      body,
+    });
+    const unreadCount = await Notification.countDocuments({ recipient: recipientId, read: false });
+    // SSE push
+    try {
+      const { pushNotification, pushUnreadCount } = await import("../routes/sseRoutes.js");
+      pushNotification(recipientId, {
+        _id: notif._id,
+        actor: null,
+        type: notif.type,
+        post: null,
+        read: false,
+        createdAt: notif.createdAt,
+        title,
+        body,
+      });
+      pushUnreadCount(recipientId, unreadCount);
+    } catch {}
+    return notif;
   },
 
   async getUnreadCount(recipientId) {

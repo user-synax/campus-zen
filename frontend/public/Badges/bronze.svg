@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 328.478 312.401">
+  <defs>
+    <style>
+      .cls-1{fill:#54101a}
+      .cls-2{fill:url(#Unnamed_gradient_291)}
+      .cls-3{fill:#8c1919;opacity:0.3;mix-blend-mode:multiply}
+      .cls-4{fill:#892334;opacity:0.6;mix-blend-mode:multiply}
+      .cls-5{fill:url(#Unnamed_gradient_291-2)}
+      .cls-6{fill:url(#Unnamed_gradient_298);mix-blend-mode:screen}
+      .cls-7{fill:url(#Unnamed_gradient_294);mix-blend-mode:screen}
+      .cls-8{fill:#9b1b2e}
+      .cls-9{fill:#892334;opacity:0.2;mix-blend-mode:multiply}
+      .cls-10{fill:url(#Unnamed_gradient_302)}
+      .cls-11{fill:#661625}
+      .cls-12{fill:url(#Unnamed_gradient_291-3)}
+      .cls-13{fill:url(#Unnamed_gradient_294-2);mix-blend-mode:screen}
+      .cls-14{fill:url(#Unnamed_gradient_298-2);mix-blend-mode:screen}
+      .cls-15{fill:#9b1b2e;opacity:0.35;mix-blend-mode:multiply}
+      .cls-16{fill:#fff5cc}
+      .cls-17{fill:#fff2bb;mix-blend-mode:screen}
+    </style>
+    <radialGradient id="Unnamed_gradient_291" cx="251.997" cy="10.433" r="260.548" gradientUnits="userSpaceOnUse">
+      <stop offset="0.014" stop-color="#e85621"/>
+      <stop offset="1" stop-color="#e33a0b"/>
+    </radialGradient>
+    <radialGradient id="Unnamed_gradient_291-2" cx="299.399" cy="-25.037" r="360.452" gradientUnits="userSpaceOnUse">
+      <stop offset="0.014" stop-color="#e85621"/>
+      <stop offset="1" stop-color="#e33a0b"/>
+    </radialGradient>
+    <linearGradient id="Unnamed_gradient_298" x1="443.91" y1="53.861" x2="280.534" y2="255.39" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffa369"/>
+      <stop offset="0.6658" stop-color="#ea5235" data-vc-midpoint="0.6658"/>
+      <stop offset="1" stop-color="#d40000"/>
+    </linearGradient>
+    <linearGradient id="Unnamed_gradient_294" x1="-54.755" y1="188.337" x2="88.076" y2="9.308" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d40000"/>
+      <stop offset="1" stop-color="#ffaf47"/>
+    </linearGradient>
+    <linearGradient id="Unnamed_gradient_302" x1="297.995" y1="156.771" x2="297.995" y2="211.196" gradientUnits="userSpaceOnUse">
+      <stop offset="0.6285" stop-color="#f7814a"/>
+      <stop offset="1" stop-color="#f7e399"/>
+    </linearGradient>
+    <radialGradient id="Unnamed_gradient_291-3" cx="225.583" cy="83.316" r="150.884" gradientUnits="userSpaceOnUse">
+      <stop offset="0.014" stop-color="#e85621"/>
+      <stop offset="1" stop-color="#e33a0b"/>
+    </radialGradient>
+    <linearGradient id="Unnamed_gradient_294-2" x1="-10.85" y1="222.324" x2="131.425" y2="43.993" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d40000"/>
+      <stop offset="1" stop-color="#ffaf47"/>
+    </linearGradient>
+    <linearGradient id="Unnamed_gradient_298-2" x1="343.022" y1="16.183" x2="208.095" y2="182.62" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffa369"/>
+      <stop offset="0.6658" stop-color="#ea5235" data-vc-midpoint="0.6658"/>
+      <stop offset="1" stop-color="#d40000"/>
+    </linearGradient>
+  </defs>
+  <title>Asset 1</title>
+  <g id="Asset_1" data-name="Asset 1">
+    <g>
+      <path d="M164.239 302.961 L319.499 190.157 L260.195 7.638 L68.283 7.638 L8.978 190.157 Z" class="cls-1"/>
+      <path d="M265.744 0 L62.734 0 L0 193.075 L164.238 312.401 L328.478 193.075 Z M32.482 182.521 L82.808 27.631 L245.669 27.631 L295.995 182.521 L164.239 278.247 Z" class="cls-2"/>
+      <path d="M82.809 27.631 L164.24 278.247 L245.669 27.631 Z" class="cls-3"/>
+      <path d="M164.24 184.962 L78.764 142.943 L78.764 154.072 L164.24 216.172 L249.713 154.073 L249.713 142.944 Z" class="cls-4"/>
+      <path d="M265.744 0 L62.734 0 L48.223 44.66 C57.237 45.077 66.597 46.213 76.178 48.038 L82.808 27.631 L245.669 27.631 L295.995 182.521 L276.888 196.403 C281.19 204.755 284.998 213.393 288.263 222.292 L328.478 193.075 Z" class="cls-5"/>
+      <path d="M265.744 0 L62.734 0 L48.223 44.66 C57.237 45.077 66.597 46.213 76.178 48.038 L82.808 27.631 L245.669 27.631 L295.995 182.521 L276.888 196.403 C281.19 204.755 284.998 213.393 288.263 222.292 L328.478 193.075 Z" class="cls-6"/>
+      <path d="M254.611 246.742 C253.645 235.984 252.047 225.75 249.882 216.024 L164.239 278.247 L32.482 182.521 L68.618 71.303 C58.356 71.556 48.25 72.705 38.461 74.704 L0 193.075 L164.239 312.401 Z" class="cls-7"/>
+      <path d="M32.482 182.521 L45.501 179.598 L90.854 40.012 L237.622 40.012 L282.976 179.598 L295.995 182.521 L245.669 27.631 L82.808 27.631 Z" class="cls-8"/>
+      <path d="M45.501 179.598 L70.876 114.485 C85.902 75.93 123.042 59.199 164.421 59.199 L164.421 59.199 C205.981 59.199 243.244 76.149 258.144 114.945 L282.976 179.598 L237.622 40.012 L90.854 40.012 Z" class="cls-9"/>
+      <path d="M32.482 182.521 L45.501 179.598 L164.239 265.865 L282.976 179.598 L295.995 182.521 L164.239 278.247 Z" class="cls-10"/>
+      <path d="M78.764 128.106 L78.764 142.943 L164.24 205.044 L249.713 142.944 L249.713 128.107 L164.24 190.206 Z" class="cls-8"/>
+      <path d="M45.501 179.598 L92.068 60.108 C94.316 54.341 99.871 50.543 106.061 50.543 L223.09 50.543 C229.306 50.543 234.88 54.374 237.109 60.177 L282.976 179.598 L237.622 40.012 L90.854 40.012 Z" class="cls-4"/>
+      <path d="M82.808 27.631 L90.854 40.012 L237.622 40.012 L245.669 27.631 Z" class="cls-11"/>
+      <path d="M164.24 190.206 L164.24 205.044 L78.764 142.943 L78.764 128.106 Z" class="cls-11"/>
+      <path d="M164.24 158.996 L86.931 102.969 L78.764 128.106 L164.24 190.206 L249.713 128.107 L241.546 102.97 Z" class="cls-12"/>
+      <path d="M164.24 190.206 L221.407 148.673 C216.59 141.574 211.368 134.976 205.795 128.88 L164.24 158.996 L86.931 102.969 L78.764 128.106 Z" class="cls-13"/>
+      <path d="M217.422 120.454 C223.727 126.137 229.816 132.099 235.635 138.335 L249.713 128.107 L241.546 102.97 Z" class="cls-14"/>
+      <path d="M86.931 102.969 L83.814 120.041 C83.195 123.43 84.493 126.884 87.191 129.026 L164.24 190.206 L78.764 128.106 Z" class="cls-15"/>
+      <path d="M22.498 123.834 L6.77 182.735 C5.541 187.817 7.958 194.541 12.14 197.677 L164.239 312.401 L0 193.075 Z" class="cls-15"/>
+      <path d="M45.501 179.598 L158.78 255.897 C161.782 257.919 166.695 257.919 169.697 255.897 L282.976 179.598 L164.239 265.865 Z" class="cls-4"/>
+      <path d="M164.239 312.401 L310.487 199.434 C320.722 191.852 322.923 190.206 318.322 175.681 L287.804 67.893 L328.478 193.075 Z" class="cls-15"/>
+      <path d="M26.194 112.456 L60.495 14.102 C64.038 4.114 66.617 1.491 77.208 1.109 L164.238 0 L62.734 0 Z" class="cls-15"/>
+      <path d="M91.66 225.516 L164.239 278.247 L262.247 207.041 L164.24 282.726 Z" class="cls-16"/>
+      <path d="M106.711 117.304 L164.24 158.996 L230.265 111.146 L164.24 164.102 Z" class="cls-16"/>
+      <path d="M158.733 0 L265.744 0 L287.804 67.893 L261.657 3.768 Z" class="cls-16"/>
+      <path d="M201.321 0 C200.435 8.801 204.272 18.644 211.679 27.631 L245.669 27.631 L254.074 53.501 C264.725 56.11 274.913 56.194 283.259 53.905 L265.744 0 Z" class="cls-17"/>
+      <path d="M193.153 15.362 C186.057 10.206 177.506 9.877 174.055 14.628 C171.581 18.033 172.413 23.121 175.689 27.631 L201.133 27.631 C200.736 23.474 197.866 18.785 193.153 15.362 Z" class="cls-17"/>
+      <path d="M82.836 219.105 C80.263 225.716 84.92 235.578 94.27 242.371 C103.619 249.163 114.432 250.54 119.924 246.05 Z" class="cls-17"/>
+      <path d="M120.165 264.094 C118.6 266.497 114.266 266.448 110.486 263.986 C106.705 261.523 104.909 257.578 106.475 255.175 C108.041 252.772 112.374 252.821 116.155 255.283 C119.935 257.746 121.731 261.691 120.165 264.094 Z" class="cls-17"/>
+      <path d="M212.983 154.793 L240.88 130.805 C243.85 128.252 245.258 124.324 244.588 120.465 L241.546 102.97 L249.713 128.107 Z" class="cls-15"/>
+    </g>
+  </g>
+</svg>

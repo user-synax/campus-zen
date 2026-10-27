@@ -1,0 +1,107 @@
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import { ACHIEVEMENT_TIERS, AchievementBadge } from "@/components/ui/achievement-badge";
+import { api } from "@/lib/api";
+import { cn } from "@/lib/utils";
+
+const BADGE_CRITERIA = [
+  "Complete your profile and create your first post",
+  "Reach 10 posts or 25 followers",
+  "Reach 25 posts or 50 followers",
+  "Reach 50 posts or 100 followers",
+  "Reach 75 posts or 250 followers and 100 likes received",
+  "Reach 100 posts or 500 followers and 500 likes received",
+  "Reach 150 posts or 1,000 followers",
+  "Reach 250 posts or 2,500 followers and stay active",
+  "Reach 500 posts or 5,000 followers",
+];
+
+export function BadgesTab({ user, isOwn = false }) {
+  const { data } = useQuery({
+    queryKey: ["myAchievements"],
+    queryFn: () => api.getMyAchievements(),
+    enabled: !!isOwn,
+    staleTime: 60_000,
+  });
+
+  const progress = data?.data?.progress || null;
+  const currentLevel = Number(user?.achievementTier) || 0;
+  const nextLevel = progress?.nextLevel || null;
+  const progressValue = progress?.progress ?? 0;
+
+  return (
+    <div className="px-4 py-6">
+      <div className="mb-4">
+        <h2 className="text-[17px] font-extrabold text-[var(--cz-text-primary)]">
+          Badges
+        </h2>
+        <p className="mt-1 text-[14px] text-[var(--cz-text-secondary)]">
+          Earn badges by posting, growing your followers, and getting likes.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {ACHIEVEMENT_TIERS.map((t) => {
+          const earned = t.level <= currentLevel;
+          const isNext = t.level === nextLevel;
+          return (
+            <div
+              key={t.level}
+              className={cn(
+                "flex flex-col items-center gap-2 rounded-[16px] border border-[var(--cz-border)] p-3 text-center",
+                earned ? "bg-[var(--cz-surface)]" : "bg-[var(--cz-surface-strong)]/40",
+              )}
+            >
+              <AchievementBadge
+                tier={earned ? t.level : t.level}
+                size={44}
+                locked={!earned}
+              />
+              <span
+                className={cn(
+                  "text-[12px] font-bold",
+                  earned
+                    ? "text-[var(--cz-text-primary)]"
+                    : "text-[var(--cz-text-tertiary)]",
+                )}
+              >
+                {t.name}
+              </span>
+              {earned ? (
+                <span className="rounded-full bg-[var(--cz-accent-soft)] px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.06em] text-[var(--cz-accent)]">
+                  Earned
+                </span>
+              ) : null}
+              <p
+                className={cn(
+                  "text-[10px] leading-[13px] text-[var(--cz-text-secondary)]",
+                  earned && "line-through text-[var(--cz-text-tertiary)]",
+                )}
+              >
+                {BADGE_CRITERIA[t.level - 1]}
+              </p>
+              {isNext ? (
+                <div className="w-full">
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--cz-border)]">
+                    <div
+                      className="h-full rounded-full bg-[var(--cz-accent)] transition-all"
+                      style={{ width: `${Math.round(progressValue * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+
+      {currentLevel === 0 ? (
+        <p className="mt-4 text-[13px] text-[var(--cz-text-secondary)]">
+          Complete your profile and create your first post to earn your first
+          badge.
+        </p>
+      ) : null}
+    </div>
+  );
+}

@@ -19,6 +19,7 @@ const notificationSchema = new mongoose.Schema(
         "appeal_update",
         "admin_broadcast",
         "admin_notice",
+        "badge_unlock",
       ],
       required: true,
     },
