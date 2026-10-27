@@ -185,7 +185,7 @@ export function TabReplies({ username, isOwn }) {
       {replies.map((c) => (
         <div key={c._id} className="cz-row px-4 py-3">
           <Link
-            to={`/app/p/${c.post?._id || c.post}`}
+            href={`/app/p/${c.post?._id || c.post}`}
             className="text-[15px] leading-[20px] text-[var(--cz-text-secondary)]"
           >
             <span className="block">

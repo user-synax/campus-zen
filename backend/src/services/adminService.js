@@ -21,7 +21,7 @@ const MIN_RESTRICT_MINUTES = 5;
 const MAX_RESTRICT_MINUTES = 30 * DAY_MS / 60000; // 30 days
 const ADMIN_LIST_FIELDS =
   "fullName username email avatarUrl bio college collegeSlug course academicYear socialLinks " +
-  "followersCount followingCount postCount isEmailVerified isVerified isPro isOwner achievementTier " +
+  "followersCount followingCount postCount isEmailVerified isVerified isPro isOwner achievementTier streakCount " +
   "isSuspended suspendedAt suspendReason accountStatus accountStatusReason accountStatusAt " +
   "restrictedUntil restrictedAt restrictionReason isBanned bannedAt banReason banSetDeactivated " +
   "isDeactivated isPrivate role lastLoginAt createdAt";

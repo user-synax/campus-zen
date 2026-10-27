@@ -81,7 +81,10 @@ const userSchema = new mongoose.Schema(
     // Derived from posts/followers/likes/profile completeness; kept denormalized
     // so feeds and profiles can render badges without recomputing.
     achievementTier: { type: Number, default: 0, min: 0, max: 9, index: true },
-
+    // Daily posting streak: consecutive UTC days with at least one post/article.
+    streakCount: { type: Number, default: 0, min: 0 },
+    lastStreakDate: { type: Date, default: null },
+    longestStreak: { type: Number, default: 0, min: 0 },
     // ── Privacy & safety controls ──────────────────────────────────
     // Strict private: approval queue + followers-only visibility.
     isPrivate: { type: Boolean, default: false, index: true },

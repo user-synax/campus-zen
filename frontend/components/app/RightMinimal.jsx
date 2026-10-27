@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { CzImage } from "@/components/app/CzImage";
 import { Button } from "@/components/ui/button";
 import { UserBadge } from "@/components/ui/verified-badge";
+import { StreakFlame } from "@/components/ui/streak-flame";
 import { api } from "@/lib/api";
 import { withAvatarRing } from "@/lib/avatar";
 import {
@@ -274,6 +275,22 @@ export function RightMinimal({ currentUser }) {
           />
         </div>
       </form>
+
+      {(currentUser?.streakCount || 0) > 0 ? (
+        <section className="overflow-hidden rounded-[16px] border border-[var(--cz-border)] p-4">
+          <div className="flex items-center gap-3">
+            <StreakFlame count={currentUser.streakCount} size={28} showCount={false} />
+            <span className="min-w-0 flex-1">
+              <span className="block text-[17px] font-extrabold leading-5 text-[var(--cz-text-primary)]">
+                {currentUser.streakCount}-day streak
+              </span>
+              <span className="block text-[13px] text-[var(--cz-text-secondary)]">
+                Keep posting daily to grow it.
+              </span>
+            </span>
+          </div>
+        </section>
+      ) : null}
 
       {showVerifiedCard ? (
         <section className="overflow-hidden rounded-[16px] border border-[var(--cz-border)] p-4">

@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { ACHIEVEMENT_TIERS, AchievementBadge } from "@/components/ui/achievement-badge";
+import { StreakFlame } from "@/components/ui/streak-flame";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -39,6 +40,30 @@ export function BadgesTab({ user, isOwn = false }) {
         <p className="mt-1 text-[14px] text-[var(--cz-text-secondary)]">
           Earn badges by posting, growing your followers, and getting likes.
         </p>
+      </div>
+
+      <div className="mb-4 rounded-[16px] border border-[var(--cz-border)] p-4">
+        <div className="flex items-center gap-3">
+          {(user?.streakCount || 0) > 0 ? (
+            <StreakFlame count={user.streakCount} size={32} showCount={false} />
+          ) : null}
+          <div className="min-w-0 flex-1">
+            {(user?.streakCount || 0) > 0 ? (
+              <>
+                <p className="text-[17px] font-extrabold text-[var(--cz-text-primary)]">
+                  {user.streakCount}-day streak
+                </p>
+                <p className="text-[13px] text-[var(--cz-text-secondary)]">
+                  Longest: {user?.longestStreak || 0} days. Post today to keep it going.
+                </p>
+              </>
+            ) : (
+              <p className="text-[14px] text-[var(--cz-text-secondary)]">
+                Post today to start your first streak.
+              </p>
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

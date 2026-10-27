@@ -119,7 +119,7 @@ export const userService = {
     const candidates = await User.find({ _id: { $nin: excluded }, isPrivate: { $ne: true }, isDeactivated: { $ne: true } })
       .sort({ createdAt: -1 })
       .limit(poolSize)
-      .select("fullName username avatarUrl bio college course academicYear followersCount createdAt isEmailVerified isVerified isPro isOwner achievementTier")
+      .select("fullName username avatarUrl bio college course academicYear followersCount createdAt isEmailVerified isVerified isPro isOwner achievementTier streakCount")
       .lean();
 
     let mutualCounts = {};
@@ -182,7 +182,7 @@ export const userService = {
     if (!user) {
       user = await User.findOne({ username: clean }).populate({
         path: "pinnedPost",
-        populate: { path: "author", select: "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier" },
+        populate: { path: "author", select: "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier streakCount" },
       });
       if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
       cache.set(cacheKey, user, TTL.USER_PROFILE);
@@ -571,6 +571,34 @@ export const userService = {
     cache.delPattern("user:*");
     const safe = user.toSafeObject();
     return { user: safe, age: calcAgeYears(dob), isAdult: calcAgeYears(dob) >= 18 };
+  },
+
+  // Daily posting streak: consecutive UTC days with at least one post/article.
+  async updateStreak(userId) {
+    const user = await User.findById(userId)
+      .select("streakCount lastStreakDate longestStreak username")
+      .lean();
+    if (!user) return { streakCount: 0 };
+    const utcDay = (d) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+    const today = utcDay(new Date());
+    const last = user.lastStreakDate ? utcDay(new Date(user.lastStreakDate)) : null;
+    let next = Number(user.streakCount) || 0;
+    if (!last || last.getTime() !== today.getTime()) {
+      const yesterday = new Date(today.getTime() - 86400000);
+      if (last && last.getTime() === yesterday.getTime()) next = (Number(user.streakCount) || 0) + 1;
+      else next = 1;
+    }
+    const longest = Math.max(Number(user.longestStreak) || 0, next);
+    const updated = await User.findByIdAndUpdate(
+      userId,
+      { $set: { streakCount: next, lastStreakDate: today, longestStreak: longest } },
+      { new: true },
+    );
+    if (updated) {
+      cache.del(CacheKeys.userProfile(updated.username));
+      cache.delPattern("user:*");
+    }
+    return { streakCount: next, longestStreak: longest };
   },
 
   // Full data export for GDPR-style download: profile + content + graph.

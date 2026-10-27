@@ -14,6 +14,7 @@ import { CzImage } from "@/components/app/CzImage";
 import { Button } from "@/components/ui/button";
 import { UserBadge } from "@/components/ui/verified-badge";
 import { HighestAchievementBadge } from "@/components/ui/achievement-badge";
+import { StreakFlame } from "@/components/ui/streak-flame";
 import { withAvatarRing } from "@/lib/avatar";
 import { cn } from "@/lib/utils";
 
@@ -316,6 +317,12 @@ export function ProfileHeader({
             <span className="truncate">{displayName}</span>
             <UserBadge user={user} size="md" />
             <HighestAchievementBadge user={user} size={22} />
+            {(user.streakCount || 0) >= 7 ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-[var(--cz-border-strong)] bg-[var(--cz-surface-strong)] px-2 py-0.5 text-[12px] font-bold text-[var(--cz-text-secondary)]">
+                <StreakFlame count={user.streakCount} size={14} showCount={false} />
+                {user.streakCount}
+              </span>
+            ) : null}
             {user.isPrivate ? (
               <span className="inline-flex items-center gap-1 rounded-full border border-[var(--cz-border-strong)] px-2 py-0.5 text-[12px] font-bold text-[var(--cz-text-secondary)]">
                 <Lock className="h-3 w-3" aria-hidden /> Private
@@ -356,37 +363,42 @@ export function ProfileHeader({
             tap isn't a cold TLS. */}
         <SocialLinks entries={socialEntries} />
 
-        <div className="mt-4 flex items-center gap-6 text-[15px] leading-[20px]">
+        <div className="mt-4 flex flex-wrap items-start gap-x-6 gap-y-2 text-[15px] leading-[20px]">
           <button
             type="button"
             onClick={onFollowersClick}
-            className="hover:underline"
+            className="flex flex-col items-start hover:underline"
           >
             <span className="font-bold text-[var(--cz-text-primary)]">
               <AnimatedNumber value={user.followersCount ?? 0} />
-            </span>{" "}
-            <span className=" hover:cursor-pointer text-[var(--cz-text-secondary)]">
-              Followers
             </span>
+            <span className="text-[var(--cz-text-secondary)]">Followers</span>
           </button>
           <button
             type="button"
             onClick={onFollowingClick}
-            className="hover:underline"
+            className="flex flex-col items-start hover:underline"
           >
             <span className="font-bold text-[var(--cz-text-primary)]">
               <AnimatedNumber value={user.followingCount ?? 0} />
-            </span>{" "}
-            <span className=" hover:cursor-pointer text-[var(--cz-text-secondary)]">
-              Following
             </span>
+            <span className="text-[var(--cz-text-secondary)]">Following</span>
           </button>
-          <span>
+          <span className="flex flex-col items-start">
             <span className="font-bold text-[var(--cz-text-primary)]">
               <AnimatedNumber value={user.postCount ?? 0} />
-            </span>{" "}
+            </span>
             <span className="text-[var(--cz-text-secondary)]">Posts</span>
           </span>
+          {(user.streakCount || 0) > 0 ? (
+            <span className="flex flex-col items-start">
+              <span className="inline-flex items-center gap-1 font-bold text-[var(--cz-text-primary)]">
+                <StreakFlame count={user.streakCount} size={16} showCount={false} />
+                <AnimatedNumber value={user.streakCount ?? 0} />
+              </span>
+              <span className="text-[var(--cz-text-secondary)]">Streak</span>
+            </span>
+          ) : null}
         </div>
       </div>
     </div>
