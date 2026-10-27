@@ -1,7 +1,7 @@
 export const metadata = {
-  title: "Menu",
+  title: "Settings",
   description:
-    "Your CampusZen menu with quick links to your profile, bookmarks, and settings. Everything is one tap away.",
+    "Manage your CampusZen account: appearance, notifications, privacy, people, safety, security and your data.",
 };
 
 export default function MenuLayout({ children }) {

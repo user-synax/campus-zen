@@ -12,13 +12,14 @@ import { cn } from "@/lib/utils";
 
 // Mobile tab bar — exactly 5 tabs:
 // Home · Search · Post · Notifications · Settings
-// Profile lives under Settings → Your profile, so the bar stays thumb-sized.
+// Profile lives under Settings → Account, so the bar stays thumb-sized.
+// Settings stays lit across its own /app/menu/* sub-pages.
 const items = [
   { href: "/app", label: "Home", icon: Home, exact: true },
   { href: "/app/search", label: "Search", icon: Search },
   { href: "/app/create", label: "Post", icon: Plus, isCreate: true },
   { href: "/app/notifications", label: "Notifications", icon: Bell, badge: true },
-  { href: "/app/menu", label: "Settings", icon: Menu, exact: true },
+  { href: "/app/menu", label: "Settings", icon: Menu },
 ];
 
 export function BottomNav() {

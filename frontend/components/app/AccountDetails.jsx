@@ -63,7 +63,7 @@ function Row({ Icon, label, value, note }) {
  * the same query the shell uses, so there is no extra request and no other
  * viewer can ever reach this card.
  */
-export function AccountDetails({ user, loading = false }) {
+export function AccountDetails({ user, loading = false, showTitle = true }) {
   const status = effectiveAccountStatus(user);
   const meta = accountStatusMeta(status);
   const tone = TONE[meta.tone] || TONE.good;
@@ -94,9 +94,11 @@ export function AccountDetails({ user, loading = false }) {
         aria-label="Account details"
         className="overflow-hidden rounded-[16px] border border-[var(--cz-border)]"
       >
-        <p className="flex items-center gap-2 border-b border-[var(--cz-border)] px-4 py-3 text-[15px] font-bold leading-[20px]">
-          <ShieldCheck className="h-4 w-4" aria-hidden /> Account details
-        </p>
+        {showTitle ? (
+          <p className="flex items-center gap-2 border-b border-[var(--cz-border)] px-4 py-3 text-[15px] font-bold leading-[20px]">
+            <ShieldCheck className="h-4 w-4" aria-hidden /> Account details
+          </p>
+        ) : null}
         <div className="space-y-3 p-4" aria-hidden="true">
           <span className="t-shimmer block h-6 w-28 rounded-full" />
           <span className="t-shimmer block h-4 w-48 rounded-full" />
@@ -111,9 +113,11 @@ export function AccountDetails({ user, loading = false }) {
       aria-label="Account details"
       className="overflow-hidden rounded-[16px] border border-[var(--cz-border)]"
     >
-      <p className="flex items-center gap-2 border-b border-[var(--cz-border)] px-4 py-3 text-[15px] font-bold leading-[20px]">
-        <ShieldCheck className="h-4 w-4" aria-hidden /> Account details
-      </p>
+      {showTitle ? (
+        <p className="flex items-center gap-2 border-b border-[var(--cz-border)] px-4 py-3 text-[15px] font-bold leading-[20px]">
+          <ShieldCheck className="h-4 w-4" aria-hidden /> Account details
+        </p>
+      ) : null}
 
       <div className="border-b border-[var(--cz-border)] px-4 py-3.5">
         <p className="text-[13px] leading-[17px] text-[var(--cz-text-secondary)]">

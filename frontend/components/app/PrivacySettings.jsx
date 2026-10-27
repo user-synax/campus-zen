@@ -67,7 +67,7 @@ function Segmented({ value, options, onChange, disabled, ariaLabel }) {
   );
 }
 
-export function PrivacySettings({ user }) {
+export function PrivacySettings({ user, showTitle = true }) {
   const qc = useQueryClient();
   const [saving, setSaving] = useState(null);
   const [error, setError] = useState(null);
@@ -93,9 +93,11 @@ export function PrivacySettings({ user }) {
 
   return (
     <section aria-label="Privacy controls" className="overflow-hidden rounded-[16px] border border-[var(--cz-border)]">
-      <p className="flex items-center gap-2 border-b border-[var(--cz-border)] px-4 py-3 text-[15px] font-bold leading-[20px]">
-        <Lock className="h-4 w-4" aria-hidden /> Privacy
-      </p>
+      {showTitle ? (
+        <p className="flex items-center gap-2 border-b border-[var(--cz-border)] px-4 py-3 text-[15px] font-bold leading-[20px]">
+          <Lock className="h-4 w-4" aria-hidden /> Privacy
+        </p>
+      ) : null}
       <div className="flex flex-col gap-4 p-4">
         {error ? <p className="text-[14px] text-[var(--cz-error)]">{error}</p> : null}
 

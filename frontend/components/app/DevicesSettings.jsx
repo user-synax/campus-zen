@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ChevronRight,
   Loader2,
@@ -30,10 +30,12 @@ function timeAgo(iso) {
 /**
  * Signed-in devices. Every login creates its own session, so this lists each
  * device with the ability to sign one out or sign out everywhere else.
- * Loads lazily on expand so the Menu tab still paints instantly.
+ * Loads lazily on expand so the Menu tab still paints instantly. On its own
+ * Security page the row header is redundant, so `showTitle={false}` renders
+ * the list directly and `defaultOpen` loads it on mount.
  */
-export function DevicesSettings() {
-  const [open, setOpen] = useState(false);
+export function DevicesSettings({ showTitle = true, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen);
   const [loading, setLoading] = useState(false);
   const [sessions, setSessions] = useState([]);
   const [busy, setBusy] = useState(null);
@@ -59,6 +61,11 @@ export function DevicesSettings() {
     setNote(null);
     if (next) load();
   };
+
+  // Own-page mode: no row to tap, so fetch as soon as the page mounts.
+  useEffect(() => {
+    if (defaultOpen) load();
+  }, [defaultOpen, load]);
 
   const onRevoke = async (id) => {
     setBusy(id);
@@ -102,35 +109,37 @@ export function DevicesSettings() {
 
   return (
     <div className="overflow-hidden rounded-[16px] border border-[var(--cz-border)]">
-      <button
-        type="button"
-        onClick={toggle}
-        aria-expanded={open}
-        className={rowBase}
-      >
-        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[var(--cz-surface-strong)] text-[var(--cz-text-primary)]">
-          <MonitorSmartphone className="h-4 w-4" aria-hidden />
-        </span>
-        <span className="min-w-0 flex-1 text-[15px] font-bold leading-[20px]">
-          Devices
-        </span>
-        {open && loading ? (
-          <Loader2
-            className="h-4 w-4 animate-spin text-[var(--cz-text-secondary)]"
+      {showTitle ? (
+        <button
+          type="button"
+          onClick={toggle}
+          aria-expanded={open}
+          className={rowBase}
+        >
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[var(--cz-surface-strong)] text-[var(--cz-text-primary)]">
+            <MonitorSmartphone className="h-4 w-4" aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1 text-[15px] font-bold leading-[20px]">
+            Devices
+          </span>
+          {open && loading ? (
+            <Loader2
+              className="h-4 w-4 animate-spin text-[var(--cz-text-secondary)]"
+              aria-hidden
+            />
+          ) : (
+            <span className="text-[15px] text-[var(--cz-text-secondary)]">
+              {open ? (sessions.length ? `${sessions.length}` : "") : "Manage"}
+            </span>
+          )}
+          <ChevronRight
+            className={`h-[18px] w-[18px] shrink-0 text-[var(--cz-text-secondary)] transition-transform ${
+              open ? "rotate-90" : ""
+            }`}
             aria-hidden
           />
-        ) : (
-          <span className="text-[15px] text-[var(--cz-text-secondary)]">
-            {open ? (sessions.length ? `${sessions.length}` : "") : "Manage"}
-          </span>
-        )}
-        <ChevronRight
-          className={`h-[18px] w-[18px] shrink-0 text-[var(--cz-text-secondary)] transition-transform ${
-            open ? "rotate-90" : ""
-          }`}
-          aria-hidden
-        />
-      </button>
+        </button>
+      ) : null}
 
       {open ? (
         <div className="bg-[var(--cz-surface-strong)]/50 px-4 py-2">

@@ -49,11 +49,12 @@ export function AppShell({ children, requireAuth = false }) {
     suspended: suspendedSession,
   } = useCurrentUser();
   // A suspended account keeps a read-only session: it gets the standing
-  // notice instead of the app, and /menu so it can still read its own record.
+  // notice instead of the app, and the menu (index or its /app/menu/account
+  // section) so it can still read its own record.
   const suspended = suspendedSession || Boolean(user?.isSuspended);
   const restricted = isRestrictionActive(user);
   const restrictedUntil = formatAccountDateTime(user?.restrictedUntil);
-  const onMenu = pathname === "/app/menu";
+  const onMenu = pathname === "/app/menu" || pathname.startsWith("/app/menu/");
 
   // /app/a/<username>/<slug> — the long-form reader. On xl the right rail
   // unmounts and the main column grows to fill the freed width.

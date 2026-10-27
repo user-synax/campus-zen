@@ -1,147 +1,37 @@
 "use client";
 
-import { useQueryClient } from "@tanstack/react-query";
-import {
-  BarChart3,
-  BadgeCheck,
-  Bookmark,
-  ChevronRight,
-  FileText,
-  Loader2,
-  Lock,
-  LogOut,
-  Moon,
-  School,
-  Search,
-  Shield,
-  Sun,
-  User,
-  Users,
-  X,
-} from "lucide-react";
+import { ChevronRight, Loader2, LogOut, Search, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { CzImage } from "@/components/app/CzImage";
+import { useState } from "react";
 import { PageHeader } from "@/components/app/PageHeader";
-import { AccountData } from "@/components/app/AccountData";
-import { AccountDetails } from "@/components/app/AccountDetails";
-import { ContentSettings } from "@/components/app/ContentSettings";
-import { DevicesSettings } from "@/components/app/DevicesSettings";
-import { FollowRequests } from "@/components/app/FollowRequests";
-import { PrivacySettings } from "@/components/app/PrivacySettings";
-import { PushSettings } from "@/components/app/PushSettings";
-import { SafetyReports } from "@/components/app/SafetyReports";
-import { UserBadge } from "@/components/ui/verified-badge";
 import { api } from "@/lib/api";
-import { useBlocks, useMe } from "@/lib/hooks/queries";
-import { applyTheme, persistTheme, readTheme } from "@/lib/theme";
-import { cn } from "@/lib/utils";
+import { useMe } from "@/lib/hooks/queries";
+import { matches, SECTIONS } from "./sections";
 
-// Search matches against a group's title plus its keyword bag, so "dark mode"
-// finds Appearance and "unfollow" finds People without a hit in the visible copy.
-function matches(query, ...texts) {
-  if (!query) return true;
-  return texts.join(" ").toLowerCase().includes(query);
-}
-
-const EXPLORE = [
-  {
-    href: "/u",
-    Icon: Users,
-    title: "Discover students",
-    sub: "By college and course",
-    keywords: "students people discover find search college course directory",
-  },
-  {
-    href: "/c",
-    Icon: School,
-    title: "Discover colleges",
-    sub: "Browse all campuses",
-    keywords: "colleges campuses schools browse directory",
-  },
-  {
-    href: "/app/profile",
-    Icon: User,
-    title: "Your profile",
-    sub: "Posts, replies and media",
-    keywords: "profile posts replies media your account",
-  },
-  {
-    href: "/app/bookmarks",
-    Icon: Bookmark,
-    title: "Bookmarks",
-    sub: "Private to you",
-    keywords: "bookmarks saved posts private",
-  },
-  {
-    href: "/app/analytics",
-    Icon: BarChart3,
-    title: "Analytics",
-    sub: "Views, likes and top posts",
-    keywords: "analytics insights views likes reach top posts stats",
-  },
-];
-
-const LEGAL = [
-  { href: "/privacy", Icon: Lock, title: "Privacy policy", keywords: "privacy policy legal data" },
-  { href: "/terms", Icon: FileText, title: "Terms of service", keywords: "terms service legal rules" },
-];
-
+/**
+ * Settings index — one row per sub-page, plus search.
+ *
+ * Everything that used to live inline on this tab (theme, privacy, blocked
+ * accounts, device list, export…) now sits on its own route under
+ * /app/menu/[section]; this screen only points at it, so it stays a single
+ * short list.
+ */
 export default function MenuPage() {
   const router = useRouter();
-  const queryClient = useQueryClient();
-  // Reuse the shell's cached session — no second /me on tab open.
   const { data: meData, isPending: loadingUser } = useMe();
   const user = meData?.data?.user || null;
-  // A suspended account keeps a read-only session: it can see its standing
-  // and its own record, nothing else. The API rejects every write anyway;
-  // hiding the sections keeps the page honest instead of half-broken.
+  // A suspended account keeps a read-only session: it can read its own
+  // record and sign out, nothing else. The API rejects every other write,
+  // so the rest of the list stays hidden instead of half-broken.
   const readOnly = Boolean(user?.isSuspended);
   const [loggingOut, setLoggingOut] = useState(false);
-  const [unblocking, setUnblocking] = useState(null);
-  const [showBlocked, setShowBlocked] = useState(false);
-  const [theme, setTheme] = useState("light");
   const [query, setQuery] = useState("");
 
   const q = query.trim().toLowerCase();
-  // Rows inside a group filter themselves, so a group whose title matches but
-  // whose rows don't is dropped instead of leaving an empty heading behind.
-  const exploreItems = EXPLORE.filter((i) =>
-    matches(q, i.title, i.sub, i.keywords),
-  );
-  const legalItems = LEGAL.filter((i) => matches(q, i.title, i.keywords));
-
-  // Blocked list loads lazily, only when the section is expanded, so the
-  // Menu tab paints instantly.
-  const { data: blocksData, isFetching: fetchingBlocked } =
-    useBlocks(showBlocked);
-  const blocked = blocksData?.data?.users || [];
-  const loadingBlocked = showBlocked && fetchingBlocked && blocked.length === 0;
-
-  useEffect(() => {
-    setTheme(readTheme());
-  }, []);
-
-  const onUnblock = async (id) => {
-    setUnblocking(id);
-    try {
-      await api.unblockUser(id);
-      queryClient.setQueryData(["blocks"], (old) => {
-        if (!old) return old;
-        return {
-          ...old,
-          data: {
-            ...old.data,
-            users: (old.data?.users || []).filter(
-              (u) => String(u._id) !== String(id),
-            ),
-          },
-        };
-      });
-    } catch {}
-    setUnblocking(null);
-  };
+  const visible = (
+    readOnly ? SECTIONS.filter((s) => s.id === "account") : SECTIONS
+  ).filter((s) => matches(q, s.title, s.sub, s.keywords));
 
   const onLogout = async () => {
     setLoggingOut(true);
@@ -156,367 +46,12 @@ export default function MenuPage() {
     router.refresh();
   };
 
-  const setThemeAndApply = (next) => {
-    setTheme(next);
-    applyTheme(next);
-    persistTheme(next);
-  };
-
-  const initial = (
-    user?.fullName?.[0] ||
-    user?.username?.[0] ||
-    "U"
-  ).toUpperCase();
-
-  const rowBase =
-    "flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--cz-surface-strong)]";
-  const iconWrap =
-    "grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[var(--cz-surface-strong)] text-[var(--cz-text-primary)]";
-  const chevron = "h-[18px] w-[18px] shrink-0 text-[var(--cz-text-secondary)]";
-  const card =
-    "overflow-hidden rounded-[16px] border border-[var(--cz-border)]";
-
-  const profileRow = (
-    <Link
-      href="/app/profile"
-      aria-label="View your profile"
-      className="flex items-center gap-3 p-4 transition-colors hover:bg-[var(--cz-surface-strong)]"
-    >
-      <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[16px] font-bold text-[var(--cz-text-primary)]">
-        {user?.avatarUrl ? (
-          <CzImage
-            src={user.avatarUrl}
-            alt=""
-            className="h-full w-full rounded-full"
-            imgClassName="h-full w-full"
-          />
-        ) : (
-          initial
-        )}
-      </span>
-      <span className="min-w-0 flex-1">
-        {loadingUser ? (
-          <span className="block space-y-2" aria-hidden="true">
-            <span className="t-shimmer block h-4 w-32 rounded-full" />
-            <span className="t-shimmer block h-3 w-24 rounded-full" />
-          </span>
-        ) : (
-          <>
-            <span className="flex items-center gap-1">
-              <span className="truncate text-[16px] leading-[21px] font-extrabold">
-                {user?.fullName || "CampusZen Student"}
-              </span>
-              <UserBadge user={user} size="md" />
-            </span>
-            <span className="mt-0.5 block truncate text-[14px] leading-[19px] text-[var(--cz-text-secondary)]">
-              @{user?.username || "username"}
-            </span>
-          </>
-        )}
-      </span>
-      <ChevronRight className={chevron} aria-hidden />
-    </Link>
-  );
-
-  const verifiedRow = (
-    <Link
-      href="/app/verified"
-      aria-label="Verification status"
-      className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--cz-surface-strong)]"
-    >
-      <span className={iconWrap}>
-        <BadgeCheck className="h-4 w-4" aria-hidden />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[15px] font-bold leading-[20px]">
-          Verified badge
-        </span>
-        <span className="block truncate text-[13px] text-[var(--cz-text-secondary)]">
-          {user?.isVerified
-            ? "Active on your profile"
-            : "50+ posts or 100+ followers — preview your tick"}
-        </span>
-      </span>
-      <span
-        className={cn(
-          "shrink-0 text-[14px] font-bold",
-          user?.isVerified
-            ? "text-[var(--cz-text-secondary)]"
-            : "text-[var(--cz-accent)]",
-        )}
-      >
-        {user?.isVerified ? "On" : "Get"}
-      </span>
-      <ChevronRight className={chevron} aria-hidden />
-    </Link>
-  );
-
-  // One entry per settings group. Rendering from data keeps the search honest:
-  // the same predicate decides what is visible and whether to show "no results".
-  const groups = [
-    {
-      id: "account",
-      title: "Account",
-      keywords:
-        "profile name username handle avatar photo edit identity verified badge tick email address details status standing good limited restricted suspended member since joined last login",
-      render: () => (
-        <div className="flex flex-col gap-2.5">
-          <div className={`${card} divide-y divide-[var(--cz-border)]`}>
-            {profileRow}
-            {verifiedRow}
-          </div>
-          {user ? <AccountDetails user={user} loading={loadingUser} /> : null}
-        </div>
-      ),
-    },
-    {
-      id: "explore",
-      title: "Explore",
-      shown: !q || exploreItems.length > 0,
-      keywords: "students colleges profile bookmarks analytics discover browse",
-      render: () => {
-        if (!exploreItems.length) return null;
-        return (
-          <nav
-            aria-label="Explore"
-            className={`${card} divide-y divide-[var(--cz-border)]`}
-          >
-            {exploreItems.map(({ href, Icon, title, sub }) => (
-              <Link key={href} href={href} className={rowBase}>
-                <span className={iconWrap}>
-                  <Icon className="h-4 w-4" aria-hidden />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[15px] font-bold leading-[20px]">
-                    {title}
-                  </span>
-                  <span className="block truncate text-[13px] leading-[18px] text-[var(--cz-text-secondary)]">
-                    {sub}
-                  </span>
-                </span>
-                <ChevronRight className={chevron} aria-hidden />
-              </Link>
-            ))}
-          </nav>
-        );
-      },
-    },
-    {
-      id: "appearance",
-      title: "Appearance",
-      keywords: "theme dark light mode color colour display",
-      render: () => (
-        <div className={`${card} grid grid-cols-2`}>
-          {[
-            { id: "light", label: "Light", Icon: Sun },
-            { id: "dark", label: "Dark", Icon: Moon },
-          ].map(({ id, label, Icon }, i) => {
-            const on = theme === id;
-            return (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setThemeAndApply(id)}
-                aria-pressed={on}
-                className={cn(
-                  "flex cursor-pointer items-center justify-center gap-2 py-3.5 text-[15px] font-bold transition-colors hover:bg-[var(--cz-surface-strong)]",
-                  i === 0 ? "border-r border-[var(--cz-border)]" : null,
-                  on
-                    ? "bg-[var(--cz-accent-soft)] text-[var(--cz-accent)]"
-                    : "text-[var(--cz-text-primary)]",
-                )}
-              >
-                <Icon className="h-[18px] w-[18px]" aria-hidden />
-                {label}
-              </button>
-            );
-          })}
-        </div>
-      ),
-    },
-    {
-      id: "notifications",
-      title: "Notifications",
-      keywords: "push alerts bell device browser os closed app",
-      render: () => <PushSettings />,
-    },
-    {
-      id: "content",
-      title: "Content",
-      keywords: "18+ sensitive mature blur spoiler date of birth age dob reveal",
-      render: () => (user ? <ContentSettings user={user} /> : null),
-    },
-    {
-      id: "privacy",
-      title: "Privacy",
-      keywords:
-        "private account approval followers reply replies mention mentions visibility college course year hide hidden who can",
-      render: () => (user ? <PrivacySettings user={user} /> : null),
-    },
-    {
-      id: "people",
-      title: "People",
-      keywords:
-        "follow requests followers following requests approve decline block blocked unblock unfollow remove",
-      render: () => (
-        <div className="flex flex-col gap-2.5">
-          <FollowRequests />
-          <div className={card}>
-            <button
-              type="button"
-              onClick={() => setShowBlocked((v) => !v)}
-              aria-expanded={showBlocked}
-              className={rowBase}
-            >
-              <span className={iconWrap}>
-                <Shield className="h-4 w-4" aria-hidden />
-              </span>
-              <span className="min-w-0 flex-1 text-[15px] font-bold leading-[20px]">
-                Blocked
-              </span>
-              {loadingBlocked ? (
-                <Loader2
-                  className="h-4 w-4 animate-spin text-[var(--cz-text-secondary)]"
-                  aria-hidden
-                />
-              ) : blocked.length > 0 ? (
-                <span className="grid min-w-[22px] place-items-center rounded-full bg-[var(--cz-accent)] px-1.5 text-[13px] font-bold leading-[22px] text-[var(--cz-text-inverse)]">
-                  {blocked.length}
-                </span>
-              ) : (
-                <span className="text-[15px] text-[var(--cz-text-secondary)]">
-                  None
-                </span>
-              )}
-              <ChevronRight
-                className={cn(
-                  chevron,
-                  "transition-transform",
-                  showBlocked && "rotate-90",
-                )}
-                aria-hidden
-              />
-            </button>
-
-            {showBlocked ? (
-              <div className="bg-[var(--cz-surface-strong)]/50 px-4 py-2">
-                {loadingBlocked ? (
-                  <p className="flex items-center gap-2 py-3 text-[15px] text-[var(--cz-text-secondary)]">
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />{" "}
-                    Loading…
-                  </p>
-                ) : blocked.length === 0 ? (
-                  <p className="py-3 text-[15px] text-[var(--cz-text-secondary)]">
-                    No blocked accounts.
-                  </p>
-                ) : (
-                  <ul className="divide-y divide-[var(--cz-border)]">
-                    {blocked.map((u) => (
-                      <li key={u._id} className="flex items-center gap-3 py-2.5">
-                        <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] text-[12px] font-bold text-[var(--cz-text-primary)]">
-                          {u.avatarUrl ? (
-                            <CzImage
-                              src={u.avatarUrl}
-                              alt=""
-                              className="h-full w-full rounded-full"
-                              imgClassName="h-full w-full"
-                            />
-                          ) : (
-                            (u.fullName || u.username || "U")
-                              .slice(0, 1)
-                              .toUpperCase()
-                          )}
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[15px] font-bold leading-[20px]">
-                            {u.fullName || u.username}
-                          </span>
-                          <span className="block truncate text-[13px] leading-[18px] text-[var(--cz-text-secondary)]">
-                            @{u.username}
-                          </span>
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => onUnblock(u._id)}
-                          disabled={unblocking === u._id}
-                          className="inline-flex h-[32px] shrink-0 items-center justify-center rounded-full border border-[var(--cz-border-strong)] px-4 text-[14px] font-bold text-[var(--cz-text-primary)] transition-colors hover:bg-[var(--cz-surface-strong)] disabled:opacity-50"
-                        >
-                          {unblocking === u._id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            "Unblock"
-                          )}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            ) : null}
-          </div>
-        </div>
-      ),
-    },
-    {
-      id: "safety",
-      title: "Safety",
-      keywords: "reports appeals moderation flag abuse review status",
-      render: () => <SafetyReports />,
-    },
-    {
-      id: "security",
-      title: "Security",
-      keywords: "devices sessions sign out log out login password where signed in",
-      render: () => <DevicesSettings />,
-    },
-    {
-      id: "data",
-      title: "Your data",
-      keywords:
-        "export download delete deactivate restore account json privacy policy terms legal data",
-      render: () => (
-        <div className="flex flex-col gap-2.5">
-          {user ? <AccountData user={user} /> : null}
-          {legalItems.length ? (
-          <nav
-            aria-label="Legal"
-            className={`${card} divide-y divide-[var(--cz-border)]`}
-          >
-            {legalItems.map(
-              ({ href, Icon, title }) => (
-                <Link key={href} href={href} className={rowBase}>
-                  <span className={iconWrap}>
-                    <Icon className="h-4 w-4" aria-hidden />
-                  </span>
-                  <span className="min-w-0 flex-1 text-[15px] font-bold leading-[20px]">
-                    {title}
-                  </span>
-                  <ChevronRight className={chevron} aria-hidden />
-                </Link>
-              ),
-            )}
-          </nav>
-          ) : null}
-        </div>
-      ),
-    },
-  ];
-
-  const visible = groups
-    // Suspended sessions see the Account group only — status, own details,
-    // and the sign-out button at the bottom of the page.
-    .filter((g) => (readOnly ? g.id === "account" : true))
-    .filter((g) => g.shown !== false && matches(q, g.title, g.keywords));
-
   return (
     <div>
       <PageHeader title="Settings" />
 
-      {/* Sticky search: filters the groups below without leaving the page. */}
-      <div
-        role="search"
-        className="sticky top-[106px] z-10 border-b border-[var(--cz-border)] bg-[var(--cz-bg)]/95 px-4 py-2.5 backdrop-blur md:top-[53px]"
-      >
+      {/* Sticky search: filters the rows below without leaving the page. */}
+      <search className="sticky top-[106px] z-10 border-b border-[var(--cz-border)] bg-[var(--cz-bg)]/95 px-4 py-2.5 backdrop-blur md:top-[53px]">
         <div className="flex h-[38px] items-center gap-2 rounded-full bg-[var(--cz-surface-strong)] px-3">
           <Search
             className="h-4 w-4 shrink-0 text-[var(--cz-text-secondary)]"
@@ -541,10 +76,28 @@ export default function MenuPage() {
             </button>
           ) : null}
         </div>
-      </div>
+      </search>
 
       <div className="px-4 py-4">
-        {visible.length === 0 ? (
+        {loadingUser ? (
+          <div
+            className="overflow-hidden rounded-[16px] border border-[var(--cz-border)]"
+            aria-hidden="true"
+          >
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 border-b border-[var(--cz-border)] px-4 py-3 last:border-b-0"
+              >
+                <span className="t-shimmer h-9 w-9 shrink-0 rounded-full" />
+                <span className="min-w-0 flex-1 space-y-2">
+                  <span className="t-shimmer block h-3.5 w-28 rounded-full" />
+                  <span className="t-shimmer block h-3 w-40 rounded-full" />
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : visible.length === 0 ? (
           <div className="py-16 text-center">
             <Search
               className="mx-auto h-7 w-7 text-[var(--cz-text-secondary)]"
@@ -565,21 +118,41 @@ export default function MenuPage() {
             </button>
           </div>
         ) : (
-          visible.map((group) => (
-            <section key={group.id} className="mb-7 last:mb-0">
-              <h2 className="mb-2 px-1 text-[12px] font-extrabold uppercase tracking-[0.08em] text-[var(--cz-text-secondary)]">
-                {group.title}
-              </h2>
-              <div className="flex flex-col gap-2.5">{group.render()}</div>
-            </section>
-          ))
+          <nav
+            aria-label="Settings sections"
+            className="overflow-hidden rounded-[16px] border border-[var(--cz-border)] divide-y divide-[var(--cz-border)]"
+          >
+            {visible.map(({ id, title, sub, Icon }) => (
+              <Link
+                key={id}
+                href={`/app/menu/${id}`}
+                className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--cz-surface-strong)]"
+              >
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[var(--cz-surface-strong)] text-[var(--cz-text-primary)]">
+                  <Icon className="h-[18px] w-[18px]" aria-hidden />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[15px] font-bold leading-[20px]">
+                    {title}
+                  </span>
+                  <span className="block truncate text-[13px] leading-[18px] text-[var(--cz-text-secondary)]">
+                    {sub}
+                  </span>
+                </span>
+                <ChevronRight
+                  className="h-[18px] w-[18px] shrink-0 text-[var(--cz-text-secondary)]"
+                  aria-hidden
+                />
+              </Link>
+            ))}
+          </nav>
         )}
 
         <button
           type="button"
           onClick={onLogout}
           disabled={loggingOut}
-          className="mt-6 flex min-h-[48px] w-full cursor-pointer items-center justify-center gap-2 rounded-full px-4 py-3 text-[15px] font-bold text-[var(--cz-error)] transition-colors hover:bg-[color-mix(in_srgb,var(--cz-error)_10%,transparent)] disabled:opacity-50"
+          className="mt-5 flex min-h-[44px] w-full cursor-pointer items-center justify-center gap-2 rounded-full px-4 py-2.5 text-[15px] font-bold text-[var(--cz-error)] transition-colors hover:bg-[color-mix(in_srgb,var(--cz-error)_10%,transparent)] disabled:opacity-50"
         >
           {loggingOut ? (
             <Loader2 className="h-[18px] w-[18px] animate-spin" aria-hidden />

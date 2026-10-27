@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Download, Loader2, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 
-export function AccountData({ user }) {
+export function AccountData({ user, showTitle = true }) {
   const router = useRouter();
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState(null);
@@ -74,9 +74,11 @@ export function AccountData({ user }) {
 
   return (
     <section aria-label="Your data" className="overflow-hidden rounded-[16px] border border-[var(--cz-border)]">
-      <p className="flex items-center gap-2 border-b border-[var(--cz-border)] px-4 py-3 text-[15px] font-bold leading-[20px]">
-        <Download className="h-4 w-4" aria-hidden /> Your data
-      </p>
+      {showTitle ? (
+        <p className="flex items-center gap-2 border-b border-[var(--cz-border)] px-4 py-3 text-[15px] font-bold leading-[20px]">
+          <Download className="h-4 w-4" aria-hidden /> Your data
+        </p>
+      ) : null}
       <div className="flex flex-col gap-3 p-4">
         {isDeactivated ? (
           <div className="rounded-[12px] border border-amber-500/40 bg-amber-500/10 p-3 text-[14px]">

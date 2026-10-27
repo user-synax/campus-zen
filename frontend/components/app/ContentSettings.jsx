@@ -30,7 +30,7 @@ function todayIso() {
 
 // 18+ content opt-in with one-shot DOB gate. Lives under
 // Preferences → Content, separate from Privacy interactions.
-export function ContentSettings({ user }) {
+export function ContentSettings({ user, showTitle = true }) {
   const qc = useQueryClient();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -107,9 +107,11 @@ export function ContentSettings({ user }) {
 
   return (
     <section aria-label="Content preferences" className="overflow-hidden rounded-[16px] border border-[var(--cz-border)]">
-      <p className="flex items-center gap-2 border-b border-[var(--cz-border)] px-4 py-3 text-[15px] font-bold leading-[20px]">
-        <EyeOff className="h-4 w-4" aria-hidden /> Content
-      </p>
+      {showTitle ? (
+        <p className="flex items-center gap-2 border-b border-[var(--cz-border)] px-4 py-3 text-[15px] font-bold leading-[20px]">
+          <EyeOff className="h-4 w-4" aria-hidden /> Content
+        </p>
+      ) : null}
       <div className="flex flex-col gap-3 p-4">
         {error ? <p className="text-[14px] text-[var(--cz-error)]">{error}</p> : null}
         <div className="flex items-center justify-between gap-3">
