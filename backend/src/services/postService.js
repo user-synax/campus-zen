@@ -1292,10 +1292,6 @@ export const postService = {
         afterResponse(() =>
           notificationService.create({ recipient: post.author, actor: userId, type: "like", post: postId }),
         );
-        // Achievement: likes received can unlock tiers.
-        import("../services/achievementService.js")
-          .then(({ achievementService }) => achievementService.evaluate(post.author))
-          .catch(() => {});
       }
       afterResponse(() =>
         pushPostUpdate(post.author, { postId: String(postId), likeCount: updated.likeCount }),

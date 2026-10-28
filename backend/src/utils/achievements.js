@@ -34,11 +34,10 @@ export function isProfileComplete(user) {
   return Boolean(user.avatarUrl || (user.bio && String(user.bio).trim()) || (user.college && String(user.college).trim()));
 }
 
-export function computeAchievementTier({ user, totalLikes = 0, activeRecently = true }) {
+export function computeAchievementTier({ user, activeRecently = true }) {
   if (!user) return 0;
   const posts = Number(user.postCount) || 0;
   const followers = Number(user.qualityFollowers ?? user.followersCount) || 0;
-  const likes = Number(totalLikes) || 0;
 
   // Evaluate highest tier whose rule passes.
   const rules = [
@@ -46,8 +45,8 @@ export function computeAchievementTier({ user, totalLikes = 0, activeRecently = 
     () => posts >= 10 || followers >= 25,
     () => posts >= 25 || followers >= 50,
     () => posts >= 50 || followers >= 100,
-    () => (posts >= 75 || followers >= 250) && likes >= 100,
-    () => (posts >= 100 || followers >= 500) && likes >= 500,
+    () => posts >= 75 || followers >= 250,
+    () => posts >= 100 || followers >= 500,
     () => posts >= 150 || followers >= 1000,
     () => (posts >= 250 || followers >= 2500) && activeRecently,
     () => posts >= 500 || followers >= 5000,
@@ -67,8 +66,8 @@ export function computeAchievementTier({ user, totalLikes = 0, activeRecently = 
 
 // Progress toward the next tier, for UI progress bars.
 // Returns { currentLevel, nextLevel, nextTier, progress (0..1), hint }.
-export function progressToNext({ user, totalLikes = 0, activeRecently = true }) {
-  const currentLevel = computeAchievementTier({ user, totalLikes, activeRecently });
+export function progressToNext({ user, activeRecently = true }) {
+  const currentLevel = computeAchievementTier({ user, activeRecently });
   if (currentLevel >= ACHIEVEMENT_TIERS.length) {
     return { currentLevel, nextLevel: null, nextTier: null, progress: 1, hint: "Max tier reached" };
   }
@@ -97,12 +96,12 @@ export function progressToNext({ user, totalLikes = 0, activeRecently = true }) 
       hint = "Reach 50 posts or 100 followers";
       break;
     case 5:
-      progress = Math.min(1, Math.max(posts / 75, followers / 250, (totalLikes || 0) / 100));
-      hint = "Reach 75 posts / 250 followers and 100 likes received";
+      progress = Math.min(1, Math.max(posts / 75, followers / 250));
+      hint = "Reach 75 posts or 250 followers";
       break;
     case 6:
-      progress = Math.min(1, Math.max(posts / 100, followers / 500, (totalLikes || 0) / 500));
-      hint = "Reach 100 posts / 500 followers and 500 likes received";
+      progress = Math.min(1, Math.max(posts / 100, followers / 500));
+      hint = "Reach 100 posts or 500 followers";
       break;
     case 7:
       progress = Math.min(1, Math.max(posts / 150, followers / 1000));

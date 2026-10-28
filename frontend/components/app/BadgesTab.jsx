@@ -11,8 +11,8 @@ const BADGE_CRITERIA = [
   "Reach 10 posts or 25 followers",
   "Reach 25 posts or 50 followers",
   "Reach 50 posts or 100 followers",
-  "Reach 75 posts or 250 followers and 100 likes received",
-  "Reach 100 posts or 500 followers and 500 likes received",
+  "Reach 75 posts or 250 followers",
+  "Reach 100 posts or 500 followers",
   "Reach 150 posts or 1,000 followers",
   "Reach 250 posts or 2,500 followers and stay active",
   "Reach 500 posts or 5,000 followers",
@@ -38,7 +38,7 @@ export function BadgesTab({ user, isOwn = false }) {
           Badges
         </h2>
         <p className="mt-1 text-[14px] text-[var(--cz-text-secondary)]">
-          Earn badges by posting, growing your followers, and getting likes.
+          Earn badges by posting and growing your followers.
         </p>
       </div>
 

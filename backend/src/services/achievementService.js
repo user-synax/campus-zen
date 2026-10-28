@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 import { User } from "../models/User.js";
-import { Post } from "../models/Post.js";
 import { notificationService } from "./notificationService.js";
 import { cache, CacheKeys } from "../utils/cache.js";
 import {
@@ -8,18 +7,6 @@ import {
   tierInfo,
   progressToNext,
 } from "../utils/achievements.js";
-
-async function totalLikesFor(userId) {
-  try {
-    const rows = await Post.aggregate([
-      { $match: { author: new mongoose.Types.ObjectId(String(userId)) } },
-      { $group: { _id: null, total: { $sum: "$likeCount" } } },
-    ]);
-    return rows?.[0]?.total || 0;
-  } catch {
-    return 0;
-  }
-}
 
 function isActiveRecently(user) {
   const ref = user?.lastLoginAt || user?.updatedAt || user?.createdAt;
@@ -34,7 +21,6 @@ export const achievementService = {
       .select("postCount followersCount avatarUrl bio college lastLoginAt updatedAt createdAt achievementTier username")
       .lean();
     if (!user) return null;
-    const likes = await totalLikesFor(userId);
     const active = isActiveRecently(user);
     // Engagement quality: only followers active in the last 30 days count toward
     // badge thresholds, so dead/fake followers can't farm tiers.
@@ -60,17 +46,17 @@ export const achievementService = {
     } catch {}
     // Attach so computeAchievementTier can use it.
     user.qualityFollowers = qualityFollowers;
-    return { user, totalLikes: likes, activeRecently: active, qualityFollowers };
+    return { user, activeRecently: active, qualityFollowers };
   },
 
   async evaluate(userId) {
     const stats = await this.statsFor(userId);
     if (!stats) return { changed: false, tier: 0 };
-    const { user, totalLikes, activeRecently } = stats;
-    const next = computeAchievementTier({ user, totalLikes, activeRecently });
+    const { user, activeRecently } = stats;
+    const next = computeAchievementTier({ user, activeRecently });
     const prev = Number(user.achievementTier) || 0;
     if (next <= prev) {
-      return { changed: false, tier: prev, totalLikes };
+      return { changed: false, tier: prev };
     }
     const updated = await User.findByIdAndUpdate(
       userId,
@@ -86,15 +72,13 @@ export const achievementService = {
       const info = tierInfo(next);
       await notificationService.createBadgeUnlock(userId, next, info?.name || "badge");
     } catch {}
-    return { changed: true, tier: next, previous: prev, totalLikes };
+    return { changed: true, tier: next, previous: prev };
   },
 
   async getProgress(userId) {
     const stats = await this.statsFor(userId);
     if (!stats) return null;
-    const { user, totalLikes, activeRecently } = stats;
-    const prog = progressToNext({ user, totalLikes, activeRecently });
-    // attach totalLikes for client convenience
-    return { ...prog, totalLikes };
+    const { user, activeRecently } = stats;
+    return progressToNext({ user, activeRecently });
   },
 };
