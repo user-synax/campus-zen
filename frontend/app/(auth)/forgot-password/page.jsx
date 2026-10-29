@@ -17,6 +17,7 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [info, setInfo] = useState("");
   const ref = useRef(null);
+  const submittingRef = useRef(false);
 
   const validate = () => {
     const v = email.trim().toLowerCase();
@@ -33,6 +34,7 @@ export default function ForgotPasswordPage() {
 
   const onSubmit = async (e) => {
     e.preventDefault();
+    if (submittingRef.current) return;
     setInfo("");
     if (!validate()) {
       setShake(true);
@@ -40,6 +42,7 @@ export default function ForgotPasswordPage() {
       ref.current?.focus();
       return;
     }
+    submittingRef.current = true;
     setLoading(true);
     setError("");
     try {
@@ -52,6 +55,7 @@ export default function ForgotPasswordPage() {
     } catch (err) {
       const data = err.data || {};
       setError(data.message || err.message || "Failed to send code");
+      submittingRef.current = false;
       setShake(true);
       setTimeout(() => setShake(false), 380);
       if (err.status === 429) setError(data.message || "Too many requests. Try later.");

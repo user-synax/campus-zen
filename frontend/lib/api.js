@@ -26,6 +26,7 @@ const NO_AUTO_RETRY = new Set([
   "/api/auth/verify-email",
   "/api/auth/resend-otp",
   "/api/auth/forgot-password",
+  "/api/auth/verify-reset-otp",
   "/api/auth/reset-password",
   "/api/auth/parental-consent/verify",
   "/api/auth/parental-consent/withdraw/request",
@@ -159,6 +160,8 @@ export const api = {
     request("/api/auth/sessions", { method: "DELETE" }),
   forgotPassword: (payload) =>
     request("/api/auth/forgot-password", { method: "POST", body: payload }),
+  verifyResetOtp: (payload) =>
+    request("/api/auth/verify-reset-otp", { method: "POST", body: payload }),
   resetPassword: (payload) =>
     request("/api/auth/reset-password", { method: "POST", body: payload }),
   getUser: (username) =>

@@ -103,6 +103,7 @@ router.post("/logout", authController.logout);
 // behind plain protect().
 router.get("/me", protectAllowSuspended, authController.me);
 router.post("/forgot-password", forgotLimiter, validate(forgotSchema), authController.forgotPassword);
+router.post("/verify-reset-otp", verifyLimiter, validate(verifySchema), authController.verifyResetOtp);
 router.post("/reset-password", verifyLimiter, validate(resetSchema), authController.resetPassword);
 
 // signed-in devices — list, sign one out, or sign out everywhere else

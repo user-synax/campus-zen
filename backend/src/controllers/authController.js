@@ -117,6 +117,11 @@ export const authController = {
     res.json({ success: true, message: result.message });
   }),
 
+  verifyResetOtp: asyncHandler(async (req, res) => {
+    const result = await authService.verifyResetOtp(req.body);
+    res.json({ success: true, message: result.message });
+  }),
+
   resetPassword: asyncHandler(async (req, res) => {
     const { email, otp, newPassword } = req.body;
     // frontend sends newPassword as password

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Eye, EyeOff, Lock, CheckCircle2, Loader2, KeyRound, AlertCircle } from "lucide-react";
@@ -29,6 +29,10 @@ function ResetPasswordInner() {
   const [shakePw, setShakePw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  // Auto-submit once per entered code. Without this, a failed 6-digit code
+  // stays in state and the effect retries on every loading change, burning
+  // all five attempts without the user touching anything.
+  const autoSubmitted = useRef("");
 
   const [resendIn, setResendIn] = useState(30);
   const [canResend, setCanResend] = useState(false);
@@ -48,25 +52,47 @@ function ResetPasswordInner() {
     return () => clearInterval(t);
   }, [canResend]);
 
-  const onVerifyOtp = (e) => {
+  const onVerifyOtp = useCallback(async (e) => {
     e?.preventDefault();
+    if (loading) return;
     if (otp.length !== 6) {
       setOtpError("Enter the 6-digit code.");
       setShakeOtp(true);
       setTimeout(() => setShakeOtp(false), 380);
       return;
     }
-    // local step transition — backend will fully verify when resetting password
     setOtpError("");
-    setStep(2);
-  };
+    if (!email) {
+      setOtpError("Missing email. Start over from forgot password.");
+      return;
+    }
+    setLoading(true);
+    try {
+      await api.verifyResetOtp({ email: email.toLowerCase().trim(), otp });
+      setStep(2);
+    } catch (err) {
+      const data = err.data || {};
+      const msg = data.message || err.message || "Invalid code";
+      setOtpError(msg);
+      setShakeOtp(true);
+      setTimeout(() => setShakeOtp(false), 380);
+    } finally {
+      setLoading(false);
+    }
+  }, [loading, otp, email]);
 
   useEffect(() => {
-    if (step === 1 && otp.length === 6 && !loading) {
+    if (
+      step === 1 &&
+      otp.length === 6 &&
+      !loading &&
+      autoSubmitted.current !== otp
+    ) {
+      autoSubmitted.current = otp;
       const t = setTimeout(() => onVerifyOtp(), 300);
       return () => clearTimeout(t);
     }
-  }, [otp, step, loading]);
+  }, [otp, step, loading, onVerifyOtp]);
 
   const onResend = async () => {
     if (!canResend || !email) return;
@@ -77,6 +103,7 @@ function ResetPasswordInner() {
       setCanResend(false);
       setResendIn(30);
       setOtp("");
+      autoSubmitted.current = "";
       setInfo("New reset code sent. Check your email.");
     } catch (err) {
       const data = err.data || {};
@@ -117,6 +144,7 @@ function ResetPasswordInner() {
       // if otp invalid/expired, send user back to step 1
       if (data.code?.includes("OTP") || /code/i.test(msg)) {
         setOtpError(msg);
+        setStep(1);
         setShakeOtp(true);
         setTimeout(() => setShakeOtp(false), 380);
       }

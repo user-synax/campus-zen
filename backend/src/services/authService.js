@@ -98,6 +98,37 @@ function assertCanUseAccount(user) {
   }
 }
 
+// Shared reset-code check for both the verify step and the final password
+// update. `consume` is true only when the code is actually spent, so a user
+// who verifies successfully can still submit the new password.
+async function checkResetOtp(cleanEmail, otp, { consume = false } = {}) {
+  const record = await Otp.findOne({ email: cleanEmail, type: "reset" }).sort({ createdAt: -1 });
+  if (!record) throw new AppError("No reset code found. Request a new one.", 404, "OTP_NOT_FOUND");
+  if (record.expiresAt < new Date()) {
+    await Otp.deleteMany({ email: cleanEmail, type: "reset" });
+    throw new AppError("Code expired. Request a new one.", 410, "OTP_EXPIRED");
+  }
+  if (record.attempts >= 5) {
+    await Otp.deleteMany({ email: cleanEmail, type: "reset" });
+    throw new AppError("Too many attempts. Request a new code.", 429, "OTP_ATTEMPTS_EXCEEDED");
+  }
+
+  const ok = await compareOtp(otp, record.otpHash);
+  if (!ok) {
+    record.attempts += 1;
+    await record.save();
+    const remaining = 5 - record.attempts;
+    throw new AppError(
+      `Invalid code. ${remaining > 0 ? `${remaining} attempts left.` : "No attempts left."}`,
+      400,
+      "OTP_INVALID"
+    );
+  }
+
+  if (consume) await Otp.deleteMany({ email: cleanEmail, type: "reset" });
+  return record;
+}
+
 export const authService = {
   async checkUsername(username) {
     const u = username.toLowerCase().trim();
@@ -621,32 +652,32 @@ export const authService = {
     // generic response to avoid enumeration
     if (!user) return { message: "If an account exists, a reset code has been sent." };
 
+    // A duplicate request inside 30s must not invalidate the code already in
+    // the inbox. Both requests used to delete+create, so the older email went
+    // stale and looked "wrong" on the reset screen.
+    const last = await Otp.findOne({ email: cleanEmail, type: "reset" })
+      .sort({ createdAt: -1 })
+      .select("createdAt")
+      .lean();
+    if (last && Date.now() - new Date(last.createdAt).getTime() < 30 * 1000) {
+      return { message: "If an account exists, a reset code has been sent." };
+    }
+
     await createAndSendOtp({ email: cleanEmail, type: "reset" });
     return { message: "Reset code sent. Expires in 10 minutes." };
   },
 
+  // Verify the code without spending it. The reset screen calls this before
+  // asking for a new password, so an invalid/expired code fails at the code
+  // step instead of after the user has typed a password.
+  async verifyResetOtp({ email, otp }) {
+    await checkResetOtp(email.toLowerCase().trim(), otp);
+    return { message: "Reset code verified." };
+  },
+
   async resetPassword({ email, otp, newPassword }) {
     const cleanEmail = email.toLowerCase().trim();
-    const record = await Otp.findOne({ email: cleanEmail, type: "reset" }).sort({ createdAt: -1 });
-    if (!record) throw new AppError("No reset code found. Request a new one.", 404, "OTP_NOT_FOUND");
-    if (record.expiresAt < new Date()) {
-      await Otp.deleteMany({ email: cleanEmail, type: "reset" });
-      throw new AppError("Code expired. Request a new one.", 410, "OTP_EXPIRED");
-    }
-    if (record.attempts >= 5) {
-      await Otp.deleteMany({ email: cleanEmail, type: "reset" });
-      throw new AppError("Too many attempts. Request a new code.", 429, "OTP_ATTEMPTS_EXCEEDED");
-    }
-
-    const ok = await compareOtp(otp, record.otpHash);
-    if (!ok) {
-      record.attempts += 1;
-      await record.save();
-      const remaining = 5 - record.attempts;
-      throw new AppError(`Invalid code. ${remaining > 0 ? `${remaining} attempts left.` : "No attempts left."}`, 400, "OTP_INVALID");
-    }
-
-    await Otp.deleteMany({ email: cleanEmail, type: "reset" });
+    await checkResetOtp(cleanEmail, otp, { consume: true });
     const user = await User.findOne({ email: cleanEmail }).select("+passwordHash +refreshTokenHash");
     if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
 
