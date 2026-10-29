@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { PasswordStrength } from "@/components/auth/PasswordStrength";
 import { OtpInput } from "@/components/auth/OtpInput";
 import { api } from "@/lib/api";
+import { Label } from "@/components/ui/label";
 
 function ResetPasswordInner() {
   const search = useSearchParams();
