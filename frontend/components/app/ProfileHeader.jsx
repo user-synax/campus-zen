@@ -5,6 +5,7 @@ import {
   Calendar,
   Flag,
   GraduationCap,
+  Link2,
   Lock,
   MoreHorizontal,
 } from "lucide-react";
@@ -16,6 +17,7 @@ import { UserBadge } from "@/components/ui/verified-badge";
 import { HighestAchievementBadge } from "@/components/ui/achievement-badge";
 import { StreakFlame } from "@/components/ui/streak-flame";
 import { withAvatarRing } from "@/lib/avatar";
+import { normalizeHttpsUrl } from "@/lib/links";
 import { cn } from "@/lib/utils";
 
 // Simple single-color brand glyphs (Simple Icons style, currentColor).
@@ -185,6 +187,17 @@ export function ProfileHeader({
     user.socialLinks?.linkedin,
     user.socialLinks?.instagram,
   ]);
+
+  const customLinkEntries = useMemo(() => {
+    const rows = Array.isArray(user.customLinks) ? user.customLinks : [];
+    return rows
+      .slice(0, 3)
+      .map((link) => ({
+        label: String(link?.label || "").trim(),
+        href: normalizeHttpsUrl(link?.url),
+      }))
+      .filter((link) => link.label && link.href);
+  }, [user.customLinks]);
 
   return (
     <div>
@@ -362,6 +375,24 @@ export function ProfileHeader({
             handle exists; external domains are preconnected so the first
             tap isn't a cold TLS. */}
         <SocialLinks entries={socialEntries} />
+
+        {customLinkEntries.length ? (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {customLinkEntries.map(({ label, href }) => (
+              <a
+                key={`${href}-${label}`}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer nofollow ugc"
+                aria-label={`${label} (opens in new tab)`}
+                className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-[var(--cz-border-strong)] bg-[var(--cz-surface-strong)] px-3 py-1 text-[13px] font-medium text-[var(--cz-text-primary)] transition-colors hover:border-[var(--cz-accent)] hover:text-[var(--cz-accent)]"
+              >
+                <Link2 className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                <span className="truncate">{label}</span>
+              </a>
+            ))}
+          </div>
+        ) : null}
 
         <div className="mt-4 flex flex-wrap items-start gap-x-6 gap-y-2 text-[15px] leading-[20px]">
           <button

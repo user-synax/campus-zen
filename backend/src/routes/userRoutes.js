@@ -7,10 +7,16 @@ import { followController } from "../controllers/followController.js";
 import { blockController } from "../controllers/blockController.js";
 import { avatarUpload } from "../middleware/upload.js";
 import rateLimit from "express-rate-limit";
+import { isHttpsUrl, MAX_CUSTOM_LINKS } from "../utils/links.js";
 
 const router = Router();
 
 const usernameParam = z.object({ username: z.string().trim().toLowerCase().min(3).max(20).regex(/^[a-z0-9_]+$/) });
+
+const customLinkSchema = z.object({
+  label: z.string().trim().min(1, "Link label is required").max(24, "Link label must be 24 characters or less"),
+  url: z.string().trim().min(1, "Link URL is required").max(200).refine(isHttpsUrl, "Link must be a valid HTTPS URL"),
+});
 
 const updateMeSchema = z.object({
   fullName: z.string().trim().min(2).max(50).optional(),
@@ -45,6 +51,7 @@ const updateMeSchema = z.object({
       instagram: z.string().trim().max(30).nullable().optional().or(z.literal("").transform(() => null)),
     })
     .optional(),
+  customLinks: z.array(customLinkSchema).max(MAX_CUSTOM_LINKS).optional(),
 });
 
 const privacySchema = z.object({

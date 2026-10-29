@@ -73,7 +73,7 @@ const DATA_ROWS = [
   ],
   [
     "Profile",
-    "Display name, bio, college, course, academic year, avatar, cover, accent colour, pinned post, social links, counts and privacy settings — to run your public profile and discovery.",
+    "Display name, bio, college, course, academic year, avatar, cover, accent colour, pinned post, social links, custom profile links, counts and privacy settings — to run your public profile and discovery.",
   ],
   [
     "Age and guardian",

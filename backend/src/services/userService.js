@@ -6,6 +6,7 @@ import { blockService } from "./blockService.js";
 import { privacyService } from "./privacyService.js";
 import { cache, CacheKeys, TTL } from "../utils/cache.js";
 import { calcAgeYears, parseDobInput } from "../utils/age.js";
+import { normalizeHttpsUrl, MAX_CUSTOM_LINKS, MAX_CUSTOM_LINK_LABEL } from "../utils/links.js";
 import { createAndSendOtp } from "./otpService.js";
 import {
   POLICY_VERSION,
@@ -345,7 +346,7 @@ export const userService = {
 
   async updateMe(userId, data) {
     if (data?.dob !== undefined) throw new AppError("Date of birth can only be set once via /me/dob", 400, "DOB_IMMUTABLE");
-    const allowed = ["fullName", "bio", "college", "course", "academicYear", "avatarUrl", "coverUrl", "accent", "isPrivate", "replyPolicy", "mentionPolicy", "profileVisibility", "showSensitive"];
+    const allowed = ["fullName", "bio", "college", "course", "academicYear", "avatarUrl", "coverUrl", "accent", "isPrivate", "replyPolicy", "mentionPolicy", "profileVisibility", "showSensitive", "customLinks"];
     const update = {};
     for (const k of allowed) if (data[k] !== undefined) update[k] = data[k];
 
@@ -428,6 +429,36 @@ export const userService = {
       // handle nulls explicitly
       for (const k of Object.keys(sl)) merged[k] = sl[k];
       update.socialLinks = merged;
+    }
+
+    // Custom profile links — at most three labelled HTTPS URLs. The route
+    // schema checks shape; this pass normalizes values and is the final gate
+    // for direct service callers too.
+    if (data.customLinks !== undefined) {
+      if (!Array.isArray(data.customLinks)) {
+        throw new AppError("Custom links must be an array", 400, "VALIDATION_ERROR");
+      }
+      if (data.customLinks.length > MAX_CUSTOM_LINKS) {
+        throw new AppError(`You can add up to ${MAX_CUSTOM_LINKS} custom links`, 400, "VALIDATION_ERROR");
+      }
+      const links = [];
+      const seen = new Set();
+      for (const [index, item] of data.customLinks.entries()) {
+        const label = String(item?.label ?? "").trim().replace(/\s+/g, " ");
+        const url = normalizeHttpsUrl(item?.url);
+        if (!label || label.length > MAX_CUSTOM_LINK_LABEL) {
+          throw new AppError(`Link ${index + 1} needs a label of 1–${MAX_CUSTOM_LINK_LABEL} characters`, 400, "VALIDATION_ERROR");
+        }
+        if (!url) {
+          throw new AppError(`Link ${index + 1} needs a valid HTTPS URL`, 400, "VALIDATION_ERROR");
+        }
+        if (seen.has(url)) {
+          throw new AppError("Custom links must be unique", 400, "VALIDATION_ERROR");
+        }
+        seen.add(url);
+        links.push({ label, url });
+      }
+      update.customLinks = links;
     }
 
     if (update.fullName !== undefined) {

@@ -1,6 +1,14 @@
 import mongoose from "mongoose";
 import { env } from "../config/env.js";
 
+const customLinkSchema = new mongoose.Schema(
+  {
+    label: { type: String, required: true, trim: true, maxlength: 24 },
+    url: { type: String, required: true, trim: true, maxlength: 200 },
+  },
+  { _id: false },
+);
+
 // Account standing shown to the owner on /menu and set from the admin
 // dashboard. "good" is the default; the rest are moderation decisions.
 export const ACCOUNT_STATUSES = ["good", "limited", "restricted", "suspended", "banned"];
@@ -73,6 +81,17 @@ const userSchema = new mongoose.Schema(
       twitter: { type: String, default: null, trim: true, maxlength: 30 },
       linkedin: { type: String, default: null, trim: true, maxlength: 100 },
       instagram: { type: String, default: null, trim: true, maxlength: 30 },
+    },
+    // Up to three labelled HTTPS links (portfolio, LeetCode, personal site).
+    // Validated in userService; kept as a subdocument array so the profile
+    // payload stays self-describing and exportable.
+    customLinks: {
+      type: [customLinkSchema],
+      default: [],
+      validate: {
+        validator: (value) => Array.isArray(value) && value.length <= 3,
+        message: "At most 3 custom links are allowed",
+      },
     },
     followersCount: { type: Number, default: 0, min: 0 },
     followingCount: { type: Number, default: 0, min: 0 },

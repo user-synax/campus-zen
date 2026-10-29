@@ -5,8 +5,11 @@ import {
   Github,
   Image as ImageIcon,
   Instagram,
+  Link2,
   Linkedin,
   Loader2,
+  Plus,
+  Trash2,
   Twitter,
   Upload,
   X,
@@ -16,6 +19,20 @@ import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
+import {
+  MAX_CUSTOM_LINK_LABEL,
+  MAX_CUSTOM_LINKS,
+  normalizeHttpsUrl,
+} from "@/lib/links";
+
+function cleanLinks(links) {
+  if (!Array.isArray(links)) return [];
+  return links.slice(0, MAX_CUSTOM_LINKS).map((link, index) => ({
+    id: `existing-${index}`,
+    label: String(link?.label || ""),
+    url: String(link?.url || ""),
+  }));
+}
 
 export function EditProfileModal({ open, onClose, user, onSaved }) {
   const [fullName, setFullName] = useState(user?.fullName || "");
@@ -29,6 +46,7 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
   const [instagram, setInstagram] = useState(
     user?.socialLinks?.instagram || "",
   );
+  const [customLinks, setCustomLinks] = useState(cleanLinks(user?.customLinks));
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState(user?.avatarUrl || null);
   const [coverFile, setCoverFile] = useState(null);
@@ -40,6 +58,7 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
   const modalRef = useRef(null);
   const fileRef = useRef(null);
   const coverRef = useRef(null);
+  const nextLinkId = useRef(1);
 
   // sync when user changes
   useEffect(() => {
@@ -53,6 +72,7 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
       setTwitter(user.socialLinks?.twitter || "");
       setLinkedin(user.socialLinks?.linkedin || "");
       setInstagram(user.socialLinks?.instagram || "");
+      setCustomLinks(cleanLinks(user.customLinks));
       setAvatarPreview(user.avatarUrl || null);
       setAvatarFile(null);
       setCoverPreview(user.coverUrl || null);
@@ -132,6 +152,27 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
     if (coverRef.current) coverRef.current.value = "";
   };
 
+  const updateCustomLink = (index, key, value) => {
+    setCustomLinks((prev) =>
+      prev.map((link, i) => (i === index ? { ...link, [key]: value } : link)),
+    );
+  };
+
+  const addCustomLink = () => {
+    setCustomLinks((prev) =>
+      prev.length >= MAX_CUSTOM_LINKS
+        ? prev
+        : [
+            ...prev,
+            { id: `new-${nextLinkId.current++}`, label: "", url: "" },
+          ],
+    );
+  };
+
+  const removeCustomLink = (index) => {
+    setCustomLinks((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const onSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -146,6 +187,34 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
     if (github && !/^[a-zA-Z0-9-]{1,39}$/.test(github.trim())) {
       setError("Invalid GitHub username");
       return;
+    }
+    const links = [];
+    const seenLinks = new Set();
+    for (const [index, link] of customLinks.entries()) {
+      const label = link.label.trim().replace(/\s+/g, " ");
+      const rawUrl = link.url.trim();
+      if (!label && !rawUrl) continue;
+      if (!label) {
+        setError(`Link ${index + 1} needs a label`);
+        return;
+      }
+      if (label.length > MAX_CUSTOM_LINK_LABEL) {
+        setError(
+          `Link ${index + 1} label must be ${MAX_CUSTOM_LINK_LABEL} characters or less`,
+        );
+        return;
+      }
+      const url = normalizeHttpsUrl(rawUrl);
+      if (!url) {
+        setError(`Link ${index + 1} must be a valid HTTPS URL`);
+        return;
+      }
+      if (seenLinks.has(url)) {
+        setError("Custom links must be unique");
+        return;
+      }
+      seenLinks.add(url);
+      links.push({ label, url });
     }
     setLoading(true);
     try {
@@ -204,6 +273,7 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
           linkedin: linkedin.trim() || null,
           instagram: instagram.trim().replace(/^@/, "") || null,
         },
+        customLinks: links,
       };
       // if avatar was uploaded, payload already has it via backend, no need to send again
       const res = await api.updateMe(payload);
@@ -575,6 +645,72 @@ export function EditProfileModal({ open, onClose, user, onSaved }) {
                   />
                 </div>
               </div>
+            </div>
+
+            <div className="space-y-3 border-t border-[var(--cz-border)] pt-4">
+              <div className="flex items-center justify-between gap-3">
+                <Label className="inline-flex items-center gap-1.5">
+                  <Link2 className="h-4 w-4" aria-hidden /> Custom links
+                </Label>
+                <span className="text-[13px] text-[var(--cz-text-secondary)]">
+                  {customLinks.length}/{MAX_CUSTOM_LINKS}
+                </span>
+              </div>
+              <p className="text-[13px] leading-[17px] text-[var(--cz-text-secondary)]">
+                Portfolio, LeetCode, personal site — HTTPS only.
+              </p>
+
+              {customLinks.map((link, index) => (
+                <div
+                  key={link.id}
+                  className="grid gap-2 rounded-[6px] border border-[var(--cz-border)] p-3 sm:grid-cols-[1fr_1.4fr_auto] sm:items-center"
+                >
+                  <div className="cz-input flex h-[40px] items-center rounded-[4px] px-3">
+                    <input
+                      aria-label={`Link ${index + 1} label`}
+                      value={link.label}
+                      onChange={(e) =>
+                        updateCustomLink(index, "label", e.target.value)
+                      }
+                      placeholder="Portfolio"
+                      maxLength={MAX_CUSTOM_LINK_LABEL}
+                      className="h-full w-full bg-transparent text-[14px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)]"
+                    />
+                  </div>
+                  <div className="cz-input flex h-[40px] items-center rounded-[4px] px-3">
+                    <input
+                      aria-label={`Link ${index + 1} URL`}
+                      value={link.url}
+                      onChange={(e) =>
+                        updateCustomLink(index, "url", e.target.value)
+                      }
+                      placeholder="https://example.com"
+                      inputMode="url"
+                      maxLength={200}
+                      className="h-full w-full bg-transparent text-[14px] text-[var(--cz-text-primary)] outline-none placeholder:text-[var(--cz-text-secondary)]"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeCustomLink(index)}
+                    aria-label={`Remove link ${index + 1}`}
+                    className="grid h-[40px] w-[40px] place-items-center justify-self-end rounded-full text-[var(--cz-text-secondary)] transition-colors hover:bg-[var(--cz-surface-strong)] hover:text-[var(--cz-error)]"
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden />
+                  </button>
+                </div>
+              ))}
+
+              {customLinks.length < MAX_CUSTOM_LINKS ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={addCustomLink}
+                >
+                  <Plus className="h-4 w-4" aria-hidden /> Add link
+                </Button>
+              ) : null}
             </div>
           </div>
 
