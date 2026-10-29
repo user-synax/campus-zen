@@ -1,8 +1,7 @@
 import { Inter } from "next/font/google";
 import { cookies } from "next/headers";
 import "./globals.css";
-import { Analytics } from "@vercel/analytics/next";
-import { SpeedInsights } from "@vercel/speed-insights/next";
+import { ConsentAwareAnalytics } from "@/components/ConsentAwareAnalytics";
 import { PushRegistrar } from "@/components/app/PushRegistrar";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { CzToaster } from "@/components/ui/sonner";
@@ -95,7 +94,9 @@ const orgJsonLd = {
 export default async function RootLayout({ children }) {
   // Reading the theme cookie here is what makes the first paint correct:
   // the class is already on <html> before any CSS or JS runs.
-  const theme = readThemeCookie(await cookies());
+  const cookieStore = await cookies();
+  const theme = readThemeCookie(cookieStore);
+  const analyticsAllowed = cookieStore.get("cz_analytics")?.value === "1";
 
   return (
     <html
@@ -107,8 +108,7 @@ export default async function RootLayout({ children }) {
         <PushRegistrar />
         <QueryProvider>{children}</QueryProvider>
         <CzToaster />
-        <Analytics />
-        <SpeedInsights />
+        <ConsentAwareAnalytics enabled={analyticsAllowed} />
       </body>
     </html>
   );

@@ -19,5 +19,8 @@ const postViewSchema = new mongoose.Schema(
 postViewSchema.index({ post: 1, viewer: 1, dayKey: 1 }, { unique: true });
 postViewSchema.index({ post: 1, createdAt: -1 });
 postViewSchema.index({ viewer: 1, createdAt: -1 });
+// Retention: raw impression rows are deleted after 180 days. Post.viewCount
+// remains as the denormalized all-time total.
+postViewSchema.index({ createdAt: 1 }, { expireAfterSeconds: 180 * 24 * 60 * 60 });
 
 export const PostView = mongoose.model("PostView", postViewSchema);

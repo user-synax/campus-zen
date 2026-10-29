@@ -1,6 +1,9 @@
 import { userService } from "../services/userService.js";
 import { postService } from "../services/postService.js";
+import { authService } from "../services/authService.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { describeRequest } from "../utils/device.js";
+import { clearAuthCookies, clearAnalyticsCookie, setAnalyticsCookie } from "../utils/cookies.js";
 
 export const userController = {
   listUsers: asyncHandler(async (req, res) => {
@@ -84,15 +87,37 @@ export const userController = {
   }),
 
   setDobOnce: asyncHandler(async (req, res) => {
-    const result = await userService.setDobOnce(req.user._id, req.body?.dob);
+    const result = await userService.setDobOnce(req.user._id, req.body?.dob, req.body || {});
     // A field set on an existing account creates nothing — 200, not 201.
     res.json({
       success: true,
       message: result.isAdult
         ? "Date of birth saved"
-        : "Date of birth saved. You must be 18 or older to enable 18+ posts.",
+        : "Date of birth saved. A parent or guardian must approve this account before you can post.",
       data: result,
     });
+  }),
+
+  recordConsent: asyncHandler(async (req, res) => {
+    const user = await userService.recordConsent(req.user._id, req.body, describeRequest(req));
+    setAnalyticsCookie(res, user.consent?.analytics === true);
+    res.json({ success: true, message: "Consent recorded", data: { user } });
+  }),
+
+  withdrawConsent: asyncHandler(async (req, res) => {
+    const result = await userService.withdrawConsent(req.user._id, req.body, describeRequest(req));
+    if (result.accountScheduledForDeletion) {
+      clearAuthCookies(res);
+      clearAnalyticsCookie(res);
+    } else {
+      setAnalyticsCookie(res, false);
+    }
+    res.json({ success: true, message: result.message, data: result });
+  }),
+
+  resendGuardianConsent: asyncHandler(async (req, res) => {
+    const result = await authService.resendGuardianConsent(req.user, req.body || {});
+    res.json({ success: true, message: result.message });
   }),
 
   exportMe: asyncHandler(async (req, res) => {

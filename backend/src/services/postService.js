@@ -1475,6 +1475,13 @@ export const postService = {
       const fresh = await Post.findById(postId).select("viewCount").lean();
       return { viewed: false, viewCount: fresh?.viewCount || 0 };
     }
+    // DPDP s.9: do not build impression/behavioural records for children.
+    const { User } = await import("../models/User.js");
+    const viewer = await User.findById(viewerId).select("isMinor").lean();
+    if (viewer?.isMinor) {
+      const fresh = await Post.findById(postId).select("viewCount").lean();
+      return { viewed: false, viewCount: fresh?.viewCount || 0, disabled: true };
+    }
     const dayKey = new Date().toISOString().slice(0, 10);
     let inserted = false;
     try {

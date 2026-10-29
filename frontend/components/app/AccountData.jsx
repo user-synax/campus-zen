@@ -12,6 +12,7 @@ export function AccountData({ user, showTitle = true }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const scheduled = user?.scheduledDeletionAt ? new Date(user.scheduledDeletionAt) : null;
   const isDeactivated = Boolean(user?.isDeactivated);
+  const analyticsOn = Boolean(user?.consent?.analytics);
 
   const onExport = async () => {
     setBusy("export");
@@ -72,6 +73,38 @@ export function AccountData({ user, showTitle = true }) {
     }
   };
 
+  const onToggleAnalytics = async () => {
+    setBusy("analytics");
+    setError(null);
+    try {
+      await api.recordConsent({ acceptTerms: true, analytics: !analyticsOn });
+      router.refresh();
+    } catch (e) {
+      setError(e?.data?.message || e.message || "Failed");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const onWithdrawConsent = async () => {
+    if (
+      !confirm(
+        "Withdraw consent? Processing stops immediately and the account is scheduled for permanent deletion.",
+      )
+    )
+      return;
+    setBusy("withdraw");
+    setError(null);
+    try {
+      await api.withdrawConsent({ core: true });
+      router.replace("/");
+      router.refresh();
+    } catch (e) {
+      setError(e?.data?.message || e.message || "Failed");
+      setBusy(null);
+    }
+  };
+
   return (
     <section aria-label="Your data" className="overflow-hidden rounded-[16px] border border-[var(--cz-border)]">
       {showTitle ? (
@@ -109,6 +142,38 @@ export function AccountData({ user, showTitle = true }) {
           Download my data (JSON)
         </button>
         <p className="text-[13px] text-[var(--cz-text-secondary)]">Profile, posts, replies, follows, blocks and reports you filed.</p>
+        <div className="rounded-[12px] border border-[var(--cz-border)] p-3">
+          <p className="text-[14px] font-bold">Consent</p>
+          {user?.isMinor ? (
+            <p className="mt-1 text-[13px] text-[var(--cz-text-secondary)]">
+              Optional analytics is always off for under-18 accounts.
+            </p>
+          ) : (
+            <button
+              type="button"
+              onClick={onToggleAnalytics}
+              disabled={busy === "analytics"}
+              className="mt-2 flex h-[36px] w-full items-center justify-between rounded-full border border-[var(--cz-border-strong)] px-3 text-[13px] font-bold hover:bg-[var(--cz-surface-strong)] disabled:opacity-50"
+            >
+              <span>Optional analytics</span>
+              <span>
+                {busy === "analytics" ? "Saving..." : analyticsOn ? "On" : "Off"}
+              </span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onWithdrawConsent}
+            disabled={busy === "withdraw"}
+            className="mt-2 h-[36px] w-full rounded-full border border-[var(--cz-error)]/40 text-[13px] font-bold text-[var(--cz-error)] hover:bg-[color-mix(in_srgb,var(--cz-error)_10%,transparent)] disabled:opacity-50"
+          >
+            {busy === "withdraw" ? "Withdrawing..." : "Withdraw consent and delete"}
+          </button>
+          <p className="mt-2 text-[12px] leading-[17px] text-[var(--cz-text-secondary)]">
+            Withdrawal stops processing immediately and schedules permanent deletion.
+            Export your data first if you need a copy.
+          </p>
+        </div>
         {!isDeactivated ? (
           <button
             type="button"

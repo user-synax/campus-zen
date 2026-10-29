@@ -66,7 +66,7 @@ export default function TermsPage() {
           Terms of Service
         </h1>
         <p className="mt-2 text-[13px] text-[var(--cz-text-tertiary)]">
-          Last updated 26 Oct 2026
+          Last updated 29 Oct 2026
         </p>
         <p className="mt-6 max-w-[62ch] text-[15px] leading-[22px] text-[var(--cz-text-secondary)]">
           These terms cover CampusZen as it exists today — a student-focused
@@ -80,9 +80,12 @@ export default function TermsPage() {
         <div className="mt-10 space-y-9">
           <Section title="1. Who can use CampusZen">
             <p>
-              CampusZen is built for students. You must be at least 13 years old
-              and provide accurate information at signup — display name,
-              username, email and password. New accounts are limited to{" "}
+              CampusZen is built for students. You must be at least 13 years old.
+              If you are 13–17, a parent or lawful guardian must approve your
+              account before it can be used: we email them a 6-digit code and
+              record their consent. Accounts for children under 13 are not
+              permitted. Provide accurate information at signup — display name,
+              username, email, password and date of birth. New accounts are limited to{" "}
               <Strong>gmail.com</Strong> or <Strong>proton.me</Strong> email
               addresses. Usernames must be unique and may not impersonate
               others. Email verification via a 6-digit OTP is required before
@@ -108,7 +111,14 @@ export default function TermsPage() {
               </li>
               <li>
                 Your date of birth, if you set it, is recorded once and cannot
-                be changed. It is used only for the 18+ content gate.
+                be changed. It is used for the age gate and the 18+ content
+                gate. If you are under 18, the account stays read-only until
+                your guardian approves it.
+              </li>
+              <li>
+                You can withdraw consent at any time. Withdrawing core consent
+                deactivates the account and schedules it for deletion; optional
+                analytics consent can be withdrawn without deleting the account.
               </li>
               <li>
                 Do not attempt to access or modify another user&apos;s account.
@@ -184,8 +194,17 @@ export default function TermsPage() {
               >
                 Privacy Policy
               </Link>
-              . By using the service you acknowledge that we collect and process
-              data as described there.
+              . We process account data on the basis of your consent, which you
+              give at signup or in the consent screen. You can access, correct,
+              erase, withdraw consent, nominate a person and raise a grievance
+              as described in the notice. The Grievance Officer is available at{" "}
+              <a
+                href="mailto:privacy@campuszen.tech"
+                className="text-[var(--cz-accent)] hover:underline"
+              >
+                privacy@campuszen.tech
+              </a>
+              ; we respond within 30 days (and no later than 90).
             </p>
           </Section>
 
@@ -210,8 +229,16 @@ export default function TermsPage() {
               >
                 support@campuszen.tech
               </a>
-              . For data and privacy requests see the Privacy Policy. For
-              security issues contact{" "}
+              . For data and privacy requests, including guardian consent and
+              withdrawal, see the Privacy Notice or email the Grievance Officer
+              at{" "}
+              <a
+                href="mailto:privacy@campuszen.tech"
+                className="text-[var(--cz-accent)] hover:underline"
+              >
+                privacy@campuszen.tech
+              </a>
+              . For security issues contact{" "}
               <a
                 href="mailto:user-synax@proton.me"
                 className="text-[var(--cz-accent)] hover:underline"

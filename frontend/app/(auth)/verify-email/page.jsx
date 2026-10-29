@@ -97,6 +97,12 @@ function VerifyEmailInner() {
         setTimeout(() => router.replace("/login"), 1400);
         return;
       }
+      if (data.code === "PARENTAL_CONSENT_REQUIRED") {
+        router.replace(
+          `/parental-consent?email=${encodeURIComponent(email)}`,
+        );
+        return;
+      }
       setError(data.message || err.message || "Verification failed");
       triggerShake();
       if (err.status === 429)

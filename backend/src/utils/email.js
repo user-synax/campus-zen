@@ -101,6 +101,26 @@ export const TEMPLATES = {
     }),
     text: `Reset your CampusZen password.\n\nYour reset code: ${otp}\nValid for 10 minutes, 5 attempts max.\n\nDidn't request this? Ignore this email.\n© 2026 CampusZen`,
   }),
+  guardian: ({ otp, childEmail }) => ({
+    subject: `Approve a CampusZen account: ${otp}`,
+    html: shell({
+      heading: "Approve a CampusZen account",
+      intro: `A young person using ${childEmail || "this email address"} has asked to create a CampusZen account. As their parent or guardian, you must approve this before the account can be used. Enter the code below to consent.`,
+      bodyHtml: `${otpBody(otp)}<p style="margin:16px 0 0;color:#b6a6b2;font-size:13px;line-height:20px;">By entering this code you confirm that you are the parent or lawful guardian, that you are 18 or older, and that you consent to CampusZen processing the child's personal data as described in the <a href="${env.FRONTEND_URL}/privacy" style="color:#ffcead;">Privacy Notice</a>. You can withdraw consent at any time by replying to this email or writing to privacy@campuszen.tech.</p>`,
+      footerNote: "If you did not expect this request, ignore this email and no account will be activated.",
+    }),
+    text: `Approve a CampusZen account for ${childEmail || "this email address"}.\n\nConsent code: ${otp}\nValid for 10 minutes, 5 attempts max.\n\nBy entering this code you confirm you are the parent or lawful guardian, aged 18+, and consent to processing as described at ${env.FRONTEND_URL}/privacy. You can withdraw consent at any time by writing to privacy@campuszen.tech.\n\nIf you did not expect this, ignore this email.\n© 2026 CampusZen`,
+  }),
+  guardian_withdraw: ({ otp, childEmail }) => ({
+    subject: `Withdraw CampusZen consent: ${otp}`,
+    html: shell({
+      heading: "Withdraw parental consent",
+      intro: `You asked to withdraw consent for the CampusZen account linked to ${childEmail || "this email address"}. Enter the code below to confirm. The account will be deactivated immediately and scheduled for deletion.`,
+      bodyHtml: otpBody(otp),
+      footerNote: "If you did not request this, ignore this email. Consent remains in place.",
+    }),
+    text: `Withdraw CampusZen consent for ${childEmail || "this email address"}.\n\nConfirmation code: ${otp}\nValid for 10 minutes, 5 attempts max.\n\nThe account will be deactivated and scheduled for deletion.\n\nIf you did not request this, ignore this email.\n© 2026 CampusZen`,
+  }),
   welcome: (name, appUrl) => ({
     subject: "Welcome to CampusZen",
     html: shell({
@@ -192,8 +212,12 @@ async function sendViaResend({ to, subject, html, text }) {
 }
 
 // Fail-closed OTP send: throws EMAIL_SEND_FAILED, nothing is persisted by the caller on failure.
-export async function sendOtpEmail({ to, type, otp }) {
-  const tpl = TEMPLATES[type === "reset" ? "reset" : "verify"](otp);
+export async function sendOtpEmail({ to, type, otp, childEmail = null }) {
+  let tpl;
+  if (type === "guardian") tpl = TEMPLATES.guardian({ otp, childEmail });
+  else if (type === "guardian_withdraw") tpl = TEMPLATES.guardian_withdraw({ otp, childEmail });
+  else if (type === "reset") tpl = TEMPLATES.reset(otp);
+  else tpl = TEMPLATES.verify(otp);
   await sendMail({ to, ...tpl });
 }
 

@@ -18,7 +18,7 @@ function isActiveRecently(user) {
 export const achievementService = {
   async statsFor(userId) {
     const user = await User.findById(userId)
-      .select("postCount followersCount avatarUrl bio college lastLoginAt updatedAt createdAt achievementTier username")
+      .select("postCount followersCount avatarUrl bio college lastLoginAt updatedAt createdAt achievementTier username isMinor")
       .lean();
     if (!user) return null;
     const active = isActiveRecently(user);
@@ -53,6 +53,9 @@ export const achievementService = {
     const stats = await this.statsFor(userId);
     if (!stats) return { changed: false, tier: 0 };
     const { user, activeRecently } = stats;
+    // DPDP s.9: badge progression is behavioural monitoring; do not run it for
+    // children. Existing tier is left untouched.
+    if (user.isMinor) return { changed: false, tier: Number(user.achievementTier) || 0, disabled: true };
     const next = computeAchievementTier({ user, activeRecently });
     const prev = Number(user.achievementTier) || 0;
     if (next <= prev) {
@@ -79,6 +82,9 @@ export const achievementService = {
     const stats = await this.statsFor(userId);
     if (!stats) return null;
     const { user, activeRecently } = stats;
+    if (user.isMinor) {
+      return { disabled: true, reason: "Badge progression is disabled for under-18 accounts." };
+    }
     return progressToNext({ user, activeRecently });
   },
 };

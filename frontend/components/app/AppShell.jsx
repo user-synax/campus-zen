@@ -55,6 +55,11 @@ export function AppShell({ children, requireAuth = false }) {
   const restricted = isRestrictionActive(user);
   const restrictedUntil = formatAccountDateTime(user?.restrictedUntil);
   const onMenu = pathname === "/app/menu" || pathname.startsWith("/app/menu/");
+  const onConsentGate = pathname === "/app/consent";
+  const needsPrivacyGate = Boolean(
+    user &&
+      (user.dobRequired || user.consentRequired || user.guardianConsentPending),
+  );
 
   // /app/a/<username>/<slug> — the long-form reader. On xl the right rail
   // unmounts and the main column grows to fill the freed width.
@@ -85,6 +90,14 @@ export function AppShell({ children, requireAuth = false }) {
     needsVerification,
     pendingEmail,
   ]);
+
+  // Existing accounts need an age on file, guardian approval where required,
+  // and consent to the current notice. Reads stay open, writes are blocked by
+  // the API; this route is where the user completes the missing step.
+  useEffect(() => {
+    if (loading || !user) return;
+    if (needsPrivacyGate && !onConsentGate) router.replace("/app/consent");
+  }, [loading, user, needsPrivacyGate, onConsentGate, router]);
 
   // Only the auth-gated segments wait on the session. The public profile at
   // /u/[username] renders immediately and the sign-in redirect happens

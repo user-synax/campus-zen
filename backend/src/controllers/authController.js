@@ -1,18 +1,52 @@
 import { authService } from "../services/authService.js";
-import { setAuthCookies, clearAuthCookies } from "../utils/cookies.js";
+import { setAuthCookies, clearAuthCookies, setAnalyticsCookie } from "../utils/cookies.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { describeRequest } from "../utils/device.js";
+import { POLICY_VERSION, TERMS_VERSION, PRIVACY_VERSION } from "../config/policy.js";
 
 export const authController = {
   signup: asyncHandler(async (req, res) => {
-    const { user } = await authService.signup(req.body);
+    const result = await authService.signup(req.body, describeRequest(req));
+    setAnalyticsCookie(res, result.user?.consent?.analytics === true);
     // No auth cookies here: the account cannot be used until the emailed OTP
     // is entered. Cookies are issued by verifyEmail on success.
     res.status(201).json({
       success: true,
-      message: "Account created. Check your email for a 6-digit verification code.",
-      data: { user, verificationRequired: true },
+      message: result.parentalConsentRequired
+        ? "Account created. A parent or guardian must approve it before you can verify your email."
+        : "Account created. Check your email for a 6-digit verification code.",
+      data: { ...result, verificationRequired: true },
     });
+  }),
+
+  policy: asyncHandler(async (req, res) => {
+    res.json({
+      success: true,
+      data: {
+        policyVersion: POLICY_VERSION,
+        termsVersion: TERMS_VERSION,
+        privacyVersion: PRIVACY_VERSION,
+      },
+    });
+  }),
+
+  verifyParentalConsent: asyncHandler(async (req, res) => {
+    const result = await authService.verifyGuardianConsent(req.body, describeRequest(req));
+    res.json({
+      success: true,
+      message: "Guardian consent recorded. Check your email for a verification code.",
+      data: result,
+    });
+  }),
+
+  requestParentalWithdrawal: asyncHandler(async (req, res) => {
+    const result = await authService.requestGuardianConsentWithdrawal(req.body);
+    res.json({ success: true, message: result.message });
+  }),
+
+  verifyParentalWithdrawal: asyncHandler(async (req, res) => {
+    const result = await authService.verifyGuardianConsentWithdrawal(req.body, describeRequest(req));
+    res.json({ success: true, message: result.message });
   }),
 
   verifyEmail: asyncHandler(async (req, res) => {
@@ -21,6 +55,7 @@ export const authController = {
       describeRequest(req),
     );
     setAuthCookies(res, { accessToken, refreshToken, remember });
+    setAnalyticsCookie(res, user?.consent?.analytics === true);
     res.json({
       success: true,
       message: "Email verified successfully.",
@@ -41,6 +76,7 @@ export const authController = {
       describeRequest(req),
     );
     setAuthCookies(res, { accessToken, refreshToken, remember: rem });
+    setAnalyticsCookie(res, user?.consent?.analytics === true);
     res.json({
       success: true,
       message: "Logged in",
@@ -57,6 +93,7 @@ export const authController = {
     );
     // keep the device's original remember window (7d or 1d)
     setAuthCookies(res, { accessToken, refreshToken, remember });
+    setAnalyticsCookie(res, user?.consent?.analytics === true);
     res.json({ success: true, message: "Token refreshed", data: { user, accessToken, refreshToken } });
   }),
 

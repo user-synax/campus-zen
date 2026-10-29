@@ -33,8 +33,15 @@ const signupSchema = z.object({
     .regex(/^[a-z0-9_]+$/, "Only a-z, 0-9 and _"),
   email: emailDomain,
   password: z.string().min(8, "Minimum 8 characters").max(128),
+  // DPDP: age gate + recorded consent. 13-17 additionally needs a guardian.
+  dob: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, "Date of birth must be YYYY-MM-DD"),
+  acceptTerms: z
+    .boolean()
+    .refine((v) => v === true, { message: "You must accept the Terms and Privacy Notice" }),
+  guardianName: z.string().trim().min(2).max(80).optional(),
+  guardianEmail: emailAddress.optional(),
+  analytics: z.boolean().optional(),
   remember: z.boolean().optional(),
-  agree: z.boolean().optional(), // frontend checkbox, not enforced server-side but allowed
 });
 
 const verifySchema = z.object({
@@ -44,7 +51,7 @@ const verifySchema = z.object({
 
 const resendSchema = z.object({
   email: emailAddress,
-  type: z.enum(["verify", "reset"]),
+  type: z.enum(["verify", "reset", "guardian"]),
 });
 
 const loginSchema = z.object({
@@ -64,6 +71,11 @@ const resetSchema = z.object({
   password: z.string().min(8).max(128).optional(),
 }).refine((d) => d.newPassword || d.password, { message: "newPassword required", path: ["newPassword"] });
 
+const parentalVerifySchema = z.object({
+  email: emailAddress,
+  otp: z.string().regex(/^[0-9]{6}$/, "6-digit code required"),
+});
+
 const checkQuery = z.object({
   username: z.string().trim().toLowerCase().min(1).max(20),
 });
@@ -73,7 +85,14 @@ const sessionIdParam = z.object({ id: z.string().regex(/^[a-f\d]{24}$/i, "Invali
 // routes
 router.get("/check-username", checkUsernameLimiter, validate(checkQuery, "query"), authController.checkUsername);
 
+// Public policy metadata keeps clients and server on the same consent version.
+router.get("/policy", authController.policy);
+
 router.post("/signup", signupLimiter, validate(signupSchema), authController.signup);
+// Guardian consent is verified by the guardian, without a child session.
+router.post("/parental-consent/verify", verifyLimiter, validate(parentalVerifySchema), authController.verifyParentalConsent);
+router.post("/parental-consent/withdraw/request", forgotLimiter, validate(forgotSchema), authController.requestParentalWithdrawal);
+router.post("/parental-consent/withdraw/verify", verifyLimiter, validate(parentalVerifySchema), authController.verifyParentalWithdrawal);
 router.post("/verify-email", verifyLimiter, validate(verifySchema), authController.verifyEmail);
 router.post("/resend-otp", resendLimiter, validate(resendSchema), authController.resendOtp);
 router.post("/login", loginLimiter, validate(loginSchema), authController.login);

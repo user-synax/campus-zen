@@ -2,6 +2,7 @@ import { verifyAccessToken } from "../utils/jwt.js";
 import { AppError } from "../utils/AppError.js";
 import { User } from "../models/User.js";
 import { restrictionIsActive } from "../utils/accountState.js";
+import { PRIVACY_VERSION } from "../config/policy.js";
 
 function bearerToken(req) {
   const h = req.headers?.authorization || "";
@@ -29,6 +30,27 @@ const RESTRICTED_WRITE_ALLOW = [
   { method: "POST", re: /^\/api\/users\/me\/(?:deactivate|reactivate)\/?$/ },
   { method: "DELETE", re: /^\/api\/users\/me\/?$/ },
 ];
+
+// Consent/age gates are enforced centrally on writes. The account lifecycle,
+// consent capture itself, and reads stay available so a user can always fix
+// the missing step or leave.
+const CONSENT_WRITE_ALLOW = [
+  { method: "POST", re: /^\/api\/auth\/(?:logout|refresh)\/?$/ },
+  { method: "DELETE", re: /^\/api\/auth\/sessions(?:\/[a-f\d]{24})?\/?$/i },
+  { method: "POST", re: /^\/api\/users\/me\/consent\/?$/ },
+  { method: "POST", re: /^\/api\/users\/me\/consent\/withdraw\/?$/ },
+  { method: "POST", re: /^\/api\/users\/me\/dob\/?$/ },
+  { method: "POST", re: /^\/api\/users\/me\/guardian-consent\/resend\/?$/ },
+  { method: "POST", re: /^\/api\/users\/me\/(?:deactivate|reactivate)\/?$/ },
+  { method: "DELETE", re: /^\/api\/users\/me\/?$/ },
+];
+
+function allowedWhileConsentMissing(req) {
+  const method = String(req.method || "GET").toUpperCase();
+  if (method === "GET" || method === "HEAD" || method === "OPTIONS") return true;
+  const path = String(req.originalUrl || req.url || "").split("?")[0];
+  return CONSENT_WRITE_ALLOW.some((rule) => rule.method === method && rule.re.test(path));
+}
 
 function allowedWhileRestricted(req) {
   const method = String(req.method || "GET").toUpperCase();
@@ -123,6 +145,48 @@ async function authenticate(req, res, next, { allowSuspended = false } = {}) {
       );
     }
 
+    // DPDP gates. Reads remain open so the app can explain the missing step;
+    // every write (post, follow, like, report, upload) is blocked until the
+    // user has an age on file, guardian approval where required, and consent
+    // to the current privacy notice.
+    if (user.consent?.withdrawnAt) {
+      throw new AppError(
+        "Consent has been withdrawn. This account is scheduled for deletion.",
+        403,
+        "CONSENT_WITHDRAWN"
+      );
+    }
+    if (user.guardian?.consentStatus === "withdrawn") {
+      throw new AppError(
+        "Parental consent was withdrawn. This account is scheduled for deletion.",
+        403,
+        "PARENTAL_CONSENT_WITHDRAWN"
+      );
+    }
+    if (!allowedWhileConsentMissing(req)) {
+      if (!user.dob) {
+        throw new AppError("Add your date of birth to continue.", 403, "DOB_REQUIRED");
+      }
+      if (user.isMinor && user.guardian?.consentStatus !== "granted") {
+        throw new AppError(
+          "A parent or guardian must approve this account before you can post or interact.",
+          403,
+          "PARENTAL_CONSENT_REQUIRED",
+          null,
+          { guardianEmail: user.guardian?.email || null }
+        );
+      }
+      if (!user.consent?.acceptedAt || user.consent.privacyVersion !== PRIVACY_VERSION) {
+        throw new AppError(
+          "Accept the updated Privacy Notice to continue.",
+          403,
+          "CONSENT_REQUIRED",
+          null,
+          { policyVersion: PRIVACY_VERSION }
+        );
+      }
+    }
+
     req.user = user;
     req.userId = user._id;
     // Which device session this request belongs to. Absent on tokens minted
@@ -162,7 +226,14 @@ export async function optionalAuth(req, res, next) {
     const user = await User.findById(decoded.id).select("+refreshTokenHash");
     // Unverified, banned (or suspended) accounts get the guest view on
     // optional-auth routes; every write path uses protect() and is rejected.
-    const usable = user && user.isEmailVerified && !user.isSuspended && !user.isBanned ? user : null;
+    const usable =
+      user &&
+      user.isEmailVerified &&
+      !user.isSuspended &&
+      !user.isBanned &&
+      !user.consent?.withdrawnAt
+        ? user
+        : null;
     req.user = usable;
     if (usable) req.userId = usable._id;
     next();

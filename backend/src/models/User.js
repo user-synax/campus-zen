@@ -119,6 +119,34 @@ const userSchema = new mongoose.Schema(
     dob: { type: Date, default: null },
     dobSetAt: { type: Date, default: null },
 
+    // ── DPDP consent ledger (current state; history in ConsentRecord) ──
+    consent: {
+      termsVersion: { type: String, default: null },
+      privacyVersion: { type: String, default: null },
+      acceptedAt: { type: Date, default: null },
+      withdrawnAt: { type: Date, default: null },
+      analytics: { type: Boolean, default: false },
+      ip: { type: String, default: null, maxlength: 64 },
+      userAgent: { type: String, default: null, maxlength: 500 },
+    },
+
+    // DPDP child account: 13-17 requires verifiable guardian consent before
+    // the account can be used. Under-13 registration is rejected.
+    isMinor: { type: Boolean, default: false, index: true },
+    guardian: {
+      name: { type: String, default: null, trim: true, maxlength: 80 },
+      email: { type: String, default: null, lowercase: true, trim: true, maxlength: 254 },
+      consentStatus: {
+        type: String,
+        enum: ["not_required", "pending", "granted", "withdrawn"],
+        default: "not_required",
+        index: true,
+      },
+      consentAt: { type: Date, default: null },
+      consentIp: { type: String, default: null, maxlength: 64 },
+      consentUserAgent: { type: String, default: null, maxlength: 500 },
+    },
+
     // dual-token: hashed refresh token (sha256 hex)
     refreshTokenHash: { type: String, default: null, select: false },
 

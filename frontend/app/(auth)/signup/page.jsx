@@ -37,6 +37,17 @@ function usernameFormatStatus(v) {
   return null; // needs backend check
 }
 
+function ageFromDob(value) {
+  if (!value) return null;
+  const d = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return null;
+  const now = new Date();
+  let age = now.getUTCFullYear() - d.getUTCFullYear();
+  const m = now.getUTCMonth() - d.getUTCMonth();
+  if (m < 0 || (m === 0 && now.getUTCDate() < d.getUTCDate())) age -= 1;
+  return age;
+}
+
 export default function SignupPage() {
   const router = useRouter();
   const [fullName, setFullName] = useState("");
@@ -53,6 +64,17 @@ export default function SignupPage() {
   // backend username availability
   const [userAvail, setUserAvail] = useState({ state: "idle", msg: "" });
   const [checkingUser, setCheckingUser] = useState(false);
+
+  // DPDP age/consent capture. Under-18 accounts need a guardian approval.
+  const [dob, setDob] = useState("");
+  const [guardianName, setGuardianName] = useState("");
+  const [guardianEmail, setGuardianEmail] = useState("");
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [analytics, setAnalytics] = useState(false);
+
+  const age = ageFromDob(dob);
+  const isMinor = Number.isInteger(age) && age >= 13 && age < 18;
+  const today = new Date().toISOString().slice(0, 10);
 
   const nameRef = useRef(null);
   const userRef = useRef(null);
@@ -115,8 +137,31 @@ export default function SignupPage() {
     if (!password) e.password = "Create a password.";
     else if (password.length < 8) e.password = "Minimum 8 characters.";
 
+    if (!dob.trim()) e.dob = "Enter your date of birth.";
+    else if (age === null) e.dob = "Enter a valid date of birth.";
+    else if (age < 13) e.dob = "You must be at least 13 to use CampusZen.";
+    else if (age > 120) e.dob = "Enter a valid date of birth.";
+
+    if (isMinor) {
+      if (guardianName.trim().length < 2)
+        e.guardianName = "Enter your parent or guardian's name.";
+      if (!guardianEmail.trim())
+        e.guardianEmail = "Enter your parent or guardian's email.";
+      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guardianEmail.trim()))
+        e.guardianEmail = "Enter a valid email address.";
+      else if (
+        guardianEmail.trim().toLowerCase() === email.trim().toLowerCase()
+      )
+        e.guardianEmail = "Use a different email from your own.";
+    }
+
+    if (!acceptTerms)
+      e.terms = "Accept the Terms and Privacy Notice to create an account.";
+
     setErrors(e);
-    Object.keys(e).forEach((k) => triggerShake(k));
+    Object.keys(e).forEach((k) => {
+      triggerShake(k);
+    });
     if (e.fullName) nameRef.current?.focus();
     else if (e.username) userRef.current?.focus();
     else if (e.email) emailRef.current?.focus();
@@ -136,16 +181,27 @@ export default function SignupPage() {
     setLoading(true);
     try {
       const cleanEmail = email.trim().toLowerCase();
-      await api.signup({
+      const res = await api.signup({
         fullName: fullName.trim(),
         username: username.trim().toLowerCase(),
         email: cleanEmail,
         password,
+        dob: dob.trim(),
+        acceptTerms,
+        guardianName: isMinor ? guardianName.trim() : undefined,
+        guardianEmail: isMinor ? guardianEmail.trim().toLowerCase() : undefined,
+        analytics,
       });
       // Signup creates an unverified account and emails a 6-digit code.
       // No session exists until /verify-email succeeds.
       rememberPendingEmail(cleanEmail);
-      router.push(verifyEmailPath(cleanEmail));
+      if (res.data?.parentalConsentRequired) {
+        router.push(
+          `/parental-consent?email=${encodeURIComponent(cleanEmail)}`,
+        );
+      } else {
+        router.push(verifyEmailPath(cleanEmail));
+      }
     } catch (err) {
       const data = err.data || {};
       const code = data.code;
@@ -177,6 +233,15 @@ export default function SignupPage() {
         rememberPendingEmail(pending);
         router.push(verifyEmailPath(pending));
         return;
+      } else if (
+        [
+          "CONSENT_REQUIRED",
+          "UNDERAGE",
+          "GUARDIAN_REQUIRED",
+          "GUARDIAN_EMAIL_INVALID",
+        ].includes(code)
+      ) {
+        setServerError(data.message || "Could not create your account.");
       } else if (!details || Object.keys(details || {}).length === 0) {
         setServerError(data.message || err.message || "Signup failed");
       }
@@ -302,6 +367,66 @@ export default function SignupPage() {
 
           <div className="flex flex-col gap-1.5">
             <FloatingInput
+              id="dob"
+              label="Date of birth"
+              type="date"
+              max={today}
+              value={dob}
+              error={errors.dob}
+              shaking={!!shake.dob}
+              onChange={(e) => {
+                setDob(e.target.value);
+                if (errors.dob)
+                  setErrors((p) => ({ ...p, dob: undefined }));
+                setServerError("");
+              }}
+            />
+            <p className="mt-1 text-[13px] leading-[17px] text-[var(--cz-text-secondary)]">
+              You must be 13 or older. Accounts for 13–17 year olds need a
+              parent or guardian to approve before they can be used.
+            </p>
+          </div>
+
+          {isMinor ? (
+            <div className="flex flex-col gap-4 rounded-[12px] border border-[var(--cz-border)] p-3">
+              <p className="text-[13px] leading-[18px] text-[var(--cz-text-secondary)]">
+                Because you are under 18, we need a parent or guardian to
+                consent. We&apos;ll email them a 6-digit code.
+              </p>
+              <FloatingInput
+                id="guardianName"
+                label="Parent or guardian name"
+                autoComplete="name"
+                value={guardianName}
+                error={errors.guardianName}
+                shaking={!!shake.guardianName}
+                onChange={(e) => {
+                  setGuardianName(e.target.value);
+                  if (errors.guardianName)
+                    setErrors((p) => ({ ...p, guardianName: undefined }));
+                  setServerError("");
+                }}
+              />
+              <FloatingInput
+                id="guardianEmail"
+                label="Parent or guardian email"
+                type="email"
+                autoComplete="email"
+                value={guardianEmail}
+                error={errors.guardianEmail}
+                shaking={!!shake.guardianEmail}
+                onChange={(e) => {
+                  setGuardianEmail(e.target.value);
+                  if (errors.guardianEmail)
+                    setErrors((p) => ({ ...p, guardianEmail: undefined }));
+                  setServerError("");
+                }}
+              />
+            </div>
+          ) : null}
+
+          <div className="flex flex-col gap-1.5">
+            <FloatingInput
               ref={pwRef}
               id="password"
               label="Password"
@@ -335,6 +460,50 @@ export default function SignupPage() {
               }
             />
             <PasswordStrength password={password} />
+          </div>
+
+          <div className="flex flex-col gap-3 rounded-[12px] border border-[var(--cz-border)] p-3">
+            <label className="flex items-start gap-2.5 text-[13px] leading-[18px] text-[var(--cz-text-secondary)]">
+              <input
+                type="checkbox"
+                checked={acceptTerms}
+                onChange={(e) => {
+                  setAcceptTerms(e.target.checked);
+                  if (errors.terms)
+                    setErrors((p) => ({ ...p, terms: undefined }));
+                }}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--cz-accent)]"
+              />
+              <span>
+                I agree to the{" "}
+                <Link href="/terms" className="font-bold text-[var(--cz-accent)] hover:underline">
+                  Terms
+                </Link>{" "}
+                and{" "}
+                <Link href="/privacy" className="font-bold text-[var(--cz-accent)] hover:underline">
+                  Privacy Notice
+                </Link>
+                , and I consent to CampusZen processing my data as described
+                there.
+              </span>
+            </label>
+            {errors.terms ? (
+              <p className="text-[13px] leading-[17px] text-[var(--cz-error)]">
+                {errors.terms}
+              </p>
+            ) : null}
+            <label className="flex items-start gap-2.5 text-[13px] leading-[18px] text-[var(--cz-text-secondary)]">
+              <input
+                type="checkbox"
+                checked={analytics}
+                onChange={(e) => setAnalytics(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--cz-accent)]"
+              />
+              <span>
+                Optional: allow aggregated analytics to improve CampusZen. You
+                can withdraw this later.
+              </span>
+            </label>
           </div>
 
           <Button type="submit" disabled={loading} size="lg" className="w-full">

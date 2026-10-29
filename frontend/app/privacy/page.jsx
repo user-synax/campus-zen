@@ -2,9 +2,9 @@ import Link from "next/link";
 import { BrandMark } from "@/components/BrandLogo";
 
 export const metadata = {
-  title: "Privacy",
+  title: "Privacy Notice",
   description:
-    "The CampusZen Privacy Policy explains what data we collect, how we use it, and your choices. Your data is never sold.",
+    "CampusZen's DPDP Privacy Notice: what personal data we collect, why, how long we keep it, and how to exercise your rights.",
 };
 
 function Section({ title, children }) {
@@ -31,6 +31,83 @@ function Bullets({ children }) {
 const Strong = ({ children }) => (
   <span className="font-bold text-[var(--cz-text-primary)]">{children}</span>
 );
+
+function DataTable({ rows }) {
+  return (
+    <div className="overflow-x-auto rounded-[12px] border border-[var(--cz-border)]">
+      <table className="w-full border-collapse text-left text-[14px] leading-[20px]">
+        <thead>
+          <tr className="border-b border-[var(--cz-border)] bg-[var(--cz-surface-strong)]">
+            <th className="px-3 py-2 font-bold text-[var(--cz-text-primary)]">
+              Data
+            </th>
+            <th className="px-3 py-2 font-bold text-[var(--cz-text-primary)]">
+              Why we collect it
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(([data, why]) => (
+            <tr
+              key={data}
+              className="border-b border-[var(--cz-border)] last:border-b-0"
+            >
+              <td className="px-3 py-2 align-top font-medium text-[var(--cz-text-primary)]">
+                {data}
+              </td>
+              <td className="px-3 py-2 align-top text-[var(--cz-text-secondary)]">
+                {why}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+const DATA_ROWS = [
+  [
+    "Account",
+    "Full name, username, email, hashed password, email-verification state, badges, role and last login — to create, secure and identify your account.",
+  ],
+  [
+    "Profile",
+    "Display name, bio, college, course, academic year, avatar, cover, accent colour, pinned post, social links, counts and privacy settings — to run your public profile and discovery.",
+  ],
+  [
+    "Age and guardian",
+    "Date of birth, whether you are under 18, guardian name and email, consent status, consent time/IP/user agent — to apply the age gate and, for 13–17 accounts, to obtain and evidence verifiable guardian consent.",
+  ],
+  [
+    "Content",
+    "Posts, replies, articles, media, polls and votes, reposts, bookmarks, follows, blocks, reports, appeals, follow requests, hashtags, mentions, interest tags and anonymous hub posts (the real author is retained for moderation) — to publish and operate the service, and to keep it safe.",
+  ],
+  [
+    "Interactions",
+    "Likes, reposts, bookmarks, poll votes, post views and notification records — to show engagement counts, author analytics and in-app notifications.",
+  ],
+  [
+    "Safety and moderation",
+    "Reports you file or receive, appeal messages, verification requests, account-status records and moderation notes — to review reports, apply restrictions and handle appeals.",
+  ],
+  [
+    "Sessions and devices",
+    "Per-device session records, IP address, user-agent, platform, device label and expiry — to keep you signed in, detect refresh-token replay and let you revoke devices.",
+  ],
+  [
+    "Push notifications",
+    "Web Push endpoint, p256dh/auth keys and device details — only if you enable OS-level notifications.",
+  ],
+  [
+    "Consent records",
+    "Policy version, purposes, whether consent was given by you or a guardian, time, IP and user agent — to prove notice and consent, and to honour withdrawal.",
+  ],
+  [
+    "Technical",
+    "Session and theme cookies, CSRF/auth cookies, rate-limit counters, post-view events and OTP records — to operate, secure and debug the service.",
+  ],
+];
 
 export default function PrivacyPage() {
   return (
@@ -61,167 +138,105 @@ export default function PrivacyPage() {
         </div>
       </header>
 
-      {/* Plain prose on the bare canvas — no card, no gradient hairline. */}
       <main className="mx-auto max-w-[700px] px-4 py-10">
         <h1 className="text-[34px] leading-[1.1] font-extrabold tracking-[-0.03em]">
-          Privacy Policy
+          Privacy Notice
         </h1>
         <p className="mt-2 text-[13px] text-[var(--cz-text-tertiary)]">
-          Last updated 26 Oct 2026
+          Version 2026-10-29 · Last updated 29 October 2026
         </p>
         <p className="mt-6 max-w-[62ch] text-[15px] leading-[22px] text-[var(--cz-text-secondary)]">
-          CampusZen collects only what is needed to run a student social network
-          — accounts, profiles, posts and interactions. We don&apos;t sell your
-          data. This policy explains what we collect and how we use it across
-          the service today.
+          CampusZen is the <Strong>Data Fiduciary</Strong> for the personal data
+          described here. We process it on the basis of your consent, which you
+          give when you create an account and accept this notice. This notice is
+          written to meet the Digital Personal Data Protection Act, 2023 and the
+          DPDP Rules, 2025.
         </p>
 
         <div className="mt-10 space-y-9">
-          <Section title="1. Data we collect">
-            <Bullets>
-              <li>
-                <Strong>Account:</Strong> full name, username, email (gmail.com
-                / proton.me for new signups), hashed password, email
-                verification state, account status, badges (owner, pro,
-                verified), and last login time.
-              </li>
-              <li>
-                <Strong>Profile:</Strong> display name, bio, college, college
-                slug, course/branch, academic year, avatar, cover image, accent
-                color, pinned post, social links (GitHub, X, LinkedIn,
-                Instagram), follower/following/post counts, and privacy settings
-                (private account, reply and mention policies, per-field
-                visibility, sensitive-content preference).
-              </li>
-              <li>
-                <Strong>Date of birth:</Strong> if you set it, stored once and
-                never editable, used only for the 18+ content gate.
-              </li>
-              <li>
-                <Strong>Content:</Strong> posts (text up to 500 chars), media
-                attachments (images, GIFs, short video with posters), polls (2–4
-                options and votes), long-form articles (up to 50,000 chars),
-                replies (up to 500 chars), reposts, bookmarks, follow edges,
-                blocks, reports, appeals, follow requests, hashtags, mentions,
-                interest tags, view counts, and anonymous hub posts (author
-                retained for moderation).
-              </li>
-              <li>
-                <Strong>Notifications:</Strong> in-app notifications for
-                follows, likes, replies, reposts, mentions, follow requests,
-                report/appeal updates, and admin broadcasts.
-              </li>
-              <li>
-                <Strong>Push & sessions:</Strong> Web Push subscription
-                endpoints and keys, device user agent and platform, session
-                records per signed-in device (IP address, device label, remember
-                preference, expiry), and OTP records (hashed, with attempt
-                counts and expiry).
-              </li>
-              <li>
-                <Strong>Technical:</Strong> session cookie, device and
-                rate-limit logs, post view events (viewer and day), and
-                verification requests (counts and message). No location or
-                payments.
-              </li>
-            </Bullets>
-          </Section>
-
-          <Section title="2. How we use it">
-            <Bullets>
-              <li>
-                Create and secure your account, verify email, and keep you
-                logged in via HTTP-only cookies across devices.
-              </li>
-              <li>
-                Show discover, the following feed (cursor-paginated), search,
-                college pages, interest hubs, and notifications for follow,
-                like, reply, repost and mention.
-              </li>
-              <li>
-                Power anonymous hub posts, bookmarks, polls, articles, and
-                author analytics (views and engagement over 24h/7d).
-              </li>
-              <li>
-                Moderate reports, appeals and verification requests, and enforce
-                blocks and account statuses.
-              </li>
-              <li>
-                Send transactional email (OTP verification and password reset)
-                and optional OS-level push notifications.
-              </li>
-              <li>
-                Improve performance on low-end devices and mobile networks.
-              </li>
-            </Bullets>
-          </Section>
-
-          <Section title="3. Sharing & third parties">
+          <Section title="1. Who we are and how to reach us">
             <p>
-              We don&apos;t sell or rent your data. We share only with the
-              infrastructure needed to run the service, under strict
-              confidentiality:
-            </p>
-            <Bullets>
-              <li>
-                <Strong>MongoDB</Strong> — primary data storage.
-              </li>
-              <li>
-                <Strong>Appwrite</Strong> — file storage for avatars, covers and
-                post media (server-side only).
-              </li>
-              <li>
-                <Strong>Resend or Gmail SMTP</Strong> — delivery of OTP and
-                password-reset emails.
-              </li>
-              <li>
-                <Strong>Web Push (VAPID)</Strong> — OS-level notifications when
-                the app is closed.
-              </li>
-              <li>
-                <Strong>Vercel</Strong> — hosting, plus anonymous usage and
-                performance analytics (Analytics and Speed Insights).
-              </li>
-            </Bullets>
-            <p>
-              Posts and profiles are visible according to your privacy settings;
-              private accounts require follow approval, and academic fields can
-              be hidden or followers-only. Content you mark sensitive is blurred
-              by default for other viewers.
+              CampusZen is a student social network operated in India. For data
+              protection questions, rights requests or complaints, contact our
+              Grievance Officer at{" "}
+              <a
+                href="mailto:privacy@campuszen.tech"
+                className="text-[var(--cz-accent)] hover:underline"
+              >
+                privacy@campuszen.tech
+              </a>
+              . We aim to respond within 30 days and will not exceed 90 days
+              without telling you why. General support:{" "}
+              <a
+                href="mailto:support@campuszen.tech"
+                className="text-[var(--cz-accent)] hover:underline"
+              >
+                support@campuszen.tech
+              </a>
+              . Security issues:{" "}
+              <a
+                href="mailto:user-synax@proton.me"
+                className="text-[var(--cz-accent)] hover:underline"
+              >
+                user-synax@proton.me
+              </a>
+              .
             </p>
           </Section>
 
-          <Section title="4. Retention & deletion">
+          <Section title="2. Scope and key terms">
             <p>
-              We retain data until you delete your account or content. You can
-              delete individual posts at any time. Account deletion removes your
-              data; deactivation hides your account for a 30-day grace period
-              before permanent purge. You can export your data at any time. OTP
-              and session records expire automatically. Session and view logs
-              are rotated periodically.
+              This notice covers personal data we process through CampusZen
+              accounts, the website, the API, notifications and moderation. Under
+              the DPDP Act, you are the <Strong>Data Principal</Strong>, we are
+              the <Strong>Data Fiduciary</Strong>, and service providers who
+              process data only on our instructions are{" "}
+              <Strong>Data Processors</Strong>.
+            </p>
+            <p>
+              We do not sell your personal data. We do not use it for targeted
+              advertising, and we do not run advertising cookies. CampusZen is
+              for users aged 13 and over; accounts for children under 13 are not
+              permitted.
             </p>
           </Section>
 
-          <Section title="5. Your choices & rights">
+          <Section title="3. What we collect and why">
+            <DataTable rows={DATA_ROWS} />
+            <p className="text-[13px] leading-[19px] text-[var(--cz-text-tertiary)]">
+              We collect only what is needed for the purposes below. Where a
+              field is optional (for example bio, college, course or social
+              links), you can leave it blank.
+            </p>
+          </Section>
+
+          <Section title="4. Consent, age and guardian approval">
             <Bullets>
               <li>
-                Edit your profile, privacy settings, pinned post, and social
-                links at any time.
+                <Strong>Your consent.</Strong> We ask you to take a clear
+                affirmative action — ticking the consent box at signup or in the
+                consent screen — before we process account data. The notice is
+                presented before or with that request, and the consent is
+                recorded with its version, time, IP address and user agent.
               </li>
               <li>
-                Delete your posts, unfollow or block users, and manage follow
-                requests at any time.
+                <Strong>13–17 year olds.</Strong> If your date of birth shows
+                that you are under 18, the account stays inactive until a parent
+                or lawful guardian verifies their email with a one-time code and
+                confirms they are 18 or older. We record the guardian&apos;s
+                name, email, consent time and request details. We do not activate
+                the account, and we do not send the child&apos;s verification
+                code, before that approval.
               </li>
               <li>
-                Opt in or out of sensitive content, and set your date of birth
-                once for the 18+ gate.
+                <Strong>Optional analytics.</Strong> Analytics consent is
+                separate and optional. It is off unless you turn it on, and it is
+                always off for under-18 accounts.
               </li>
               <li>
-                Manage push notification subscriptions and signed-in sessions
-                from your settings.
-              </li>
-              <li>
-                Request export or deletion via{" "}
+                <Strong>Language.</Strong> This notice is available in English.
+                You can request a copy in any language listed in the Eighth
+                Schedule to the Constitution by writing to{" "}
                 <a
                   href="mailto:privacy@campuszen.tech"
                   className="text-[var(--cz-accent)] hover:underline"
@@ -230,74 +245,294 @@ export default function PrivacyPage() {
                 </a>
                 .
               </li>
-              <li>
-                Appeal moderation decisions and verification outcomes through
-                the in-app appeals flow.
-              </li>
             </Bullets>
           </Section>
 
-          <Section title="6. Security">
+          <Section title="5. How we use personal data">
+            <Bullets>
+              <li>Create, verify and secure your account; keep you signed in.</li>
+              <li>
+                Show your profile, posts, replies, articles, polls, media,
+                college pages, interest hubs, search results and feeds according
+                to your privacy settings.
+              </li>
+              <li>
+                Deliver in-app notifications, optional Web Push notifications,
+                and transactional email such as OTPs and password resets.
+              </li>
+              <li>
+                Moderate reports and appeals, enforce blocks, restrictions,
+                suspensions and bans, and protect users from abuse.
+              </li>
+              <li>
+                Provide author analytics (views and engagement) and aggregated
+                service analytics where you have consented.
+              </li>
+              <li>
+                Comply with law, respond to lawful requests, and establish or
+                defend legal claims.
+              </li>
+            </Bullets>
             <p>
-              Passwords are hashed, auth uses secure HTTP-only cookies, inputs
-              are validated with Zod, and sensitive routes are rate limited and
-              checked for authorization. Sessions are tracked per device with
-              replay protection. No system is 100% secure — use a strong, unique
-              password and don&apos;t reuse it.
+              We do not use your data for behavioural advertising, and we do not
+              sell or rent it. We do not use children&apos;s data for tracking,
+              behavioural monitoring or targeted advertising.
             </p>
           </Section>
 
-          <Section title="7. Children">
+          <Section title="6. Sharing and cross-border processing">
             <p>
-              CampusZen is not intended for users under 13. We do not knowingly
-              collect personal data from children under 13. If you believe a
-              child under 13 has created an account, contact us and we will
-              remove it.
+              We share personal data only with processors that help us run the
+              service, under confidentiality and data-processing terms:
             </p>
-          </Section>
-
-          <Section title="8. Cookies & tracking">
+            <Bullets>
+              <li>
+                <Strong>MongoDB Atlas</Strong> — primary database hosting.
+              </li>
+              <li>
+                <Strong>Appwrite</Strong> — storage for avatars, covers and post
+                media.
+              </li>
+              <li>
+                <Strong>Resend or Gmail SMTP</Strong> — delivery of OTP and
+                password-reset email.
+              </li>
+              <li>
+                <Strong>Web Push (VAPID)</Strong> — OS-level notifications when
+                the app is closed.
+              </li>
+              <li>
+                <Strong>Vercel</Strong> — hosting, plus optional aggregated
+                analytics and performance measurement.
+              </li>
+            </Bullets>
             <p>
-              We use a session cookie (HTTP-only) to keep you signed in, a theme
-              cookie to remember light/dark mode, and Vercel Analytics and Speed
-              Insights for anonymous usage and performance measurement. You can
-              disable analytics cookies in your browser; the app still works
-              without them.
-            </p>
-          </Section>
-
-          <Section title="9. Changes">
-            <p>
-              As we ship new features we&apos;ll update this policy and notify
-              you in-app. Continued use after an update means you accept the
-              changes.
-            </p>
-          </Section>
-
-          <Section title="10. Contact">
-            <p>
-              For data and privacy requests contact{" "}
+              These providers may process data outside India, including in the
+              United States, the European Union and other regions where they
+              operate. Cross-border transfers are made in accordance with
+              Section 16 of the DPDP Act and any restrictions notified by the
+              Government. You can ask us for the current processor list and
+              locations at{" "}
               <a
                 href="mailto:privacy@campuszen.tech"
                 className="text-[var(--cz-accent)] hover:underline"
               >
                 privacy@campuszen.tech
               </a>
-              . For security issues contact{" "}
-              <a
-                href="mailto:user-synax@proton.me"
-                className="text-[var(--cz-accent)] hover:underline"
-              >
-                user-synax@proton.me
-              </a>
-              . General questions:{" "}
-              <a
-                href="mailto:support@campuszen.tech"
-                className="text-[var(--cz-accent)] hover:underline"
-              >
-                support@campuszen.tech
-              </a>
               .
+            </p>
+            <p>
+              We may also disclose data where required by law, to protect the
+              safety of users, or as part of a merger or acquisition subject to
+              this notice.
+            </p>
+          </Section>
+
+          <Section title="7. Retention and deletion">
+            <Bullets>
+              <li>
+                <Strong>Account, profile and content:</Strong> kept while your
+                account exists. If you deactivate, the account is hidden for 30
+                days so you can restore it; after that it is permanently purged.
+                If you delete immediately or withdraw consent, it is hidden at
+                once and removed by the deletion sweep, usually within 24 hours.
+              </li>
+              <li>
+                <Strong>Consent records:</Strong> kept while the account exists
+                and deleted with it. We may retain the minimum needed to
+                demonstrate compliance where the law requires it.
+              </li>
+              <li>
+                <Strong>Sessions:</Strong> 1 day, or 7 days when you choose
+                &quot;remember me&quot;; deleted on logout, revocation or expiry.
+              </li>
+              <li>
+                <Strong>OTPs:</Strong> 10 minutes, with a maximum of 5 attempts.
+              </li>
+              <li>
+                <Strong>Post views:</Strong> raw view rows are deleted after 180
+                days. The denormalized all-time view count remains on the post.
+              </li>
+              <li>
+                <Strong>Reports, appeals and verification requests:</Strong> kept
+                for as long as needed to review the matter and any appeal, then
+                deleted or anonymised unless the law requires longer retention.
+              </li>
+              <li>
+                <Strong>Push subscriptions:</Strong> kept until you disable push
+                or delete your account; dead endpoints are removed when delivery
+                fails.
+              </li>
+            </Bullets>
+            <p>
+              Deletion removes the account row, owned content and graph rows,
+              sessions, notifications, push subscriptions, post-view rows,
+              reports, appeals, verification requests, consent records and
+              stored media. Some data may remain for a limited period in
+              encrypted backups before they rotate.
+            </p>
+          </Section>
+
+          <Section title="8. Your rights">
+            <Bullets>
+              <li>
+                <Strong>Access.</Strong> Download a JSON copy of your profile,
+                content, graph, sessions, notifications, consent history and
+                other account records from Settings → Your data, or email us.
+              </li>
+              <li>
+                <Strong>Correction.</Strong> Edit your profile at any time. Date
+                of birth is locked after it is set to protect the age gate; if it
+                is wrong, write to us and we will correct it after verification.
+                Email changes are handled the same way.
+              </li>
+              <li>
+                <Strong>Erasure.</Strong> Delete individual posts, or delete your
+                account from Settings → Your data. Deactivation gives you a
+                30-day restore window; immediate deletion and consent withdrawal
+                schedule prompt erasure.
+              </li>
+              <li>
+                <Strong>Grievance redressal.</Strong> Write to the Grievance
+                Officer at{" "}
+                <a
+                  href="mailto:privacy@campuszen.tech"
+                  className="text-[var(--cz-accent)] hover:underline"
+                >
+                  privacy@campuszen.tech
+                </a>
+                . We respond within 30 days (and no later than 90 days). If you
+                are not satisfied, you may complain to the Data Protection Board
+                of India at{" "}
+                <a
+                  href="https://dpboard.gov.in/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[var(--cz-accent)] hover:underline"
+                >
+                  dpboard.gov.in
+                </a>{" "}
+                after giving us the opportunity to resolve it.
+              </li>
+              <li>
+                <Strong>Nomination.</Strong> You may nominate a person to
+                exercise your rights in the event of death or incapacity by
+                writing to us with the nominee&apos;s details. We will record the
+                nomination and verify it before acting on it.
+              </li>
+            </Bullets>
+            <p>
+              Requests are free. We may need to verify your identity before
+              acting. We will explain if we cannot fulfil a request because of a
+              legal obligation.
+            </p>
+          </Section>
+
+          <Section title="9. Withdrawing consent">
+            <p>
+              You can withdraw consent at any time from the consent screen or by
+              writing to{" "}
+              <a
+                href="mailto:privacy@campuszen.tech"
+                className="text-[var(--cz-accent)] hover:underline"
+              >
+                privacy@campuszen.tech
+              </a>
+              . Withdrawal is as easy as giving consent. Withdrawing core consent
+              means we stop processing your account: it is deactivated at once
+              and scheduled for deletion. Withdrawing optional analytics consent
+              turns analytics off without deleting the account. Withdrawal does
+              not affect processing that was lawful before it.
+            </p>
+            <p>
+              A parent or guardian can withdraw consent for a 13–17 account on
+              the{" "}
+              <Link
+                href="/parental-consent"
+                className="text-[var(--cz-accent)] hover:underline"
+              >
+                guardian consent page
+              </Link>
+              . The account is deactivated and scheduled for deletion.
+            </p>
+          </Section>
+
+          <Section title="10. Children">
+            <p>
+              CampusZen is for users aged 13 and over. We do not knowingly allow
+              accounts for children under 13; if we learn that a child under 13
+              has created one, we will remove it.
+            </p>
+            <p>
+              For users aged 13–17, we require verifiable consent from a parent
+              or lawful guardian before the account can be used. We check that
+              the person approving is an identifiable adult through a one-time
+              code sent to the guardian email and an adult confirmation. We do
+              not undertake tracking or behavioural monitoring of children, and
+              we do not serve targeted advertising to them. Streaks, achievement
+              progression and post-view analytics are disabled for under-18
+              accounts. A guardian can withdraw consent at any time.
+            </p>
+          </Section>
+
+          <Section title="11. Security and breach notification">
+            <p>
+              We use technical and organisational safeguards: TLS in transit,
+              bcrypt password hashing, HTTP-only cookies, per-device refresh-token
+              rotation with replay detection, rate limits, input validation,
+              access controls and consent audit records. No system is completely
+              secure; use a strong, unique password and do not reuse it.
+            </p>
+            <p>
+              If a personal data breach occurs, we will notify affected Data
+              Principals without delay and intimate the Data Protection Board of
+              India without delay, followed by a detailed submission within 72
+              hours unless the Board allows more time. The notice will describe
+              the breach, its likely impact and the steps we are taking.
+            </p>
+          </Section>
+
+          <Section title="12. Cookies and analytics">
+            <p>
+              We use a session cookie to keep you signed in, a theme cookie to
+              remember light or dark mode, and an analytics-consent cookie. We do
+              not use advertising cookies or cross-site tracking cookies.
+            </p>
+            <p>
+              Vercel Analytics and Speed Insights are optional, aggregated
+              performance tools. They load only when your analytics-consent
+              cookie is set to allow them; they do not build advertising
+              profiles. You can withdraw analytics consent in the consent screen
+              without deleting your account.
+            </p>
+          </Section>
+
+          <Section title="13. Changes and complaints">
+            <p>
+              We may update this notice as the service or the law changes. When
+              we do, we publish a new version and ask you to accept it before
+              your next write action. The version and effective date are shown at
+              the top of this page. Continued use after acceptance means the new
+              notice applies.
+            </p>
+            <p>
+              If you have a concern, contact the Grievance Officer first at{" "}
+              <a
+                href="mailto:privacy@campuszen.tech"
+                className="text-[var(--cz-accent)] hover:underline"
+              >
+                privacy@campuszen.tech
+              </a>
+              . You can also complain to the Data Protection Board of India at{" "}
+              <a
+                href="https://dpboard.gov.in/"
+                target="_blank"
+                rel="noreferrer"
+                className="text-[var(--cz-accent)] hover:underline"
+              >
+                dpboard.gov.in
+              </a>{" "}
+              after giving us the opportunity to resolve it.
             </p>
           </Section>
         </div>
@@ -311,7 +546,7 @@ export default function PrivacyPage() {
           </Link>
           <Link
             href="/signup"
-            className="inline-flex h-[44px] items-center justify-center rounded-full bg-[var(--cz-accent)] px-5 text-[15px] font-bold text-[var(--cz-text-inverse)] transition-colors hover:bg-[var(--cz-accent-hover)]"
+            className="inline-flex h-[44px] items-center justify-center rounded-full bg-[var(--cz-accent)] px-5 text-[15px] font-bold text-[var(--cz-text-inverse)]"
           >
             Join CampusZen
           </Link>

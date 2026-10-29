@@ -1,33 +1,39 @@
 import { User } from "../models/User.js";
+import { Session } from "../models/Session.js";
+import { ConsentRecord } from "../models/ConsentRecord.js";
 import { AppError } from "../utils/AppError.js";
 import { blockService } from "./blockService.js";
 import { privacyService } from "./privacyService.js";
 import { cache, CacheKeys, TTL } from "../utils/cache.js";
+import { calcAgeYears, parseDobInput } from "../utils/age.js";
+import { createAndSendOtp } from "./otpService.js";
+import {
+  POLICY_VERSION,
+  TERMS_VERSION,
+  PRIVACY_VERSION,
+  MIN_AGE,
+  ADULT_AGE,
+} from "../config/policy.js";
 
-// ── DOB / age gate (one-shot, immutable) ─────────────────────────────
-// DOB is stored even when under 18 (locked forever); showSensitive may
-// only transition false→true when age >= 18. Grandfathered users who
-// already have showSensitive=true keep it without a DOB.
-export function calcAgeYears(dob) {
-  const d = new Date(dob);
-  if (Number.isNaN(d.getTime())) return -1;
-  const now = new Date();
-  let age = now.getFullYear() - d.getFullYear();
-  const m = now.getMonth() - d.getMonth();
-  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age -= 1;
-  return age;
+// Re-exported for callers that imported these from this service before the
+// shared age helper existed.
+export { calcAgeYears, parseDobInput };
+
+function maskEmail(email) {
+  return String(email || "").replace(/(^.).+(@.*)/, (m, a, b) => `${a}***${b}`);
 }
 
-export function parseDobInput(input) {
-  if (typeof input !== "string") throw new AppError("Date of birth required (YYYY-MM-DD)", 400, "INVALID_DOB");
-  const s = input.trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) throw new AppError("Date of birth must be YYYY-MM-DD", 400, "INVALID_DOB");
-  const d = new Date(`${s}T00:00:00Z`);
-  if (Number.isNaN(d.getTime())) throw new AppError("Invalid date of birth", 400, "INVALID_DOB");
-  if (d.getTime() > Date.now()) throw new AppError("Date of birth can't be in the future", 400, "INVALID_DOB");
-  const age = calcAgeYears(d);
-  if (age > 120) throw new AppError("Invalid date of birth", 400, "INVALID_DOB");
-  return d;
+function consentMeta(meta = {}) {
+  return {
+    ip: meta.ip || null,
+    userAgent: meta.device?.userAgent || null,
+  };
+}
+
+function extractFileId(url) {
+  if (!url) return null;
+  const m = String(url).match(/\/files\/([^/?#]+)/);
+  return m ? m[1] : null;
 }
 
 export const userService = {
@@ -77,7 +83,17 @@ export const userService = {
     }
 
     const safe = users.map((u) => {
-      const { passwordHash, refreshTokenHash, __v, dob, dobSetAt, ...rest } = u;
+      // Public directory rows must never carry account/consent fields.
+      const {
+        passwordHash, refreshTokenHash, __v, dob, dobSetAt,
+        consent, guardian, isMinor,
+        email, isEmailVerified, lastLoginAt,
+        isSuspended, suspendedAt, suspendReason,
+        accountStatus, accountStatusReason, accountStatusAt,
+        restrictedUntil, restrictedAt, restrictionReason,
+        isBanned, bannedAt, banReason, banSetDeactivated,
+        ...rest
+      } = u;
       const isFollowing = followingSet.has(String(u._id));
       const withVis = privacyService.applyProfileVisibility(rest, viewerId, isFollowing);
       return { ...withVis, isFollowing };
@@ -216,6 +232,9 @@ export const userService = {
       for (const k of [
         "email",
         "isEmailVerified",
+        "consent",
+        "guardian",
+        "isMinor",
         "dob",
         "dobSetAt",
         "lastLoginAt",
@@ -554,31 +573,75 @@ export const userService = {
     return user.toSafeObject();
   },
 
-  // One-shot DOB entry — saved even when under 18 (permanent lock).
-  // Throws DOB_ALREADY_SET when dob already present. Never updates.
-  async setDobOnce(userId, dobInput) {
+  // One-shot DOB entry for accounts that predate the age gate. DOB is saved
+  // even when under 18 (permanent lock). 13-17 accounts get a pending guardian
+  // consent and cannot write until the guardian approves.
+  async setDobOnce(userId, dobInput, guardianInput = {}) {
     const dob = parseDobInput(dobInput);
-    const cur = await User.findById(userId).select("dob username").lean();
+    const age = calcAgeYears(dob);
+    if (age < MIN_AGE) {
+      throw new AppError("CampusZen is for users aged 13 and over.", 403, "UNDERAGE");
+    }
+
+    const cur = await User.findById(userId).select("dob username email").lean();
     if (!cur) throw new AppError("User not found", 404, "USER_NOT_FOUND");
     if (cur.dob) throw new AppError("Date of birth is already set and can't be changed", 403, "DOB_ALREADY_SET");
+
+    const isMinor = age < ADULT_AGE;
+    let guardian = { consentStatus: "not_required", name: null, email: null };
+    if (isMinor) {
+      const name = String(guardianInput.guardianName || "").trim();
+      const email = String(guardianInput.guardianEmail || "").toLowerCase().trim();
+      if (name.length < 2 || name.length > 80) {
+        throw new AppError("A parent or guardian's name is required for users under 18.", 400, "GUARDIAN_REQUIRED");
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        throw new AppError("A valid parent or guardian email is required for users under 18.", 400, "GUARDIAN_REQUIRED");
+      }
+      if (email === cur.email) {
+        throw new AppError("The guardian email must be different from your own email.", 400, "GUARDIAN_EMAIL_INVALID");
+      }
+      guardian = { name, email, consentStatus: "pending" };
+    }
+
     const user = await User.findByIdAndUpdate(
       userId,
-      { $set: { dob, dobSetAt: new Date() } },
+      { $set: { dob, dobSetAt: new Date(), isMinor, guardian } },
       { new: true, runValidators: true },
     );
     if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
     cache.del(CacheKeys.userProfile(user.username));
     cache.delPattern("user:*");
+
+    if (isMinor) {
+      try {
+        await createAndSendOtp({ email: guardian.email, type: "guardian", childEmail: cur.email });
+      } catch (err) {
+        // DOB is saved; the consent gate lets the user resend once the
+        // guardian email is correct.
+        console.error("[user] guardian consent email failed:", err.message);
+      }
+    }
+
     const safe = user.toSafeObject();
-    return { user: safe, age: calcAgeYears(dob), isAdult: calcAgeYears(dob) >= 18 };
+    return {
+      user: safe,
+      age,
+      isAdult: !isMinor,
+      parentalConsentRequired: isMinor,
+      guardianEmail: isMinor ? maskEmail(guardian.email) : null,
+    };
   },
 
   // Daily posting streak: consecutive UTC days with at least one post/article.
   async updateStreak(userId) {
     const user = await User.findById(userId)
-      .select("streakCount lastStreakDate longestStreak lastPostAt username")
+      .select("streakCount lastStreakDate longestStreak lastPostAt username isMinor")
       .lean();
     if (!user) return { streakCount: 0 };
+    // DPDP s.9: no behavioural monitoring of children. Streaks are an
+    // engagement-tracking feature, so they are disabled for under-18 accounts.
+    if (user.isMinor) return { streakCount: 0, disabled: true };
 
     const now = new Date();
     // Anti-gaming cooldown: a new streak day only counts when the previous
@@ -610,9 +673,16 @@ export const userService = {
     return { streakCount: next, longestStreak: longest };
   },
 
-  // Full data export for GDPR-style download: profile + content + graph.
+  // DPDP access/portability export: profile + content + graph + account
+  // records. Secrets (password hash, refresh hashes, push auth keys) are
+  // deliberately excluded.
   async exportData(userId) {
-    const [user, posts, comments, likes, reposts, bookmarks, follows, followers, blocks, reports] = await Promise.all([
+    const [
+      user, posts, comments, likes, reposts, bookmarks, follows, followers,
+      blocks, reports, sessions, notifications, pushSubscriptions, postViews,
+      appeals, verificationRequests, reportsAboutMe, consentRecords,
+      followRequests,
+    ] = await Promise.all([
       User.findById(userId).lean(),
       import("../models/Post.js").then(({ Post }) => Post.find({ author: userId }).sort({ createdAt: -1 }).lean()),
       import("../models/Comment.js").then(({ Comment }) => Comment.find({ author: userId }).sort({ createdAt: -1 }).lean()),
@@ -623,11 +693,35 @@ export const userService = {
       import("../models/Follow.js").then(({ Follow }) => Follow.find({ following: userId }).populate("follower", "username fullName").lean()),
       import("../models/Block.js").then(({ Block }) => Block.find({ blocker: userId }).populate("blocked", "username fullName").lean()),
       import("../models/Report.js").then(({ Report }) => Report.find({ reporter: userId }).lean()),
+      Session.find({ user: userId }).select("device ip remember createdAt lastUsedAt expiresAt").lean(),
+      import("../models/Notification.js").then(({ Notification }) =>
+        Notification.find({ $or: [{ recipient: userId }, { actor: userId }] })
+          .select("type read title body createdAt").lean()),
+      import("../models/PushSubscription.js").then(({ PushSubscription }) =>
+        PushSubscription.find({ user: userId }).select("endpoint device createdAt lastUsedAt").lean()),
+      import("../models/PostView.js").then(({ PostView }) =>
+        PostView.find({ viewer: userId }).select("post dayKey createdAt").lean()),
+      import("../models/Appeal.js").then(({ Appeal }) => Appeal.find({ appellant: userId }).lean()),
+      import("../models/VerificationRequest.js").then(({ VerificationRequest }) =>
+        VerificationRequest.find({ user: userId }).lean()),
+      // Reports *about* the user are their personal data too, but never expose
+      // the reporter's identity in the export.
+      import("../models/Report.js").then(({ Report }) =>
+        Report.find({ targetType: "user", targetId: userId })
+          .select("reason status createdAt").lean()),
+      ConsentRecord.find({ user: userId }).sort({ createdAt: -1 }).lean(),
+      import("../models/FollowRequest.js").then(({ FollowRequest }) =>
+        FollowRequest.find({ $or: [{ requester: userId }, { target: userId }] })
+          .populate("requester target", "username fullName")
+          .lean()
+      ),
     ]);
     if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
     const { passwordHash, refreshTokenHash, __v, ...profile } = user;
     return {
       exportedAt: new Date().toISOString(),
+      dataFiduciary: "CampusZen",
+      policyVersion: PRIVACY_VERSION,
       profile,
       privacy: {
         isPrivate: user.isPrivate,
@@ -635,6 +729,11 @@ export const userService = {
         mentionPolicy: user.mentionPolicy,
         profileVisibility: user.profileVisibility,
         showSensitive: user.showSensitive,
+      },
+      consent: {
+        current: profile.consent || null,
+        guardian: profile.guardian || null,
+        history: consentRecords,
       },
       posts,
       comments,
@@ -645,12 +744,117 @@ export const userService = {
       followers,
       blocked: blocks,
       reportsFiled: reports,
+      reportsAboutMe,
+      followRequests,
+      sessions,
+      notifications,
+      pushSubscriptions,
+      postViews,
+      appeals,
+      verificationRequests,
       counts: {
         posts: posts.length,
         comments: comments.length,
         following: follows.length,
         followers: followers.length,
+        sessions: sessions.length,
+        notifications: notifications.length,
+        postViews: postViews.length,
       },
+    };
+  },
+
+  // Re-consent after a policy version change, or first consent for accounts
+  // created before the ledger existed. Records an append-only ConsentRecord.
+  async recordConsent(userId, { analytics }, meta = {}) {
+    const user = await User.findById(userId);
+    if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+    if (!user.consent) user.consent = {};
+    user.consent.termsVersion = TERMS_VERSION;
+    user.consent.privacyVersion = PRIVACY_VERSION;
+    user.consent.acceptedAt = new Date();
+    user.consent.withdrawnAt = null;
+    if (analytics !== undefined) user.consent.analytics = user.isMinor ? false : Boolean(analytics);
+    user.consent.ip = consentMeta(meta).ip;
+    user.consent.userAgent = consentMeta(meta).userAgent;
+    await user.save();
+
+    await ConsentRecord.create({
+      user: user._id,
+      policyVersion: POLICY_VERSION,
+      termsVersion: TERMS_VERSION,
+      privacyVersion: PRIVACY_VERSION,
+      purposes: user.consent.analytics ? ["core", "analytics"] : ["core"],
+      action: "granted",
+      method: "self",
+      ...consentMeta(meta),
+    });
+
+    cache.del(CacheKeys.userProfile(user.username));
+    cache.delPattern("user:*");
+    return user.toSafeObject();
+  },
+
+  // Withdrawal of core consent is an erasure request: hide the account now and
+  // let the scheduled purge remove it. Optional analytics consent can be
+  // withdrawn from the same endpoint without deleting the account by passing
+  // { core: false }.
+  async withdrawConsent(userId, { core = true } = {}, meta = {}) {
+    const user = await User.findById(userId);
+    if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+    if (!core) {
+      if (!user.consent) user.consent = {};
+      user.consent.analytics = false;
+      await user.save();
+      await ConsentRecord.create({
+        user: user._id,
+        policyVersion: POLICY_VERSION,
+        termsVersion: TERMS_VERSION,
+        privacyVersion: PRIVACY_VERSION,
+        purposes: ["analytics"],
+        action: "withdrawn",
+        method: "self",
+        ...consentMeta(meta),
+      });
+      return { message: "Analytics consent withdrawn.", accountScheduledForDeletion: false };
+    }
+
+    user.consent.withdrawnAt = new Date();
+    // Withdrawal must stop processing immediately, not just hide the account:
+    // clearing the accepted notice also blocks writes from any access token
+    // that is still alive for its remaining 15 minutes.
+    user.consent.acceptedAt = null;
+    user.consent.termsVersion = null;
+    user.consent.privacyVersion = null;
+    user.isDeactivated = true;
+    user.deactivatedAt = new Date();
+    user.scheduledDeletionAt = new Date();
+    user.refreshTokenHash = null;
+    await user.save();
+    await Promise.all([
+      Session.deleteMany({ user: userId }),
+      import("../models/PushSubscription.js").then(({ PushSubscription }) =>
+        PushSubscription.deleteMany({ user: userId })
+      ),
+    ]);
+
+    await ConsentRecord.create({
+      user: user._id,
+      policyVersion: POLICY_VERSION,
+      termsVersion: TERMS_VERSION,
+      privacyVersion: PRIVACY_VERSION,
+      purposes: ["core"],
+      action: "withdrawn",
+      method: "self",
+      ...consentMeta(meta),
+    });
+
+    cache.delPattern("user:*");
+    cache.delPattern("feed:*");
+    cache.delPattern("publicFeed:*");
+    return {
+      message: "Consent withdrawn. Your account is scheduled for deletion.",
+      accountScheduledForDeletion: true,
     };
   },
 
@@ -663,6 +867,14 @@ export const userService = {
     user.scheduledDeletionAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     user.refreshTokenHash = null; // log out everywhere; login still allowed for restore
     await user.save();
+    // Deactivation must actually end device sessions. Without this, a session
+    // issued before deactivation keeps working until its refresh token expires.
+    await Promise.all([
+      Session.deleteMany({ user: userId }),
+      import("../models/PushSubscription.js").then(({ PushSubscription }) =>
+        PushSubscription.deleteMany({ user: userId })
+      ),
+    ]);
     cache.del(CacheKeys.userProfile(user.username));
     cache.delPattern("user:*");
     cache.delPattern("publicFeed:*");
@@ -682,11 +894,18 @@ export const userService = {
   },
 
   // Permanent purge — called after grace expiry or explicit confirmed delete.
-  // Removes user + all owned content/graph rows.
+  // Removes the user, every owned row, consent evidence, and stored media.
   async purge(userId) {
-    const user = await User.findById(userId).select("_id username").lean();
+    const user = await User.findById(userId)
+      .select("_id username email avatarUrl coverUrl guardian.email")
+      .lean();
     if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
-    const [{ Post }, { Comment }, { Like }, { Repost }, { Bookmark }, { PollVote }, { Follow }, { Block }, { Notification }, { Report }, { FollowRequest }, { Appeal }, { VerificationRequest }, { Session }] = await Promise.all([
+    const [
+      { Post }, { Comment }, { Like }, { Repost }, { Bookmark }, { PollVote },
+      { Follow }, { Block }, { Notification }, { Report }, { FollowRequest },
+      { Appeal }, { VerificationRequest }, { PushSubscription }, { PostView },
+      { Otp }, { AdminBroadcast },
+    ] = await Promise.all([
       import("../models/Post.js"),
       import("../models/Comment.js"),
       import("../models/Like.js"),
@@ -700,9 +919,35 @@ export const userService = {
       import("../models/FollowRequest.js"),
       import("../models/Appeal.js"),
       import("../models/VerificationRequest.js"),
-      import("../models/Session.js"),
+      import("../models/PushSubscription.js"),
+      import("../models/PostView.js"),
+      import("../models/Otp.js"),
+      import("../models/AdminBroadcast.js"),
     ]);
-    const postIds = (await Post.find({ author: userId }).select("_id").lean()).map((p) => p._id);
+
+    const posts = await Post.find({ author: userId }).select("_id media imageUrl").lean();
+    const postIds = posts.map((p) => p._id);
+    const comments = await Comment.find({ author: userId }).select("_id").lean();
+    const commentIds = comments.map((c) => c._id);
+
+    // Collect every Appwrite file before the rows that reference them vanish.
+    const fileIds = new Set();
+    const addFile = (url) => {
+      const id = extractFileId(url);
+      if (id) fileIds.add(id);
+    };
+    addFile(user.avatarUrl);
+    addFile(user.coverUrl);
+    for (const p of posts) {
+      addFile(p.imageUrl);
+      for (const m of p.media || []) {
+        if (m.fileId) fileIds.add(m.fileId);
+        if (m.posterFileId) fileIds.add(m.posterFileId);
+        addFile(m.url);
+        addFile(m.posterUrl);
+      }
+    }
+
     await Promise.all([
       Comment.deleteMany({ $or: [{ author: userId }, { post: { $in: postIds } }] }),
       Like.deleteMany({ $or: [{ user: userId }, { post: { $in: postIds } }] }),
@@ -712,22 +957,59 @@ export const userService = {
       Post.deleteMany({ author: userId }),
       Follow.deleteMany({ $or: [{ follower: userId }, { following: userId }] }),
       Block.deleteMany({ $or: [{ blocker: userId }, { blocked: userId }] }),
-      Notification.deleteMany({ $or: [{ recipient: userId }, { actor: userId }] }),
+      Notification.deleteMany({ $or: [{ recipient: userId }, { actor: userId }, { post: { $in: postIds } }, { post: { $in: commentIds } }] }),
+      Report.deleteMany({ $or: [{ reporter: userId }, { targetId: userId }, { targetId: { $in: postIds } }, { targetId: { $in: commentIds } }] }),
       FollowRequest.deleteMany({ $or: [{ requester: userId }, { target: userId }] }),
       Appeal.deleteMany({ appellant: userId }),
       VerificationRequest.deleteMany({ user: userId }),
       Session.deleteMany({ user: userId }),
-      User.updateOne({ _id: userId, pinnedPost: { $exists: true } }, { $unset: { pinnedPost: 1 } }),
+      PushSubscription.deleteMany({ user: userId }),
+      PostView.deleteMany({ $or: [{ viewer: userId }, { post: { $in: postIds } }] }),
+      Otp.deleteMany({ email: { $in: [user.email, user.guardian?.email].filter(Boolean) } }),
+      ConsentRecord.deleteMany({ user: userId }),
+      AdminBroadcast.updateMany(
+        { $or: [{ userIds: userId }, { recipientSample: userId }] },
+        { $pull: { userIds: userId, recipientSample: userId } }
+      ),
+      User.updateMany({ pinnedPost: { $in: postIds } }, { $unset: { pinnedPost: 1 } }),
     ]);
-    // Repair follower/following counters for affected users (best-effort).
-    try {
-      const affected = await Follow.find({ $or: [{ follower: userId }, { following: userId }] }).select("follower following").lean();
-      void affected;
-    } catch {}
+
+    if (fileIds.size) {
+      try {
+        const { deleteFromAppwrite } = await import("../config/appwrite.js");
+        await Promise.allSettled([...fileIds].map((id) => deleteFromAppwrite(id)));
+      } catch (err) {
+        console.error("[purge] media cleanup failed:", err.message);
+      }
+    }
+
     await User.deleteOne({ _id: userId });
     cache.delPattern("user:*");
     cache.delPattern("feed:*");
     cache.delPattern("publicFeed:*");
     return { deleted: true, username: user.username };
+  },
+
+  // Runs at boot and on a timer. Deactivation is only a promise until this
+  // actually executes, so it is deliberately small and idempotent.
+  async purgeExpiredAccounts({ limit = 25 } = {}) {
+    const due = await User.find({
+      isDeactivated: true,
+      scheduledDeletionAt: { $lte: new Date() },
+    })
+      .select("_id")
+      .limit(limit)
+      .lean();
+
+    let purged = 0;
+    for (const row of due) {
+      try {
+        await this.purge(row._id);
+        purged += 1;
+      } catch (err) {
+        console.error(`[purge] account ${row._id} failed:`, err.message);
+      }
+    }
+    return { due: due.length, purged };
   },
 };

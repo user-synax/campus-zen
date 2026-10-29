@@ -148,6 +148,21 @@ router.patch("/me/privacy", meLimiter, protect, validate(privacySchema), userCon
 // DOB is one-shot + immutable — dedicated endpoint, strict limiter.
 const dobSchema = z.object({
   dob: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, "Date of birth must be YYYY-MM-DD"),
+  guardianName: z.string().trim().min(2).max(80).optional(),
+  guardianEmail: z.string().email().max(254).optional(),
+});
+const consentSchema = z.object({
+  acceptTerms: z
+    .boolean()
+    .refine((v) => v === true, { message: "You must accept the Terms and Privacy Notice" }),
+  analytics: z.boolean().optional(),
+});
+const withdrawConsentSchema = z.object({
+  core: z.boolean().optional().default(true),
+});
+const guardianResendSchema = z.object({
+  guardianName: z.string().trim().min(2).max(80).optional(),
+  guardianEmail: z.string().email().max(254).optional(),
 });
 const dobLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
@@ -156,6 +171,9 @@ const dobLimiter = rateLimit({
   legacyHeaders: false,
 });
 router.post("/me/dob", dobLimiter, protect, validate(dobSchema), userController.setDobOnce);
+router.post("/me/consent", meLimiter, protect, validate(consentSchema), userController.recordConsent);
+router.post("/me/consent/withdraw", meLimiter, protect, validate(withdrawConsentSchema), userController.withdrawConsent);
+router.post("/me/guardian-consent/resend", meLimiter, protect, validate(guardianResendSchema), userController.resendGuardianConsent);
 router.get("/me/export", protect, userController.exportMe);
 router.post("/me/deactivate", protect, userController.deactivateMe);
 router.post("/me/reactivate", protect, userController.reactivateMe);

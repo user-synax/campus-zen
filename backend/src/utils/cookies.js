@@ -34,3 +34,25 @@ export function clearAdminCookie(res) {
   const opts = { httpOnly: true, secure: isProd ? true : env.COOKIE_SECURE, sameSite: env.COOKIE_SAMESITE, path: "/" };
   res.clearCookie("adminToken", opts);
 }
+
+// Optional analytics consent is mirrored in a first-party cookie so the root
+// layout can decide whether to load Vercel Analytics during server rendering.
+// It is not an auth secret; httpOnly still keeps it out of document.cookie.
+export function setAnalyticsCookie(res, allowed) {
+  res.cookie("cz_analytics", allowed ? "1" : "0", {
+    httpOnly: true,
+    secure: isProd ? true : env.COOKIE_SECURE,
+    sameSite: env.COOKIE_SAMESITE,
+    path: "/",
+    maxAge: 365 * 24 * 60 * 60 * 1000,
+  });
+}
+
+export function clearAnalyticsCookie(res) {
+  res.clearCookie("cz_analytics", {
+    httpOnly: true,
+    secure: isProd ? true : env.COOKIE_SECURE,
+    sameSite: env.COOKIE_SAMESITE,
+    path: "/",
+  });
+}

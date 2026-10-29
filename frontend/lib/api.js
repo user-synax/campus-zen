@@ -27,6 +27,9 @@ const NO_AUTO_RETRY = new Set([
   "/api/auth/resend-otp",
   "/api/auth/forgot-password",
   "/api/auth/reset-password",
+  "/api/auth/parental-consent/verify",
+  "/api/auth/parental-consent/withdraw/request",
+  "/api/auth/parental-consent/withdraw/verify",
   "/api/auth/check-username",
   "/api/admin/login",
   "/api/admin/logout",
@@ -126,6 +129,22 @@ export const api = {
     request("/api/auth/verify-email", { method: "POST", body: payload }),
   resendOtp: (payload) =>
     request("/api/auth/resend-otp", { method: "POST", body: payload }),
+  policy: () => request("/api/auth/policy", { method: "GET" }),
+  verifyParentalConsent: (payload) =>
+    request("/api/auth/parental-consent/verify", {
+      method: "POST",
+      body: payload,
+    }),
+  requestParentalWithdrawal: (payload) =>
+    request("/api/auth/parental-consent/withdraw/request", {
+      method: "POST",
+      body: payload,
+    }),
+  verifyParentalWithdrawal: (payload) =>
+    request("/api/auth/parental-consent/withdraw/verify", {
+      method: "POST",
+      body: payload,
+    }),
   login: (payload) =>
     request("/api/auth/login", { method: "POST", body: payload }),
   logout: () => request("/api/auth/logout", { method: "POST" }),
@@ -159,8 +178,20 @@ export const api = {
     request("/api/users/me/achievements", { method: "GET" }),
   updatePrivacy: (payload) =>
     request("/api/users/me/privacy", { method: "PATCH", body: payload }),
-  setDobOnce: (dob) =>
-    request("/api/users/me/dob", { method: "POST", body: { dob } }),
+  setDobOnce: (payload) =>
+    request("/api/users/me/dob", {
+      method: "POST",
+      body: typeof payload === "string" ? { dob: payload } : payload,
+    }),
+  recordConsent: (payload) =>
+    request("/api/users/me/consent", { method: "POST", body: payload }),
+  withdrawConsent: (payload = {}) =>
+    request("/api/users/me/consent/withdraw", { method: "POST", body: payload }),
+  resendGuardianConsent: (payload = {}) =>
+    request("/api/users/me/guardian-consent/resend", {
+      method: "POST",
+      body: payload,
+    }),
   getIncomingRequests: (params = {}) => {
     const qs = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => {

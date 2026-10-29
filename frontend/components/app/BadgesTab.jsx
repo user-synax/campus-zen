@@ -31,6 +31,23 @@ export function BadgesTab({ user, isOwn = false }) {
   const nextLevel = progress?.nextLevel || null;
   const progressValue = progress?.progress ?? 0;
 
+  // DPDP s.9: no behavioural gamification for children. The API already
+  // refuses to advance tiers/streaks for minors; keep the UI honest too.
+  if (progress?.disabled) {
+    return (
+      <div className="px-4 py-6">
+        <h2 className="text-[17px] font-extrabold text-[var(--cz-text-primary)]">
+          Badges
+        </h2>
+        <div className="mt-4 rounded-[16px] border border-[var(--cz-border)] p-4 text-[14px] leading-[20px] text-[var(--cz-text-secondary)]">
+          Badge progression and posting streaks are turned off for under-18
+          accounts. There is no behavioural gamification on child accounts; you
+          can still post and interact normally.
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="px-4 py-6">
       <div className="mb-4">
