@@ -15,6 +15,7 @@ import {
   ShieldAlert,
   ShieldBan,
   ShieldCheck,
+  Sparkles,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -518,6 +519,20 @@ function UserDetail({ userId, onClose, onChanged }) {
     }
   };
 
+  const togglePro = async () => {
+    const next = !user?.isPro;
+    setAction("pro");
+    try {
+      const res = await api.adminSetPro(userId, next);
+      applyUser({ ...res.data?.user, isPro: next });
+      toast.success(next ? "Pro cosmetics granted" : "Pro cosmetics revoked");
+    } catch (err) {
+      toast.error(errorMessage(err, "Could not update Pro access."));
+    } finally {
+      setAction(null);
+    }
+  };
+
   const copyEmail = async () => {
     try {
       await navigator.clipboard.writeText(user?.email || "");
@@ -611,6 +626,7 @@ function UserDetail({ userId, onClose, onChanged }) {
               onUnban={unban}
               onUnsuspend={unsuspend}
               onToggleVerified={toggleVerified}
+              onTogglePro={togglePro}
             />
 
             {error ? <ErrorBanner>{error}</ErrorBanner> : null}
@@ -833,6 +849,7 @@ function ModerationCard({
   onUnban,
   onUnsuspend,
   onToggleVerified,
+  onTogglePro,
 }) {
   const restricted = status === "restricted";
   const banned = status === "banned";
@@ -996,6 +1013,21 @@ function ModerationCard({
                 <BadgeCheck className="h-[14px] w-[14px]" aria-hidden />
               )}
               {user.isVerified ? "Revoke tick" : "Grant blue tick"}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onTogglePro}
+              disabled={busy}
+            >
+              {busy && action === "pro" ? (
+                <Spinner />
+              ) : user.isPro ? (
+                <X className="h-[14px] w-[14px]" aria-hidden />
+              ) : (
+                <Sparkles className="h-[14px] w-[14px]" aria-hidden />
+              )}
+              {user.isPro ? "Revoke Pro" : "Grant Pro"}
             </Button>
           </div>
         </div>

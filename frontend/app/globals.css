@@ -1471,3 +1471,174 @@ input[type="number"] {
     animation-duration: 150ms !important;
   }
 }
+
+/* ── Profile perks ───────────────────────────────────────────
+   Cosmetic perks are scoped to the profile header. The rest of the app keeps
+   var(--cz-accent), so the DESIGN.md single-accent rule still holds.
+
+   The five paid hues are used as identity punctuation only: avatar ring, tab
+   underline, and text-safe links. They never fill a primary button, which is
+   where a light hue would fail contrast with white or near-black text. */
+.cz-profile-scope {
+  --cz-profile-accent: #1d9bf0;
+  --cz-profile-accent-ink: #0b75b8;
+  --cz-profile-accent-ink-hover: #085f96;
+  --cz-profile-accent-soft: rgba(29, 155, 240, 0.12);
+  --cz-profile-accent-softer: rgba(29, 155, 240, 0.06);
+}
+
+.dark .cz-profile-scope {
+  --cz-profile-accent-ink: #7cc7ff;
+  --cz-profile-accent-ink-hover: #a5d8ff;
+  --cz-profile-accent-soft: rgba(29, 155, 240, 0.16);
+  --cz-profile-accent-softer: rgba(29, 155, 240, 0.08);
+}
+
+.cz-profile-scope[data-profile-accent="blue"] {
+  --cz-profile-accent: #1d9bf0;
+  --cz-profile-accent-ink: #0b75b8;
+  --cz-profile-accent-ink-hover: #085f96;
+  --cz-profile-accent-soft: rgba(29, 155, 240, 0.12);
+  --cz-profile-accent-softer: rgba(29, 155, 240, 0.06);
+}
+
+.cz-profile-scope[data-profile-accent="peach"] {
+  --cz-profile-accent: #f4a261;
+  --cz-profile-accent-ink: #a34f12;
+  --cz-profile-accent-ink-hover: #8a3f0a;
+  --cz-profile-accent-soft: rgba(244, 162, 97, 0.16);
+  --cz-profile-accent-softer: rgba(244, 162, 97, 0.08);
+}
+
+.cz-profile-scope[data-profile-accent="lavender"] {
+  --cz-profile-accent: #a78bfa;
+  --cz-profile-accent-ink: #6d4aff;
+  --cz-profile-accent-ink-hover: #5b36e0;
+  --cz-profile-accent-soft: rgba(167, 139, 250, 0.18);
+  --cz-profile-accent-softer: rgba(167, 139, 250, 0.09);
+}
+
+.cz-profile-scope[data-profile-accent="mint"] {
+  --cz-profile-accent: #34d399;
+  --cz-profile-accent-ink: #047857;
+  --cz-profile-accent-ink-hover: #036d4e;
+  --cz-profile-accent-soft: rgba(52, 211, 153, 0.16);
+  --cz-profile-accent-softer: rgba(52, 211, 153, 0.08);
+}
+
+.cz-profile-scope[data-profile-accent="sky"] {
+  --cz-profile-accent: #38bdf8;
+  --cz-profile-accent-ink: #0369a1;
+  --cz-profile-accent-ink-hover: #075985;
+  --cz-profile-accent-soft: rgba(56, 189, 248, 0.16);
+  --cz-profile-accent-softer: rgba(56, 189, 248, 0.08);
+}
+
+.cz-profile-scope[data-profile-accent="rose"] {
+  --cz-profile-accent: #fb7185;
+  --cz-profile-accent-ink: #be123c;
+  --cz-profile-accent-ink-hover: #9f1239;
+  --cz-profile-accent-soft: rgba(251, 113, 133, 0.16);
+  --cz-profile-accent-softer: rgba(251, 113, 133, 0.08);
+}
+
+.dark .cz-profile-scope[data-profile-accent="blue"] {
+  --cz-profile-accent-ink: #7cc7ff;
+  --cz-profile-accent-ink-hover: #a5d8ff;
+  --cz-profile-accent-soft: rgba(29, 155, 240, 0.16);
+  --cz-profile-accent-softer: rgba(29, 155, 240, 0.08);
+}
+
+.dark .cz-profile-scope[data-profile-accent="peach"] {
+  --cz-profile-accent-ink: #ffc38f;
+  --cz-profile-accent-ink-hover: #ffd6b0;
+  --cz-profile-accent-soft: rgba(244, 162, 97, 0.18);
+  --cz-profile-accent-softer: rgba(244, 162, 97, 0.09);
+}
+
+.dark .cz-profile-scope[data-profile-accent="lavender"] {
+  --cz-profile-accent-ink: #c4b5fd;
+  --cz-profile-accent-ink-hover: #ddd6fe;
+  --cz-profile-accent-soft: rgba(167, 139, 250, 0.2);
+  --cz-profile-accent-softer: rgba(167, 139, 250, 0.1);
+}
+
+.dark .cz-profile-scope[data-profile-accent="mint"] {
+  --cz-profile-accent-ink: #6ee7b7;
+  --cz-profile-accent-ink-hover: #a7f3d0;
+  --cz-profile-accent-soft: rgba(52, 211, 153, 0.18);
+  --cz-profile-accent-softer: rgba(52, 211, 153, 0.09);
+}
+
+.dark .cz-profile-scope[data-profile-accent="sky"] {
+  --cz-profile-accent-ink: #7dd3fc;
+  --cz-profile-accent-ink-hover: #bae6fd;
+  --cz-profile-accent-soft: rgba(56, 189, 248, 0.18);
+  --cz-profile-accent-softer: rgba(56, 189, 248, 0.09);
+}
+
+.dark .cz-profile-scope[data-profile-accent="rose"] {
+  --cz-profile-accent-ink: #fda4af;
+  --cz-profile-accent-ink-hover: #fecdd3;
+  --cz-profile-accent-soft: rgba(251, 113, 133, 0.18);
+  --cz-profile-accent-softer: rgba(251, 113, 133, 0.09);
+}
+
+/* Banner treatments. They overlay the cover photo (or the empty banner) so a
+   theme still reads when the user has not uploaded an image. */
+.cz-profile-banner-treat {
+  pointer-events: none;
+}
+
+.cz-profile-theme-flat {
+  background: transparent;
+}
+
+.cz-profile-theme-haze {
+  background:
+    radial-gradient(
+      120% 120% at 16% 0%,
+      var(--cz-profile-accent-soft),
+      transparent 62%
+    ),
+    linear-gradient(135deg, var(--cz-profile-accent-softer), transparent 72%);
+}
+
+.cz-profile-theme-grid {
+  background-image:
+    linear-gradient(
+      to right,
+      color-mix(in srgb, var(--cz-profile-accent) 20%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--cz-profile-accent) 20%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(135deg, var(--cz-profile-accent-softer), transparent 72%);
+  background-size:
+    22px 22px,
+    22px 22px,
+    100% 100%;
+}
+
+.cz-profile-theme-noir {
+  background:
+    radial-gradient(
+      110% 140% at 12% 0%,
+      color-mix(in srgb, var(--cz-profile-accent) 34%, transparent),
+      transparent 58%
+    ),
+    linear-gradient(135deg, rgba(15, 20, 25, 0.78), rgba(28, 39, 51, 0.58));
+}
+
+.dark .cz-profile-theme-noir {
+  background:
+    radial-gradient(
+      110% 140% at 12% 0%,
+      color-mix(in srgb, var(--cz-profile-accent) 42%, transparent),
+      transparent 58%
+    ),
+    linear-gradient(135deg, rgba(22, 35, 39, 0.88), rgba(41, 55, 70, 0.66));
+}

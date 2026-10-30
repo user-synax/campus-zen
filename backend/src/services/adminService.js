@@ -873,4 +873,19 @@ export const adminService = {
     await user.save();
     return user.toSafeObject();
   },
+
+  // Manual Pro grant until billing exists. Revoking does not erase the saved
+  // cosmetics: the render path gates them on isPro, so they return if the
+  // account is upgraded again.
+  async setUserPro(userId, isPro) {
+    const user = await User.findById(userId);
+    if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+    user.isPro = Boolean(isPro);
+    await user.save();
+    cache.del(CacheKeys.userProfile(user.username));
+    cache.delPattern("user:*");
+    cache.delPattern("publicFeed:*");
+    cache.delPattern("feed:*");
+    return user.toSafeObject();
+  },
 };

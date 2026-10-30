@@ -59,6 +59,10 @@ const setVerifiedSchema = z.object({
   isVerified: z.boolean(),
 });
 
+const setProSchema = z.object({
+  isPro: z.boolean(),
+});
+
 const usersQuerySchema = z.object({
   q: z.string().trim().max(80).optional().default(""),
   status: z
@@ -127,5 +131,6 @@ router.patch("/users/:id/status", requireAdmin, validate(idParamSchema, "params"
 router.get("/verifications", requireAdmin, validate(verificationQuerySchema, "query"), adminController.listVerifications);
 router.patch("/verifications/:id", requireAdmin, validate(idParamSchema, "params"), validate(reviewVerificationSchema), adminController.reviewVerification);
 router.patch("/users/:id/verified", requireAdmin, validate(idParamSchema, "params"), validate(setVerifiedSchema), adminController.setUserVerified);
+router.patch("/users/:id/pro", requireAdmin, validate(idParamSchema, "params"), validate(setProSchema), adminController.setUserPro);
 
 export default router;

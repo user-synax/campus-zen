@@ -214,7 +214,7 @@ export default function PublicProfilePage() {
         <PrivateProfile user={user} isFollowRequested={isRequested} onFollow={isGuest ? undefined : handleFollow} followLoading={followLoading} />
       ) : (
         <>
-          <ProfileTabs active={tab} onChange={setTab} />
+          <ProfileTabs active={tab} onChange={setTab} user={user} />
 
           {tab === "posts" ? (
             <TabPosts

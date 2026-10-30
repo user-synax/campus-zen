@@ -16,8 +16,16 @@ import { Button } from "@/components/ui/button";
 import { UserBadge } from "@/components/ui/verified-badge";
 import { HighestAchievementBadge } from "@/components/ui/achievement-badge";
 import { StreakFlame } from "@/components/ui/streak-flame";
-import { withAvatarRing } from "@/lib/avatar";
+import { avatarRingClass, isOwnerUser } from "@/lib/avatar";
 import { normalizeHttpsUrl } from "@/lib/links";
+import {
+  accentIdFor,
+  handleClass,
+  handleIdFor,
+  profileAccentFor,
+  profileRingClass,
+  themeIdFor,
+} from "@/lib/perks";
 import { cn } from "@/lib/utils";
 
 // Simple single-color brand glyphs (Simple Icons style, currentColor).
@@ -114,6 +122,12 @@ export function ProfileHeader({
     .toUpperCase();
   const displayName = user.fullName || user.username;
   const bio = user.bio;
+  const accentId = accentIdFor(user);
+  const themeId = themeIdFor(user);
+  const handleId = handleIdFor(user);
+  const ringClass = isOwnerUser(user)
+    ? avatarRingClass(user)
+    : profileRingClass(accentId);
   const collegeLine = [
     user.college,
     user.course
@@ -200,11 +214,15 @@ export function ProfileHeader({
   }, [user.customLinks]);
 
   return (
-    <div>
+    <div
+      className="cz-profile-scope"
+      data-profile-accent={accentId}
+    >
       {/*
         Banner. It is its own stacking context at z-0 so the avatar
         wrapper (z-10) always paints on top of it — without this the
-        banner covers the avatar on the profile pages.
+        banner covers the avatar on the profile pages. The treatment sits
+        above the cover image but below the avatar.
       */}
       <div className="relative z-0 h-[132px] w-full overflow-hidden bg-[var(--cz-surface-strong)] sm:h-[190px]">
         {user.coverUrl ? (
@@ -215,15 +233,22 @@ export function ProfileHeader({
             imgClassName="absolute inset-0 h-full w-full"
           />
         ) : null}
+        <div
+          aria-hidden
+          className={cn(
+            "cz-profile-banner-treat absolute inset-0",
+            `cz-profile-theme-${themeId}`,
+          )}
+        />
       </div>
 
       <div className="px-4 pb-3">
         {/* 133px avatar overlapping the banner by ~33px */}
         <div className="relative z-10 flex items-start justify-between">
           <span
-            className={withAvatarRing(
-              user,
+            className={cn(
               "-mt-[33px] block h-[100px] w-[100px] overflow-hidden rounded-full border-4 border-[var(--cz-bg)] bg-[var(--cz-border-strong)] text-[26px] font-bold text-[var(--cz-text-primary)] transition-transform duration-200 ease-out hover:scale-[1.02] sm:h-[133px] sm:w-[133px]",
+              ringClass,
             )}
           >
             {user.avatarUrl ? (
@@ -342,6 +367,9 @@ export function ProfileHeader({
               </span>
             ) : null}
           </h1>
+          <p className={cn("mt-0.5 truncate", handleClass(handleId))}>
+            @{user.username}
+          </p>
         </div>
 
         {bio ? (
@@ -385,7 +413,7 @@ export function ProfileHeader({
                 target="_blank"
                 rel="noopener noreferrer nofollow ugc"
                 aria-label={`${label} (opens in new tab)`}
-                className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-[var(--cz-border-strong)] bg-[var(--cz-surface-strong)] px-3 py-1 text-[13px] font-medium text-[var(--cz-text-primary)] transition-colors hover:border-[var(--cz-accent)] hover:text-[var(--cz-accent)]"
+                className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-[var(--cz-border-strong)] bg-[var(--cz-surface-strong)] px-3 py-1 text-[13px] font-medium text-[var(--cz-text-primary)] transition-colors hover:border-[var(--cz-profile-accent)] hover:text-[var(--cz-profile-accent-ink)] active:text-[var(--cz-profile-accent-ink-hover)]"
               >
                 <Link2 className="h-3.5 w-3.5 shrink-0" aria-hidden />
                 <span className="truncate">{label}</span>
@@ -479,7 +507,10 @@ const SocialLinks = memo(function SocialLinks({ entries }) {
  * 15px weight 500, Graphite inactive / Ink active, active tab has a
  * 2px #1d9bf0 underline at the bottom edge.
  */
-export function ProfileTabs({ active = "posts", onChange }) {
+export function ProfileTabs({ active = "posts", onChange, user }) {
+  const accentColor = user
+    ? profileAccentFor(accentIdFor(user)).swatch
+    : null;
   const tabs = [
     { id: "posts", label: "Posts" },
     { id: "badges", label: "Badges" },
@@ -512,7 +543,8 @@ export function ProfileTabs({ active = "posts", onChange }) {
             {on ? (
               <span
                 aria-hidden
-                className="absolute inset-x-0 bottom-0 h-[2px] bg-[var(--cz-accent)]"
+                className="absolute inset-x-0 bottom-0 h-[2px]"
+                style={{ backgroundColor: accentColor || "var(--cz-accent)" }}
               />
             ) : null}
           </button>

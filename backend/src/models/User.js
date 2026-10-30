@@ -62,6 +62,24 @@ const userSchema = new mongoose.Schema(
         message: "{VALUE} is not a supported accent",
       },
     },
+    // Cosmetic profile treatments. Pro-only values are gated in
+    // config/perks.js; null means the default (flat banner, classic handle).
+    profileTheme: {
+      type: String,
+      default: null,
+      enum: {
+        values: ["flat", "haze", "grid", "noir", null],
+        message: "{VALUE} is not a supported profile theme",
+      },
+    },
+    handleStyle: {
+      type: String,
+      default: null,
+      enum: {
+        values: ["classic", "bold", "mono", null],
+        message: "{VALUE} is not a supported handle style",
+      },
+    },
     pinnedPost: { type: mongoose.Schema.Types.ObjectId, ref: "Post", default: null },
     bio: { type: String, default: null, maxlength: 160 },
     college: { type: String, default: null, trim: true },

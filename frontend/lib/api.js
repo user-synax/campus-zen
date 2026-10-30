@@ -825,4 +825,9 @@ export const api = {
       method: "PATCH",
       body: { isVerified },
     }),
+  adminSetPro: (id, isPro) =>
+    request(`/api/admin/users/${encodeURIComponent(id)}/pro`, {
+      method: "PATCH",
+      body: { isPro },
+    }),
 };

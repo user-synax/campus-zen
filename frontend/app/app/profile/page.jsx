@@ -75,7 +75,7 @@ export default function OwnProfilePage() {
         }
       />
 
-      <ProfileTabs active={tab} onChange={setTab} />
+      <ProfileTabs active={tab} onChange={setTab} user={user} />
 
       {tab === "badges" ? (
         <BadgesTab user={user} isOwn />

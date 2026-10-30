@@ -8,6 +8,7 @@ import { cache, CacheKeys, TTL } from "../utils/cache.js";
 import { calcAgeYears, parseDobInput } from "../utils/age.js";
 import { normalizeHttpsUrl, MAX_CUSTOM_LINKS, MAX_CUSTOM_LINK_LABEL } from "../utils/links.js";
 import { createAndSendOtp } from "./otpService.js";
+import { assertCanUsePerk } from "../config/perks.js";
 import {
   POLICY_VERSION,
   TERMS_VERSION,
@@ -346,7 +347,18 @@ export const userService = {
 
   async updateMe(userId, data) {
     if (data?.dob !== undefined) throw new AppError("Date of birth can only be set once via /me/dob", 400, "DOB_IMMUTABLE");
-    const allowed = ["fullName", "bio", "college", "course", "academicYear", "avatarUrl", "coverUrl", "accent", "isPrivate", "replyPolicy", "mentionPolicy", "profileVisibility", "showSensitive", "customLinks"];
+
+    // Cosmetic perks are the only paid surface. A free account may clear a
+    // Pro value, but it can never save one — the UI lock is never the gate.
+    const cosmeticKeys = ["accent", "profileTheme", "handleStyle"];
+    const requestedCosmetics = cosmeticKeys.filter((k) => data?.[k] !== undefined);
+    if (requestedCosmetics.length) {
+      const current = await User.findById(userId).select("isPro").lean();
+      if (!current) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+      for (const k of requestedCosmetics) assertCanUsePerk(current, k, data[k]);
+    }
+
+    const allowed = ["fullName", "bio", "college", "course", "academicYear", "avatarUrl", "coverUrl", "accent", "profileTheme", "handleStyle", "isPrivate", "replyPolicy", "mentionPolicy", "profileVisibility", "showSensitive", "customLinks"];
     const update = {};
     for (const k of allowed) if (data[k] !== undefined) update[k] = data[k];
 
@@ -395,9 +407,13 @@ export const userService = {
     }
 
     // normalize empty string -> null for optional fields
-    for (const k of ["bio", "college", "course", "academicYear", "avatarUrl", "coverUrl", "accent"]) {
+    for (const k of ["bio", "college", "course", "academicYear", "avatarUrl", "coverUrl", "accent", "profileTheme", "handleStyle"]) {
       if (update[k] === "") update[k] = null;
     }
+    // The named defaults are stored as null so a later downgrade cannot make
+    // the profile depend on a paid value that is no longer unlocked.
+    if (update.profileTheme === "flat") update.profileTheme = null;
+    if (update.handleStyle === "classic") update.handleStyle = null;
     // socialLinks — accept object {github, twitter, linkedin, instagram} as username/handle only
     if (data.socialLinks && typeof data.socialLinks === "object") {
       const sl = {};

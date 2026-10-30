@@ -137,4 +137,10 @@ export const adminController = {
     const user = await adminService.setUserVerified(req.params.id, isVerified);
     res.json({ success: true, message: isVerified ? "User verified" : "Verification revoked", data: { user } });
   }),
+
+  setUserPro: asyncHandler(async (req, res) => {
+    const { isPro } = req.body || {};
+    const user = await adminService.setUserPro(req.params.id, isPro);
+    res.json({ success: true, message: isPro ? "Pro granted" : "Pro revoked", data: { user } });
+  }),
 };

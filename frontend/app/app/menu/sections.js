@@ -28,8 +28,9 @@ export const SECTIONS = [
   {
     id: "appearance",
     title: "Appearance",
-    sub: "Light or dark theme",
-    keywords: "theme dark light mode color colour display",
+    sub: "App theme and profile style",
+    keywords:
+      "theme dark light mode color colour display accent profile banner handle style pro cosmetic",
     Icon: Palette,
   },
   {

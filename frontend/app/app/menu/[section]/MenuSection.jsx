@@ -22,6 +22,7 @@ import { DevicesSettings } from "@/components/app/DevicesSettings";
 import { FollowRequests } from "@/components/app/FollowRequests";
 import { PageHeader } from "@/components/app/PageHeader";
 import { PrivacySettings } from "@/components/app/PrivacySettings";
+import { ProfileStyle } from "@/components/app/ProfileStyle";
 import { PushSettings } from "@/components/app/PushSettings";
 import { SafetyReports } from "@/components/app/SafetyReports";
 import { UserBadge } from "@/components/ui/verified-badge";
@@ -111,7 +112,7 @@ function SectionBody({ id, user }) {
     case "account":
       return <AccountSection user={user} />;
     case "appearance":
-      return <AppearanceSection />;
+      return <AppearanceSection user={user} />;
     case "notifications":
       return <PushSettings />;
     case "content":
@@ -251,7 +252,7 @@ function AccountSection({ user }) {
   );
 }
 
-function AppearanceSection() {
+function AppearanceSection({ user }) {
   const [theme, setTheme] = useState("light");
 
   useEffect(() => {
@@ -265,32 +266,36 @@ function AppearanceSection() {
   };
 
   return (
-    <div className={`${card} grid grid-cols-2`}>
-      {[
-        { id: "light", label: "Light", Icon: Sun },
-        { id: "dark", label: "Dark", Icon: Moon },
-      ].map(({ id, label, Icon }, i) => {
-        const on = theme === id;
-        return (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setThemeAndApply(id)}
-            aria-pressed={on}
-            className={cn(
-              "flex cursor-pointer items-center justify-center gap-2 py-3.5 text-[15px] font-bold transition-colors hover:bg-[var(--cz-surface-strong)]",
-              i === 0 ? "border-r border-[var(--cz-border)]" : null,
-              on
-                ? "bg-[var(--cz-accent-soft)] text-[var(--cz-accent)]"
-                : "text-[var(--cz-text-primary)]",
-            )}
-          >
-            <Icon className="h-[18px] w-[18px]" aria-hidden />
-            {label}
-          </button>
-        );
-      })}
-    </div>
+    <>
+      <div className={`${card} grid grid-cols-2`}>
+        {[
+          { id: "light", label: "Light", Icon: Sun },
+          { id: "dark", label: "Dark", Icon: Moon },
+        ].map(({ id, label, Icon }, i) => {
+          const on = theme === id;
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setThemeAndApply(id)}
+              aria-pressed={on}
+              className={cn(
+                "flex cursor-pointer items-center justify-center gap-2 py-3.5 text-[15px] font-bold transition-colors hover:bg-[var(--cz-surface-strong)]",
+                i === 0 ? "border-r border-[var(--cz-border)]" : null,
+                on
+                  ? "bg-[var(--cz-accent-soft)] text-[var(--cz-accent)]"
+                  : "text-[var(--cz-text-primary)]",
+              )}
+            >
+              <Icon className="h-[18px] w-[18px]" aria-hidden />
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
+      <ProfileStyle user={user} />
+    </>
   );
 }
 

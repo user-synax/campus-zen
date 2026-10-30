@@ -27,6 +27,8 @@ const updateMeSchema = z.object({
   avatarUrl: z.string().url().nullable().optional().or(z.literal("").transform(() => null)),
   coverUrl: z.string().url().nullable().optional().or(z.literal("").transform(() => null)),
   accent: z.enum(["peach", "lavender", "mint", "sky", "rose"]).nullable().optional(),
+  profileTheme: z.enum(["flat", "haze", "grid", "noir"]).nullable().optional(),
+  handleStyle: z.enum(["classic", "bold", "mono"]).nullable().optional(),
   isPrivate: z.boolean().optional(),
   showSensitive: z.boolean().optional(),
   replyPolicy: z.enum(["everyone", "followers", "none"]).optional(),
