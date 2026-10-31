@@ -91,6 +91,7 @@ function ClearMedia({ items, eager, lightbox, setLightbox, gated = false }) {
             className="w-full"
             imgClassName="max-h-[510px]"
             eager={eager}
+            optimize={m.kind !== "gif"}
           />
           {m.kind === "gif" ? <GifBadge /> : null}
         </button>
@@ -142,6 +143,7 @@ function ClearMedia({ items, eager, lightbox, setLightbox, gated = false }) {
                   src={m.url}
                   alt="Post attachment"
                   className="aspect-square w-full sm:aspect-[4/3]"
+                  optimize={m.kind !== "gif"}
                 />
                 {m.kind === "gif" ? <GifBadge /> : null}
               </span>

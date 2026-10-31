@@ -81,9 +81,12 @@ async function request(
   if (form !== undefined) {
     // multipart — browser sets Content-Type + boundary
     opts.body = form;
-  } else {
+  } else if (body !== undefined) {
+    // Only bodied requests carry the JSON header. Sending it on GET/HEAD makes
+    // those non-simple CORS requests, which forces an extra preflight (OPTIONS)
+    // round trip before nearly every read against a cross-origin API.
     opts.headers["Content-Type"] = "application/json";
-    if (body !== undefined) opts.body = JSON.stringify(body);
+    opts.body = JSON.stringify(body);
   }
 
   let res;

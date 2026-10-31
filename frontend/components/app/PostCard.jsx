@@ -74,6 +74,7 @@ function Avatar({ author }) {
           alt={author.username}
           className="h-full w-full rounded-full"
           imgClassName="h-full w-full"
+          width={96}
         />
       ) : (
         initials

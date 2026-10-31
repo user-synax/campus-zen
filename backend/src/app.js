@@ -55,9 +55,22 @@ app.use(cors({
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
+  // Let browsers cache the preflight for a day instead of paying an extra
+  // round trip before every API call.
+  maxAge: 86400,
+  optionsSuccessStatus: 204,
 }));
 app.use(hpp());
-app.use(compression());
+app.use(
+  compression({
+    // gzip buffers writes, which stalls a long-lived event stream until the
+    // buffer fills. SSE frames are tiny and already framed — pass them through.
+    filter: (req, res) => {
+      if (String(res.getHeader("Content-Type") || "").startsWith("text/event-stream")) return false;
+      return compression.filter(req, res);
+    },
+  }),
+);
 
 // body — articles are long-form: 50k chars of body can be ~200KB even
 // before JSON escaping, so /api/posts/articles* gets a bigger ceiling.

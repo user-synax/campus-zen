@@ -47,6 +47,9 @@ function MediaTile({ item, onOpen }) {
           alt={item.text || (isVideo ? "Post video" : "Post photo")}
           className="aspect-square w-full"
           imgClassName="aspect-square w-full transition-opacity duration-200 group-hover:opacity-90"
+          // A poster-less video tile falls back to the video URL, which the
+          // image resizer can't transform; GIFs must stay animated.
+          optimize={first?.kind !== "gif" && first?.kind !== "video"}
         />
       </span>
       {isSensitive ? (

@@ -328,6 +328,7 @@ async function consumeOrderSlice(order, start, lim, queryFilter, authorProjectio
     const chunk = order.slice(k, k + lim);
     if (!chunk.length) break;
     const rows = await Post.find({ _id: { $in: chunk }, ...queryFilter })
+      .select("-body")
       .populate("author", authorProjection)
       .lean();
     const byId = new Map(rows.map((r) => [String(r._id), r]));
@@ -877,7 +878,16 @@ export const postService = {
     const filter = { kind: "article" };
     if (hiddenSet.size) filter.author = { $nin: [...hiddenSet] };
     const [raw, total] = await Promise.all([
-      Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier streakCount isPrivate").lean(),
+      // Article bodies run up to 50k chars each. A list only needs the card
+      // fields — the stored `text` already carries the teaser — so 20 full
+      // articles never ship in one page.
+      Post.find(filter)
+        .select("-body")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(lim)
+        .populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier streakCount isPrivate")
+        .lean(),
       Post.countDocuments(filter),
     ]);
     let posts = await withoutBlockedAuthors(raw, viewerId);
@@ -1012,6 +1022,8 @@ export const postService = {
     const authorFilter = { $in: visibleIds.length ? visibleIds : ["000000000000000000000000"] };
     // limit+1 probe instead of a second countDocuments scan — one query per
     // page instead of two (free-tier Mongo thanks us on every scroll)
+    // NOTE: legacy offset path (kept for the mobile client) intentionally
+    // keeps the full document shape.
     const posts = await Post.find({ author: authorFilter, ...NOT_ANON })
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -1078,6 +1090,8 @@ export const postService = {
     const hiddenSet = await hiddenAuthorFilter(viewerId);
     const filter = hiddenSet.size ? { author: { $nin: [...hiddenSet] }, ...NOT_ANON } : { ...NOT_ANON };
     // same limit+1 probe as feed — no countDocuments scan per scroll page
+    // NOTE: legacy offset path (kept for the mobile client) intentionally
+    // keeps the full document shape.
     const raw = await Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim + 1).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier streakCount isPrivate").lean();
     const hasMore = raw.length > lim;
     if (hasMore) raw.pop();
@@ -1135,6 +1149,7 @@ export const postService = {
     // limit+1 probe instead of a second countDocuments scan (same trick the
     // legacy page feed uses — one query per page).
     const rows = await Post.find(filter)
+      .select("-body")
       .sort({ createdAt: -1, _id: -1 })
       .limit(lim + 1)
       .populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier streakCount")
@@ -1187,6 +1202,7 @@ export const postService = {
     let raw = cache.get(cacheKey);
     if (!raw) {
       raw = await Post.find(NOT_ANON)
+        .select("-body")
         .sort({ createdAt: -1, _id: -1 })
         .limit(lim)
         .populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier streakCount isPrivate")
@@ -1209,6 +1225,7 @@ export const postService = {
       const visibleIds = ids.filter((id) => !hiddenSet.has(String(id)));
       const authorFilter = { $in: visibleIds.length ? visibleIds : ["000000000000000000000000"] };
       raw = await Post.find({ author: authorFilter, ...NOT_ANON })
+        .select("-body")
         .sort({ createdAt: -1, _id: -1 })
         .limit(lim)
         .populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier streakCount")
@@ -1241,6 +1258,7 @@ export const postService = {
     }
     // limit+1 probe — one query per page instead of a countDocuments scan
     const rows = await Post.find(filter)
+      .select("-body")
       .sort({ createdAt: -1, _id: -1 })
       .limit(lim + 1)
       .populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier streakCount isPrivate")
@@ -1572,6 +1590,7 @@ export const postService = {
       return result;
     }
     const posts = await Post.find({ _id: { $in: postIds }, ...NOT_ANON })
+      .select("-body")
       .populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier streakCount")
       .lean();
     const map = new Map(posts.map((p) => [String(p._id), p]));
@@ -1790,7 +1809,7 @@ export const postService = {
     }
 
     const [posts, total] = await Promise.all([
-      Post.find(filter).sort(sort).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier streakCount").lean(),
+      Post.find(filter).select("-body").sort(sort).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier streakCount").lean(),
       Post.countDocuments(filter),
     ]);
 
@@ -1917,7 +1936,7 @@ export const postService = {
     const filter = { hashtags: tag, ...NOT_ANON };
     if (hiddenSet.size) filter.author = { $nin: [...hiddenSet] };
     const [rawPosts, total] = await Promise.all([
-      Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier streakCount isPrivate").lean(),
+      Post.find(filter).select("-body").sort({ createdAt: -1 }).skip(skip).limit(lim).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier streakCount isPrivate").lean(),
       Post.countDocuments(filter),
     ]);
     let posts = await withoutBlockedAuthors(rawPosts, viewerId);
