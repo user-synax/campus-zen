@@ -956,6 +956,25 @@ export const postService = {
     const post = await Post.findById(postId);
     if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
     if (String(post.author) !== String(userId)) throw new AppError("Not authorized to delete this post", 403, "FORBIDDEN");
+    return this.purgePost(post);
+  },
+
+  // College-admin moderation path. The caller (collegeAdminService) has
+  // already verified the moderator's cap and that the post belongs to a
+  // member of their college — this runs the same purge as a self-delete.
+  async removeAsModerator(postId) {
+    const post = await Post.findById(postId);
+    if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
+    return this.purgePost(post);
+  },
+
+  // Shared hard delete + side-effect cleanup for both remove paths. Every
+  // side effect (counters, pin, caches, achievements) belongs to the AUTHOR
+  // (post.author) — never the caller, so a moderator delete doesn't touch
+  // the moderator's own account.
+  async purgePost(post) {
+    const postId = post._id;
+    const userId = post.author;
     const wasAnon = Boolean(post.isAnonymous);
     await Post.deleteOne({ _id: postId });
     await Promise.all([

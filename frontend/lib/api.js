@@ -708,6 +708,48 @@ export const api = {
       { method: "GET" },
     );
   },
+  // ── College moderation (owner + delegated college admins) ───────────────
+  // The viewer's effective role + switches on this college — the page uses
+  // it to decide which management tools to render.
+  getCollegeMyCaps: (slug) =>
+    request(`/api/colleges/${encodeURIComponent(slug)}/my-caps`, { method: "GET" }),
+  // live "online now" snapshot (SSE `presence` events keep it updated after)
+  getCollegeActiveNow: (slug) =>
+    request(`/api/colleges/${encodeURIComponent(slug)}/active-now`, { method: "GET" }),
+  // owner-only team management for this college
+  getCollegeAdmins: (slug) =>
+    request(`/api/colleges/${encodeURIComponent(slug)}/admins`, { method: "GET" }),
+  addCollegeAdmin: (slug, username) =>
+    request(`/api/colleges/${encodeURIComponent(slug)}/admins`, {
+      method: "POST",
+      body: { username },
+    }),
+  updateCollegeAdminCaps: (slug, userId, caps) =>
+    request(`/api/colleges/${encodeURIComponent(slug)}/admins/${userId}`, {
+      method: "PATCH",
+      body: caps,
+    }),
+  removeCollegeAdmin: (slug, userId) =>
+    request(`/api/colleges/${encodeURIComponent(slug)}/admins/${userId}`, {
+      method: "DELETE",
+    }),
+  // member + post moderation
+  kickCollegeMember: (slug, userId) =>
+    request(`/api/colleges/${encodeURIComponent(slug)}/members/${userId}`, {
+      method: "DELETE",
+    }),
+  banCollegeMember: (slug, userId) =>
+    request(`/api/colleges/${encodeURIComponent(slug)}/members/${userId}/ban`, {
+      method: "POST",
+    }),
+  unbanCollegeMember: (slug, userId) =>
+    request(`/api/colleges/${encodeURIComponent(slug)}/members/${userId}/ban`, {
+      method: "DELETE",
+    }),
+  deleteCollegePost: (slug, postId) =>
+    request(`/api/colleges/${encodeURIComponent(slug)}/posts/${postId}`, {
+      method: "DELETE",
+    }),
   // Admin dashboard (env-gated via ADMIN_EMAIL + ADMIN_PASSKEY on backend).
   // Uses its own adminToken cookie — no user refresh involved.
   adminLogin: (payload) =>

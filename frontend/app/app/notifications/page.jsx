@@ -14,7 +14,9 @@ import {
   Repeat2,
   ShieldCheck,
   Trash2,
+  UserMinus,
   UserPlus,
+  Ban,
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -46,6 +48,8 @@ const NOTIF_ICON = {
   admin_broadcast: { Icon: Megaphone, className: "text-[var(--cz-accent)]" },
   admin_notice: { Icon: ShieldCheck, className: "text-[var(--cz-accent)]" },
   badge_unlock: { Icon: Award, className: "text-[var(--cz-accent)]" },
+  college_kick: { Icon: UserMinus, className: "text-[var(--cz-text-secondary)]" },
+  college_ban: { Icon: Ban, className: "text-[var(--cz-error)]" },
 };
 
 // Marks an unread card read after ~1s in view. Fires once per card.
@@ -326,7 +330,8 @@ export default function NotificationsPage() {
             };
             const Glyph = glyph.Icon;
             const isAdminMessage =
-              n.type === "admin_broadcast" || n.type === "admin_notice" || n.type === "badge_unlock";
+              n.type === "admin_broadcast" || n.type === "admin_notice" || n.type === "badge_unlock" ||
+              n.type === "college_kick" || n.type === "college_ban";
             return (
               <AutoRead
                 key={n._id}

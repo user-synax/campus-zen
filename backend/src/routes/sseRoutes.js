@@ -64,7 +64,7 @@ async function protectSSE(req, res, next) {
       res.end(JSON.stringify({ success: false, message: "Invalid session" }));
       return;
     }
-    const user = await User.findById(decoded.id).select("_id isEmailVerified isBanned");
+    const user = await User.findById(decoded.id).select("_id isEmailVerified isBanned collegeSlug");
     if (!user) {
       res.writeHead(401, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ success: false, message: "User no longer exists" }));
@@ -81,6 +81,8 @@ async function protectSSE(req, res, next) {
       return;
     }
     req.user = user;
+    // Presence (active-now strip) keys off the member's own college.
+    req.collegeSlug = user.collegeSlug || null;
     next();
   } catch {
     res.writeHead(401, { "Content-Type": "application/json" });
@@ -123,21 +125,40 @@ async function handleSSE(req, res) {
   }
   set.add(res);
 
+  // College presence: this tab counts the user "online" on their college
+  // page's active-now strip, and receives updates for it until it closes.
+  const slug = req.collegeSlug;
+  const presenceService = slug
+    ? (await import("../services/presenceService.js")).presenceService
+    : null;
+  if (presenceService) {
+    presenceService.addListener(res, slug);
+    presenceService.join(userId, slug).catch(() => {});
+  }
+
   const heartbeat = setInterval(() => {
     try {
       res.write(`: heartbeat\n\n`);
     } catch {
-      clearInterval(heartbeat);
-      set.delete(res);
-      if (set.size === 0) sseClients.delete(userId);
+      cleanup();
     }
   }, 25_000);
 
-  req.on("close", () => {
+  // One shared teardown for stream close + dead heartbeats.
+  let closed = false;
+  function cleanup() {
+    if (closed) return;
+    closed = true;
     clearInterval(heartbeat);
     set.delete(res);
     if (set.size === 0) sseClients.delete(userId);
-  });
+    if (presenceService) {
+      presenceService.removeListener(res, slug);
+      presenceService.leave(userId, slug).catch(() => {});
+    }
+  }
+
+  req.on("close", cleanup);
 }
 
 // Primary route: /api/events  (mounted at /api/events)

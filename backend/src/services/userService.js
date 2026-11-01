@@ -490,6 +490,20 @@ export const userService = {
       const prev = await User.findById(userId).select("collegeSlug").lean();
       const prevSlug = prev?.collegeSlug || null;
       const nextSlug = update.college ? slugifyCollege(update.college) : null;
+      // A college blacklist blocks any (re-)claim of that membership.
+      if (nextSlug && prevSlug !== nextSlug) {
+        const { College } = await import("../models/College.js");
+        const claimed = await College.findOne({ slug: nextSlug })
+          .select("bannedUserIds")
+          .lean();
+        if (claimed?.bannedUserIds?.some((b) => String(b) === String(userId))) {
+          throw new AppError(
+            "You are banned from this college. Contact the college admin if this is a mistake.",
+            403,
+            "COLLEGE_BANNED",
+          );
+        }
+      }
       update.collegeSlug = nextSlug;
       // normalize display: collapse whitespace
       if (update.college) update.college = String(update.college).trim().replace(/\s+/g, " ").slice(0, 120);

@@ -128,6 +128,21 @@ export function useSSE(enabled = true) {
         } catch {}
       });
 
+      // Presence is global live state for the college page's active-now
+      // strip — fanned out as a window event so any page can subscribe
+      // without a new provider.
+      evtSource.addEventListener("presence", (e) => {
+        try {
+          lastEventId = e.lastEventId || lastEventId;
+          const data = JSON.parse(e.data);
+          if (data?.slug) {
+            window.dispatchEvent(
+              new CustomEvent("cz:presence", { detail: data }),
+            );
+          }
+        } catch {}
+      });
+
       evtSource.onerror = () => {
         close();
         if (consumers > 0 && !reconnectTimer) {

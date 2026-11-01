@@ -23,3 +23,21 @@ export function collegeHrefFor(user) {
   const slug = collegeSlugFor(user);
   return slug ? `/c/${encodeURIComponent(slug)}` : null;
 }
+
+/**
+ * "Dayananda Sagar College of Engineering" -> "DSCE" — the short form the
+ * active-now strip uses ("students from DSCE online now"). Falls back to the
+ * first few characters of the full name when the initials are too few.
+ */
+export function collegeShortLabel(name) {
+  const words = String(name || "")
+    .trim()
+    .split(/\s+/)
+    .filter((w) => w && !["of", "and", "&", "the", "for", "in"].includes(w.toLowerCase()));
+  const initials = words
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase();
+  if (initials.length >= 2) return initials.slice(0, 5);
+  return String(name || "").trim().slice(0, 12) || null;
+}

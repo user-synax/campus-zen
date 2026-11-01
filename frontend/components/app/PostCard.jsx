@@ -14,6 +14,7 @@ import {
   PinOff,
   Repeat2,
   Share2,
+  ShieldAlert,
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
@@ -96,6 +97,7 @@ function OverflowMenu({
   onPin,
   onEdit,
   onDelete,
+  moderatorDelete,
   onReport,
   onShare,
 }) {
@@ -158,17 +160,33 @@ function OverflowMenu({
           </button>
         </>
       ) : (
-        <button
-          role="menuitem"
-          onClick={onReport}
-          className={cn(
-            menuItemClass,
-            "text-[var(--cz-error)] hover:bg-[color-mix(in_srgb,var(--cz-error)_10%,transparent)]",
-          )}
-        >
-          <Flag className="h-[18px] w-[18px] shrink-0" aria-hidden />
-          Report post
-        </button>
+        <>
+          {moderatorDelete && !post.isAnonymous ? (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={moderatorDelete.onModerate}
+              className={cn(
+                menuItemClass,
+                "text-[var(--cz-error)] hover:bg-[color-mix(in_srgb,var(--cz-error)_10%,transparent)]",
+              )}
+            >
+              <ShieldAlert className="h-[18px] w-[18px] shrink-0" aria-hidden />
+              {moderatorDelete.label || "Remove post"}
+            </button>
+          ) : null}
+          <button
+            role="menuitem"
+            onClick={onReport}
+            className={cn(
+              menuItemClass,
+              "text-[var(--cz-error)] hover:bg-[color-mix(in_srgb,var(--cz-error)_10%,transparent)]",
+            )}
+          >
+            <Flag className="h-[18px] w-[18px] shrink-0" aria-hidden />
+            Report post
+          </button>
+        </>
       )}
     </div>
   );
@@ -179,6 +197,9 @@ export function PostCard({
   currentUser,
   onDelete,
   onUpdate,
+  // College moderation: when the viewer holds the `moderatePosts` switch on
+  // the college whose feed renders this card, an extra menu item shows here.
+  moderatorDelete = null,
   isDetail = false,
   isPinned = false,
   onPinChange,
@@ -545,6 +566,17 @@ export function PostCard({
                       }
                     }}
                     onDelete={handleDelete}
+                    moderatorDelete={
+                      moderatorDelete
+                        ? {
+                            label: moderatorDelete.label,
+                            onModerate: () => {
+                              setMenuOpen(false);
+                              moderatorDelete.onModerate(post);
+                            },
+                          }
+                        : null
+                    }
                     onReport={() => {
                       setReportOpen(true);
                       setMenuOpen(false);

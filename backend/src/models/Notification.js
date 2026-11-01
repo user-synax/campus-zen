@@ -20,6 +20,8 @@ const notificationSchema = new mongoose.Schema(
         "admin_broadcast",
         "admin_notice",
         "badge_unlock",
+        "college_kick",
+        "college_ban",
       ],
       required: true,
     },
