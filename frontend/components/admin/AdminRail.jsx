@@ -3,6 +3,7 @@
 import {
   BadgeCheck,
   ExternalLink,
+  EyeOff,
   Flag,
   LayoutDashboard,
   LogOut,
@@ -22,6 +23,7 @@ export const ADMIN_SECTIONS = [
   { id: "users", label: "Users", icon: Users },
   { id: "broadcast", label: "Broadcast", icon: Megaphone },
   { id: "reports", label: "Reports", icon: Flag, badge: "reports" },
+  { id: "hidden", label: "Hidden posts", icon: EyeOff },
   { id: "appeals", label: "Appeals", icon: Scale, badge: "appeals" },
   {
     id: "verification",

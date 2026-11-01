@@ -5,7 +5,7 @@ import { protect, optionalAuth } from "../middleware/auth.js";
 import { userController } from "../controllers/userController.js";
 import { followController } from "../controllers/followController.js";
 import { blockController } from "../controllers/blockController.js";
-import { avatarUpload } from "../middleware/upload.js";
+import { avatarUpload, requireDeclaredUploadSize, MAX_AVATAR_UPLOAD_BYTES } from "../middleware/upload.js";
 import rateLimit from "express-rate-limit";
 import { isHttpsUrl, MAX_CUSTOM_LINKS } from "../utils/links.js";
 
@@ -131,8 +131,22 @@ const listUsersQuery = z.object({
   limit: z.coerce.number().int().min(1).max(50).optional().default(20),
 });
 
-router.post("/me/avatar", avatarLimiter, protect, avatarUpload.single("avatar"), userController.updateAvatar);
-router.post("/me/cover", avatarLimiter, protect, avatarUpload.single("cover"), userController.updateCover);
+router.post(
+  "/me/avatar",
+  avatarLimiter,
+  protect,
+  requireDeclaredUploadSize(MAX_AVATAR_UPLOAD_BYTES),
+  avatarUpload.single("avatar"),
+  userController.updateAvatar
+);
+router.post(
+  "/me/cover",
+  avatarLimiter,
+  protect,
+  requireDeclaredUploadSize(MAX_AVATAR_UPLOAD_BYTES),
+  avatarUpload.single("cover"),
+  userController.updateCover
+);
 
 // pin — before /:username to avoid param clash
 const pinSchema = z.object({ postId: z.string().regex(/^[a-f\d]{24}$/i, "Invalid post id") });

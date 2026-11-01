@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AdminMobileNav, AdminRail } from "@/components/admin/AdminRail";
 import { AppealsSection } from "@/components/admin/AppealsSection";
 import { BroadcastSection } from "@/components/admin/BroadcastSection";
+import { HiddenSection } from "@/components/admin/HiddenSection";
 import { OverviewSection } from "@/components/admin/OverviewSection";
 import { ReportsSection } from "@/components/admin/ReportsSection";
 import { UsersSection } from "@/components/admin/UsersSection";
@@ -261,6 +262,8 @@ export default function AdminPage() {
               <BroadcastSection stats={stats} refreshStats={fetchStats} />
             ) : section === "reports" ? (
               <ReportsSection refreshStats={fetchStats} onOpenUser={openUser} />
+            ) : section === "hidden" ? (
+              <HiddenSection onOpenUser={openUser} />
             ) : section === "appeals" ? (
               <AppealsSection refreshStats={fetchStats} onOpenUser={openUser} />
             ) : (

@@ -3,7 +3,11 @@ import { z } from "zod";
 import { validate } from "../middleware/validate.js";
 import { protect, optionalAuth } from "../middleware/auth.js";
 import { postController } from "../controllers/postController.js";
-import { postMediaFields } from "../middleware/upload.js";
+import {
+  postMediaFields,
+  requireDeclaredUploadSize,
+  MAX_POST_UPLOAD_BYTES,
+} from "../middleware/upload.js";
 import rateLimit from "express-rate-limit";
 import { INTEREST_TAGS } from "../utils/interestTags.js";
 
@@ -57,15 +61,17 @@ const feedLimiter = rateLimit({ windowMs: 60 * 1000, max: 60, standardHeaders: t
 const interactionLimiter = rateLimit({ windowMs: 60 * 1000, max: 60, standardHeaders: true, legacyHeaders: false });
 
 // create — accepts JSON (text only) or multipart/form-data (text + media[] + posters[] + mediaMeta)
-router.post("/", protect, createLimiter, postMediaFields, postController.create);
+// requireDeclaredUploadSize runs BEFORE multer: multer's own ceiling is
+// per-file, so only a total-request cap prevents an 8 × 25 MB memory spike.
+router.post("/", protect, createLimiter, requireDeclaredUploadSize(MAX_POST_UPLOAD_BYTES), postMediaFields, postController.create);
 
 // anonymous hub — login-only, text + images only, hub-only (never in profiles)
 // must sit before /:id so Express matches them first
-router.post("/anonymous", protect, createLimiter, postMediaFields, postController.createAnonymous);
+router.post("/anonymous", protect, createLimiter, requireDeclaredUploadSize(MAX_POST_UPLOAD_BYTES), postMediaFields, postController.createAnonymous);
 router.get("/anonymous/feed", protect, feedLimiter, validate(paginationQuery, "query"), postController.anonymousFeed);
 
 // articles — must sit before /:id so Express matches them first
-router.post("/articles", protect, createLimiter, postMediaFields, validate(articleBodySchema), postController.createArticle);
+router.post("/articles", protect, createLimiter, requireDeclaredUploadSize(MAX_POST_UPLOAD_BYTES), postMediaFields, validate(articleBodySchema), postController.createArticle);
 router.get("/articles", optionalAuth, feedLimiter, validate(paginationQuery, "query"), postController.listArticles);
 router.post("/articles/lookup", optionalAuth, interactionLimiter, validate(lookupSchema), postController.lookupArticles);
 router.get("/articles/:username/:slug", optionalAuth, validate(usernameParam, "params"), postController.getArticleBySlug);

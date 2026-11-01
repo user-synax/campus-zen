@@ -88,7 +88,10 @@ function maskAnonComments(comments, post, viewerId) {
 }
 
 // Non-anonymous filter — every normal surface must exclude hub posts.
-const NOT_ANON = { isAnonymous: { $ne: true } };
+// `isHidden` (report quarantine) rides here too: every feed, profile list,
+// bookmark page and lookup that spreads this base filter drops hidden posts
+// without each query needing its own rule.
+const NOT_ANON = { isAnonymous: { $ne: true }, isHidden: { $ne: true } };
 
 // Fire-and-forget: notifications + live pushes must never block the
 // interaction response. Errors are swallowed (best-effort realtime).
@@ -606,7 +609,7 @@ export const postService = {
       return { ...cached, posts };
     }
     const hiddenSet = await hiddenAuthorFilter(userId);
-    const filter = { isAnonymous: true, kind: "post" };
+    const filter = { isAnonymous: true, kind: "post", isHidden: { $ne: true } };
     if (hiddenSet.size) filter.author = { $nin: [...hiddenSet] };
     const raw = await Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim + 1)
       .populate("author", "fullName username avatarUrl").lean();
@@ -632,6 +635,12 @@ export const postService = {
       post = await Post.findById(postId).populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier streakCount isPrivate").lean();
       if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
       cache.set(cacheKey, post, TTL.POST);
+    }
+
+    // Quarantined by the report threshold (or an admin) → only its author can
+    // still open it; everyone else gets the same 404 as a deleted post.
+    if (post.isHidden && String(viewerId || "") !== String(post.author?._id || post.author)) {
+      throw new AppError("Post not found", 404, "POST_NOT_FOUND");
     }
 
     // blocked in either direction → indistinguishable from deleted
@@ -832,6 +841,9 @@ export const postService = {
       if (await blockService.isBlocked(viewerId, authorId)) throw new AppError("Article not found", 404, "ARTICLE_NOT_FOUND");
     }
     await assertCanSeePost(viewerId, post.author?._id || post.author);
+    if (post.isHidden && String(viewerId || "") !== String(post.author?._id || post.author)) {
+      throw new AppError("Article not found", 404, "ARTICLE_NOT_FOUND");
+    }
     const result = { ...post };
     if (viewerId) {
       const [liked, reposted, bookmarked] = await Promise.all([
@@ -875,7 +887,7 @@ export const postService = {
       return { ...cached, posts: visible };
     }
     const hiddenSet = await hiddenAuthorFilter(viewerId);
-    const filter = { kind: "article" };
+    const filter = { kind: "article", isHidden: { $ne: true } };
     if (hiddenSet.size) filter.author = { $nin: [...hiddenSet] };
     const [raw, total] = await Promise.all([
       // Article bodies run up to 50k chars each. A list only needs the card
@@ -914,7 +926,7 @@ export const postService = {
       if (u) or.push({ author: u._id, slug: r.slug, kind: "article" });
     }
     if (!or.length) return { articles: [] };
-    const posts = await Post.find({ $or: or })
+    const posts = await Post.find({ $or: or, isHidden: { $ne: true } })
       .select("title description body text slug author createdAt likeCount replyCount repostCount")
       .populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier streakCount isPrivate")
       .lean();
@@ -1673,6 +1685,10 @@ export const postService = {
     const post = await Post.findById(postId);
     if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
     if (viewerId && (await blockService.isBlocked(viewerId, post.author))) {
+      throw new AppError("Post not found", 404, "POST_NOT_FOUND");
+    }
+    // Hidden (reported) posts stop serving their thread to everyone but the author.
+    if (post.isHidden && String(viewerId || "") !== String(post.author)) {
       throw new AppError("Post not found", 404, "POST_NOT_FOUND");
     }
     if (!post.isAnonymous) await assertCanSeePost(viewerId, post.author);

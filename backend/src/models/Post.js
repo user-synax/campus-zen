@@ -53,6 +53,13 @@ const postSchema = new mongoose.Schema(
     // 18+ / sensitive flag (Reddit-style). Set by author at upload time.
     // Frontend blurs media when true; viewer setting `showSensitive` gates reveal.
     isSensitive: { type: Boolean, default: false, index: true },
+    // Moderation quarantine. Auto-set by the report threshold (reportService)
+    // or explicitly by an admin. Hidden posts leave every public feed, search
+    // and profile surface but stay in the DB so an admin can restore them.
+    isHidden: { type: Boolean, default: false, index: true },
+    hiddenAt: { type: Date, default: null },
+    hiddenBy: { type: String, enum: ["auto_report", "admin"], default: null },
+    hiddenReason: { type: String, default: null, maxlength: 300 },
     hashtags: { type: [String], default: [], index: true },
     mentions: { type: [String], default: [], index: true },
     // interest hub taxonomy (v1, fixed — see utils/interestTags.js). 1-3 tags
@@ -95,6 +102,8 @@ postSchema.index({ kind: 1, createdAt: -1 });
 postSchema.index({ createdAt: -1, _id: -1 });
 // for hashtag feeds
 postSchema.index({ hashtags: 1, createdAt: -1 });
+// moderation queue: hidden posts, newest-quarantined first
+postSchema.index({ isHidden: 1, hiddenAt: -1 });
 // interest hub feed: one tag + newest-first keyset cursors
 postSchema.index({ interestTags: 1, createdAt: -1, _id: -1 });
 // text search for PRD §13 — optimized, lightweight

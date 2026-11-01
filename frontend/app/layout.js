@@ -1,11 +1,10 @@
 import { Inter } from "next/font/google";
-import { cookies } from "next/headers";
 import "./globals.css";
-import { ConsentAwareAnalytics } from "@/components/ConsentAwareAnalytics";
 import { PushRegistrar } from "@/components/app/PushRegistrar";
+import { ConsentAwareAnalytics } from "@/components/ConsentAwareAnalytics";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { CzToaster } from "@/components/ui/sonner";
-import { readThemeCookie } from "@/lib/theme";
+import { THEME_COOKIE } from "@/lib/theme";
 
 // TwitterChirp is proprietary — Inter is the documented substitute.
 // Variable weight covers the 400 / 500 / 700 / 800 scale from DESIGN.md.
@@ -91,24 +90,35 @@ const orgJsonLd = {
   logo: "https://campuszen.tech/campusZen.png",
 };
 
-export default async function RootLayout({ children }) {
-  // Reading the theme cookie here is what makes the first paint correct:
-  // the class is already on <html> before any CSS or JS runs.
-  const cookieStore = await cookies();
-  const theme = readThemeCookie(cookieStore);
-  const analyticsAllowed = cookieStore.get("cz_analytics")?.value === "1";
+// Theme bootstrap. This layout used to `await cookies()` to read the theme
+// cookie — which made every route dynamic. Next.js skips prefetching for
+// dynamic routes without loading boundaries, so every sidebar navigation was
+// a full server roundtrip (page + sidebar highlight both appeared seconds
+// later). Moving the read here restores static rendering: sidebar links get
+// prefetched in the viewport and swaps happen with zero roundtrip.
+//
+// The script runs synchronously during HTML parse, i.e. before first paint,
+// so the very first paint is still already in the right theme — same
+// guarantee as the server-side class, with no flash and no hydration cost.
+// suppressHydrationWarning on <html> covers the attribute React would
+// otherwise flag the script as having changed.
+const themeBootstrapScript = `(function(){try{if(/(?:^|;\\s*)${THEME_COOKIE}=dark(?:;|$)/.test(document.cookie))document.documentElement.classList.add("dark")}catch(e){}})()`;
 
+export default function RootLayout({ children }) {
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${theme === "dark" ? "dark" : ""} h-full antialiased`}
+      suppressHydrationWarning
+      className={`${inter.variable} h-full antialiased`}
     >
       <body className="min-h-dvh flex flex-col">
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: trusted constant, theme bootstrap */}
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
         <script type="application/ld+json">{JSON.stringify(orgJsonLd)}</script>
         <PushRegistrar />
         <QueryProvider>{children}</QueryProvider>
         <CzToaster />
-        <ConsentAwareAnalytics enabled={analyticsAllowed} />
+        <ConsentAwareAnalytics />
       </body>
     </html>
   );

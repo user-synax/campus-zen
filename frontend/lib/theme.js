@@ -2,12 +2,14 @@ export const THEME_COOKIE = "cz-theme";
 
 /**
  * The token system is class-based (`:root` light, `.dark` dark — see
- * `globals.css`). The root layout reads this cookie on the server and
- * stamps the class onto <html>, so the very first paint is already in the
- * right theme: no flash, and no client script required.
+ * `globals.css`). The root layout does NOT read this cookie on the server
+ * (any `cookies()` access makes every route dynamic, which disables link
+ * prefetching entirely); instead a tiny pre-paint script in the root layout
+ * stamps the class onto <html> straight from `document.cookie`, so the very
+ * first paint is already in the right theme: no flash, no hydration shift.
  *
- * A cookie (rather than localStorage) is what makes that possible, and it
- * is also what lets the root layout read the value at all.
+ * A cookie (rather than localStorage) keeps that possible in one synchronous
+ * read, and it travels with the session for other local surfaces.
  */
 
 export function normalizeTheme(value) {

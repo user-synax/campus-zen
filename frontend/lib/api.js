@@ -775,6 +775,21 @@ export const api = {
     request(`/api/admin/posts/${encodeURIComponent(id)}`, {
       method: "DELETE",
     }),
+  adminHiddenPosts: (params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "")
+        qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(`/api/admin/hidden${q ? `?${q}` : ""}`, {
+      method: "GET",
+    });
+  },
+  adminRestorePost: (id) =>
+    request(`/api/admin/posts/${encodeURIComponent(id)}/restore`, {
+      method: "POST",
+    }),
   adminSuspendUser: (id, reason) =>
     request(`/api/admin/users/${encodeURIComponent(id)}/suspend`, {
       method: "PATCH",

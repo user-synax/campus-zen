@@ -2,9 +2,11 @@
 
 import {
   ArrowUpRight,
+  EyeOff,
   FileText,
   Flag,
   Image as ImageIcon,
+  RotateCcw,
   Trash2,
   UserRound,
 } from "lucide-react";
@@ -128,6 +130,25 @@ export function ReportsSection({ refreshStats, onOpenUser }) {
     }
   };
 
+  const restorePost = async (report) => {
+    setBusy(report._id, "restore");
+    try {
+      await api.adminRestorePost(String(report.targetId));
+      toast.success("Post restored to the feeds");
+      setReports((prev) =>
+        prev.map((item) =>
+          item._id === report._id
+            ? { ...item, target: { ...item.target, isHidden: false } }
+            : item,
+        ),
+      );
+    } catch (err) {
+      toast.error(errorMessage(err, "Could not restore the post."));
+    } finally {
+      clearBusy(report._id);
+    }
+  };
+
   const deletePost = async (report) => {
     if (!window.confirm("Delete this post permanently?")) return;
     setBusy(report._id, "delete");
@@ -226,6 +247,12 @@ export function ReportsSection({ refreshStats, onOpenUser }) {
                   <Chip tone={REPORT_STATUS_TONE[report.status] || "neutral"}>
                     {report.status}
                   </Chip>
+                  {isPost && report.target?.isHidden ? (
+                    <Chip tone="warn">
+                      <EyeOff className="h-3 w-3" aria-hidden />
+                      Hidden
+                    </Chip>
+                  ) : null}
                   <span className="ml-auto text-[11px] text-[var(--cz-text-secondary)]">
                     {timeAgo(report.createdAt)}
                   </span>
@@ -338,6 +365,24 @@ export function ReportsSection({ refreshStats, onOpenUser }) {
                       {acting[report._id] === "actioned" ? <Spinner /> : null}
                       Mark actioned
                     </Button>
+                    {isPost && report.target?.isHidden ? (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        disabled={busy}
+                        onClick={() => restorePost(report)}
+                      >
+                        {acting[report._id] === "restore" ? (
+                          <Spinner />
+                        ) : (
+                          <RotateCcw
+                            className="h-[14px] w-[14px]"
+                            aria-hidden
+                          />
+                        )}
+                        Restore
+                      </Button>
+                    ) : null}
                     {isPost && report.target && !report.targetMissing ? (
                       <Button
                         variant="dangerSolid"

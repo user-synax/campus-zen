@@ -134,6 +134,17 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react", "date-fns"],
     globalNotFound: true,
+
+    // Client Router Cache TTL. `dynamic` defaults to 0s — every revisit of a
+    // non-static page (profiles, post/article pages, tags…) refetched the
+    // whole RSC payload on click. 30s makes back-and-forth between tabs reuse
+    // the payload already in memory; pages still refetch their own data via
+    // React Query, so this only saves the shell roundtrip. Static pages keep
+    // the default 5-minute window.
+    staleTimes: {
+      dynamic: 30,
+      static: 300,
+    },
   },
 
   // ─── Compression ─────────────────────────────────────────────────────────

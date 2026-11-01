@@ -91,6 +91,17 @@ export const adminController = {
     res.json({ success: true, message: result.message });
   }),
 
+  listHiddenPosts: asyncHandler(async (req, res) => {
+    const { page = 1, limit = 20 } = req.query;
+    const data = await adminService.listHiddenPosts({ page, limit });
+    res.json({ success: true, data });
+  }),
+
+  restorePost: asyncHandler(async (req, res) => {
+    const result = await adminService.restorePost(req.params.id);
+    res.json({ success: true, message: result.message, data: result });
+  }),
+
   suspendUser: asyncHandler(async (req, res) => {
     const { reason } = req.body || {};
     const user = await adminService.suspendUser(req.params.id, reason);

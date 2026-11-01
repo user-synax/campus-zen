@@ -35,12 +35,16 @@ export function clearAdminCookie(res) {
   res.clearCookie("adminToken", opts);
 }
 
-// Optional analytics consent is mirrored in a first-party cookie so the root
-// layout can decide whether to load Vercel Analytics during server rendering.
-// It is not an auth secret; httpOnly still keeps it out of document.cookie.
+// Optional analytics consent is mirrored in a first-party, non-httpOnly
+// cookie. The root layout no longer reads cookies at all (that made every
+// route dynamic and disabled link prefetching); instead the client-side
+// ConsentAwareAnalytics component reads this cookie after hydration. It is
+// not an auth secret — same trust level as `cz-theme` — so excluding it from
+// httpOnly keeps it readable while document.cookie stays safe for real
+// credentials.
 export function setAnalyticsCookie(res, allowed) {
   res.cookie("cz_analytics", allowed ? "1" : "0", {
-    httpOnly: true,
+    httpOnly: false,
     secure: isProd ? true : env.COOKIE_SECURE,
     sameSite: env.COOKIE_SAMESITE,
     path: "/",
@@ -50,7 +54,7 @@ export function setAnalyticsCookie(res, allowed) {
 
 export function clearAnalyticsCookie(res) {
   res.clearCookie("cz_analytics", {
-    httpOnly: true,
+    httpOnly: false,
     secure: isProd ? true : env.COOKIE_SECURE,
     sameSite: env.COOKIE_SAMESITE,
     path: "/",

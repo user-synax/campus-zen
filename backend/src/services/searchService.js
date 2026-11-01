@@ -107,7 +107,7 @@ export const searchService = {
         if (query.startsWith("#")) {
           const rawTag = query.replace(/^#+/, "").toLowerCase().trim().slice(0, 30);
           if (!rawTag) return { posts: [], total: 0 };
-          let filter = { hashtags: rawTag, isAnonymous: { $ne: true } };
+          let filter = { hashtags: rawTag, isAnonymous: { $ne: true }, isHidden: { $ne: true } };
           const hide = await privacyService.privateIdsToHide(viewerId || null);
           const blocked = viewerId ? await blockService.blockedIdsFor(viewerId) : [];
           const allHide = new Set([...blocked.map(String), ...hide]);
@@ -144,9 +144,9 @@ export const searchService = {
         let filter;
         if (query.length >= 2) {
           // try text search, fallback to regex if no results? For now use regex for consistency
-          filter = { $or: [{ text: re }, { title: re }, { description: re }, { body: re }], isAnonymous: { $ne: true } };
+          filter = { $or: [{ text: re }, { title: re }, { description: re }, { body: re }], isAnonymous: { $ne: true }, isHidden: { $ne: true } };
         } else {
-          filter = { $or: [{ text: re }, { title: re }, { description: re }, { body: re }], isAnonymous: { $ne: true } };
+          filter = { $or: [{ text: re }, { title: re }, { description: re }, { body: re }], isAnonymous: { $ne: true }, isHidden: { $ne: true } };
         }
         // hide posts by blocked + private + deactivated authors
         {

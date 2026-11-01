@@ -4,8 +4,66 @@ import { Post } from "../models/Post.js";
 import { User } from "../models/User.js";
 import { AppError } from "../utils/AppError.js";
 import { notificationService } from "./notificationService.js";
+import { cache, CacheKeys } from "../utils/cache.js";
 
 export { REPORT_REASONS };
+
+// Moderation thresholds. A report alleging sexual content quarantines the post
+// on the first report; every other reason needs three independent reports.
+const AUTO_HIDE_REPORTS_SEXUAL = 1;
+const AUTO_HIDE_REPORTS_ANY = 3;
+
+function invalidatePostVisibility(postId, authorId) {
+  cache.del(CacheKeys.post(postId));
+  cache.delPattern("feed:*");
+  cache.delPattern("publicFeed:*");
+  cache.delPattern("anonFeed:*");
+  cache.delPattern("orderPublic:*");
+  cache.delPattern("publicLatest:*");
+  cache.delPattern("feedLatest:*");
+  cache.delPattern("hashtag:*");
+  cache.delPattern("articles:*");
+  cache.delPattern("comments:*");
+  cache.delPattern("bookmarks:*");
+  if (authorId) {
+    cache.delPattern(`userPosts:${authorId}:*`);
+    cache.delPattern(`userArticles:${authorId}:*`);
+    cache.delPattern(`media:${authorId}:*`);
+    cache.delPattern(`userLikes:${authorId}:*`);
+    cache.delPattern(`userReposts:${authorId}:*`);
+  }
+}
+
+/**
+ * Quarantine a reported post once its open-report count crosses the threshold
+ * for the reason given. Idempotent and race-safe: the conditional update only
+ * matches a post that is still visible, so parallel reports can't double-fire.
+ */
+async function quarantineIfNeeded(targetId, reason) {
+  const post = await Post.findById(targetId).select("author isHidden").lean();
+  if (!post || post.isHidden) return false;
+  const openReports = await Report.countDocuments({ targetType: "post", targetId, status: "open" });
+  const shouldHide =
+    reason === "sexual"
+      ? openReports >= AUTO_HIDE_REPORTS_SEXUAL
+      : openReports >= AUTO_HIDE_REPORTS_ANY;
+  if (!shouldHide) return false;
+
+  const result = await Post.updateOne(
+    { _id: targetId, isHidden: { $ne: true } },
+    {
+      $set: {
+        isHidden: true,
+        hiddenAt: new Date(),
+        hiddenBy: "auto_report",
+        hiddenReason: `Auto-hidden after ${openReports} open report(s); latest reason: ${reason}`,
+      },
+    },
+  );
+  if (!result.modifiedCount) return false;
+  invalidatePostVisibility(targetId, post.author);
+  return true;
+}
 
 export const reportService = {
   async file({ reporterId, targetType, targetId, reason, details }) {
@@ -22,7 +80,11 @@ export const reportService = {
 
     try {
       const report = await Report.create({ reporter: reporterId, targetType, targetId, reason, details: details || null });
-      return { id: report._id, status: report.status };
+      // Reporting is the only moderation trigger the app has: quarantine the
+      // post as soon as the threshold is crossed so reported content leaves
+      // feeds/search immediately instead of waiting for an admin to look.
+      const hidden = targetType === "post" ? await quarantineIfNeeded(targetId, reason) : false;
+      return { id: report._id, status: report.status, hidden };
     } catch (err) {
       if (err.code === 11000) throw new AppError("You already reported this", 409, "ALREADY_REPORTED");
       throw err;

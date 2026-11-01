@@ -90,6 +90,11 @@ const broadcastSchema = z.object({
   userIds: z.array(z.string().regex(/^[a-f\d]{24}$/i, "Invalid user id")).max(500).optional().default([]),
 });
 
+const hiddenPostsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(50).optional().default(20),
+});
+
 const broadcastQuerySchema = z.object({
   page: z.coerce.number().int().min(1).optional().default(1),
   limit: z.coerce.number().int().min(1).max(50).optional().default(20),
@@ -125,6 +130,9 @@ router.patch("/reports/:id", requireAdmin, validate(idParamSchema, "params"), va
 router.get("/appeals", requireAdmin, validate(appealQuerySchema, "query"), adminController.listAppeals);
 router.patch("/appeals/:id", requireAdmin, validate(idParamSchema, "params"), validate(reviewAppealSchema), adminController.reviewAppeal);
 router.delete("/posts/:id", requireAdmin, validate(idParamSchema, "params"), adminController.deletePost);
+// auto-hidden (quarantined) posts: queue, then restore after review
+router.get("/hidden", requireAdmin, validate(hiddenPostsQuerySchema, "query"), adminController.listHiddenPosts);
+router.post("/posts/:id/restore", requireAdmin, validate(idParamSchema, "params"), adminController.restorePost);
 router.patch("/users/:id/suspend", requireAdmin, validate(idParamSchema, "params"), validate(suspendSchema), adminController.suspendUser);
 router.patch("/users/:id/unsuspend", requireAdmin, validate(idParamSchema, "params"), adminController.unsuspendUser);
 router.patch("/users/:id/status", requireAdmin, validate(idParamSchema, "params"), validate(accountStatusSchema), adminController.setAccountStatus);

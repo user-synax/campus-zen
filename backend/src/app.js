@@ -19,6 +19,7 @@ import collegeRoutes from "./routes/collegeRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import verificationRoutes from "./routes/verificationRoutes.js";
 import { notFound, errorHandler } from "./middleware/errorHandler.js";
+import { requireTrustedOrigin } from "./middleware/originGuard.js";
 
 const app = express();
 
@@ -101,6 +102,9 @@ app.use("/api/push", pushRoutes);
 app.use("/api/events", sseRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/colleges", collegeRoutes);
+// Admin writes are cookie-authenticated with no CSRF token: only the app's
+// own origin may trigger them (see middleware/originGuard.js).
+app.use("/api/admin", requireTrustedOrigin);
 app.use("/api/admin", adminRoutes);
 app.use("/api/verifications", verificationRoutes);
 

@@ -648,6 +648,43 @@ export const adminService = {
     return { message: "Post deleted by admin" };
   },
 
+  // Reverse an automatic (report-driven) quarantine: the post returns to the
+  // feeds and its open reports are dismissed, otherwise the very same reports
+  // would immediately re-hide it.
+  async restorePost(postId) {
+    const post = await Post.findById(postId).select("author isHidden").lean();
+    if (!post) throw new AppError("Post not found", 404, "POST_NOT_FOUND");
+    await Post.updateOne(
+      { _id: postId },
+      { $set: { isHidden: false, hiddenAt: null, hiddenBy: null, hiddenReason: null } },
+    );
+    const { modifiedCount } = await Report.updateMany(
+      { targetType: "post", targetId: postId, status: "open" },
+      { $set: { status: "dismissed" } },
+    );
+    invalidatePostCaches(postId, post.author);
+    return { message: "Post restored", dismissedReports: modifiedCount };
+  },
+
+  // Moderation queue: everything currently quarantined, newest first, so an
+  // admin can review the content itself (not just the reports about it).
+  async listHiddenPosts({ page = 1, limit = 20 }) {
+    const lim = Math.max(1, Math.min(50, Number(limit) || 20));
+    const pg = Math.max(1, Number(page) || 1);
+    const skip = (pg - 1) * lim;
+    const filter = { isHidden: true };
+    const [posts, total] = await Promise.all([
+      Post.find(filter)
+        .sort({ hiddenAt: -1 })
+        .skip(skip)
+        .limit(lim)
+        .populate("author", "fullName username avatarUrl isSuspended isBanned")
+        .lean(),
+      Post.countDocuments(filter),
+    ]);
+    return { posts, total, page: pg, limit: lim, hasMore: skip + lim < total };
+  },
+
   async suspendUser(userId, reason) {
     const user = await User.findById(userId);
     if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
