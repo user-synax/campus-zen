@@ -22,19 +22,22 @@ import {
   useFeed,
   useHubFeed,
   useAnonymousFeed,
+  useRankedFeed,
 } from "@/lib/hooks/queries";
 
 export default function AppHome() {
-  const [tab, setTab] = useState("discovery");
+  const [tab, setTab] = useState("forYou");
   const isArticlesTab = tab === "articles";
   const isAnonTab = tab === "anonymous";
   const isHubTab = tab === "hub";
+  const isRankedTab = tab === "forYou";
   const [hubTag, setHubTag] = useState(INTEREST_TAGS[0].id);
   const [moreOpen, setMoreOpen] = useState(false);
   const moreWrapRef = useRef(null);
   const MAIN_TABS = [
     { id: "following", label: "Following" },
-    { id: "discovery", label: "For you" },
+    { id: "forYou", label: "For you" },
+    { id: "discovery", label: "Discovery" },
   ];
   const MORE_TABS = [
     { id: "articles", label: "Articles", hint: "Long-form" },
@@ -77,7 +80,10 @@ export default function AppHome() {
   const { data: meData } = useMe();
   const user = meData?.data?.user || null;
 
-  const feedQuery = useFeed(isArticlesTab || isAnonTab || isHubTab ? "discovery" : tab);
+  const feedQuery = useFeed(
+    isArticlesTab || isAnonTab || isHubTab || isRankedTab ? "discovery" : tab,
+  );
+  const rankedQuery = useRankedFeed();
   const articlesQuery = useArticlesInfinite();
   const anonQuery = useAnonymousFeed();
   const hubQuery = useHubFeed(hubTag);
@@ -96,7 +102,9 @@ export default function AppHome() {
       ? anonQuery
       : isHubTab
         ? hubQuery
-        : feedQuery;
+        : isRankedTab
+          ? rankedQuery
+          : feedQuery;
 
   // The one cache key the active tab reads+writes (created/deleted/updated
   // posts, pending merge). The hub key includes its topic.
@@ -106,7 +114,9 @@ export default function AppHome() {
       ? ["anon-feed"]
       : isHubTab
         ? ["hub", hubTag]
-        : ["feed", tab];
+        : isRankedTab
+          ? ["ranked-feed"]
+          : ["feed", tab];
 
   // Dedupe by _id — cursor sessions can interleave after pull-to-refresh
   // (fresh random top + older session pages) or an order-cache rebuild, so
@@ -175,7 +185,12 @@ export default function AppHome() {
     if (tab === "hub") return;
     checkingRef.current = true;
     try {
-      const fn = tab === "following" ? api.getFeed : api.getPublicFeed;
+      const fn =
+        tab === "following"
+          ? api.getFeed
+          : tab === "forYou"
+            ? api.getRankedFeed
+            : api.getPublicFeed;
       // latest=1 → cheap chronological peek (shared 20s server cache) for
       // "any new posts?" detection. Never touches the viewer's randomized
       // session order used by the real feed.

@@ -106,6 +106,31 @@ export function useFeed(tab = "following") {
   });
 }
 
+export const rankedFeedPage = ({ pageParam }) => {
+  const params =
+    pageParam?.cursor != null
+      ? { cursor: pageParam.cursor }
+      : pageParam?.page != null
+        ? { page: pageParam.page }
+        : {};
+  return api.getRankedFeed(params);
+};
+
+export function useRankedFeed() {
+  return useInfiniteQuery({
+    queryKey: ["ranked-feed"],
+    queryFn: rankedFeedPage,
+    initialPageParam: undefined,
+    getNextPageParam: (lastPage) => {
+      const d = lastPage?.data;
+      if (!d?.hasMore) return undefined;
+      return d.nextCursor ? { cursor: d.nextCursor } : { page: (d.page || 1) + 1 };
+    },
+    staleTime: 15_000,
+    placeholderData: (prev) => prev,
+  });
+}
+
 // One infinite query per topic — the hub strip just swaps the tag in the key,
 // so each topic keeps its own cache and scroll position.
 export function useHubFeed(tag) {

@@ -93,6 +93,19 @@ function maskAnonComments(comments, post, viewerId) {
 // without each query needing its own rule.
 const NOT_ANON = { isAnonymous: { $ne: true }, isHidden: { $ne: true } };
 
+// Lightweight engagement+recency score for the ranked "For you" feed.
+// Half-life 24h. Baseline +1 keeps brand-new zero-engagement posts visible.
+function rankedScore(p) {
+  const eng =
+    (p.likeCount || 0) +
+    2 * (p.replyCount || 0) +
+    3 * (p.repostCount || 0) +
+    0.1 * (p.viewCount || 0);
+  const ageH = Math.max(0, (Date.now() - new Date(p.createdAt).getTime()) / 3600000);
+  const decay = Math.pow(0.5, ageH / 24);
+  return (eng + 1) * decay;
+}
+
 // Fire-and-forget: notifications + live pushes must never block the
 // interaction response. Errors are swallowed (best-effort realtime).
 function afterResponse(fn) {
@@ -319,6 +332,28 @@ async function getShuffledOrderList(cacheKey, seed, buildCandidates) {
   return order;
 }
 
+// Ranked "For you" order list: candidates from the last 7 days (30-day
+// fallback when sparse), sorted by engagement+recency score. Memoized per seed
+// like the shuffled list so pages 2+ are pure RAM slices.
+async function getRankedOrderList(cacheKey, buildCandidates) {
+  let order = cache.get(cacheKey);
+  if (order) return order;
+  const rows = await buildCandidates();
+  const sorted = [...rows].sort((a, b) => {
+    const sa = rankedScore(a);
+    const sb = rankedScore(b);
+    if (sb !== sa) return sb - sa;
+    // tie-break: newer first, then _id desc
+    const ta = new Date(a.createdAt).getTime();
+    const tb = new Date(b.createdAt).getTime();
+    if (tb !== ta) return tb - ta;
+    return String(b._id) < String(a._id) ? -1 : 1;
+  });
+  order = sorted.map((d) => String(d._id));
+  cache.set(cacheKey, order, TTL.FEED_ORDER);
+  return order;
+}
+
 // Consume the next window of an order list: hydrate live posts with one $in
 // per ::lim slice, keeping the shuffled order. Deleted posts mid-session
 // shrink a slice; we roll into later chunks until the page fills or the list
@@ -340,6 +375,37 @@ async function consumeOrderSlice(order, start, lim, queryFilter, authorProjectio
       if (post) picked.push(post);
       k += 1;
       if (picked.length === lim) break;
+    }
+  }
+  return { posts: picked, end: k };
+}
+
+// Ranked variant of consumeOrderSlice: enforces a per-author diversity cap
+// while still filling the page, advancing past skipped candidates.
+async function consumeRankedSlice(order, start, lim, cap, queryFilter, authorProjection) {
+  const picked = [];
+  const perAuthor = new Map();
+  let k = Math.max(0, Math.min(start, order.length));
+  while (k < order.length && picked.length < lim) {
+    const chunk = order.slice(k, k + Math.max(lim, 20));
+    if (!chunk.length) break;
+    const rows = await Post.find({ _id: { $in: chunk }, ...queryFilter })
+      .select("-body")
+      .populate("author", authorProjection)
+      .lean();
+    const byId = new Map(rows.map((r) => [String(r._id), r]));
+    for (const id of chunk) {
+      if (picked.length >= lim) break;
+      const post = byId.get(id);
+      if (post) {
+        const aKey = String(post.author?._id || post.author);
+        const n = perAuthor.get(aKey) || 0;
+        if (n < cap) {
+          picked.push(post);
+          perAuthor.set(aKey, n + 1);
+        }
+      }
+      k += 1;
     }
   }
   return { posts: picked, end: k };
@@ -1266,6 +1332,103 @@ export const postService = {
     const posts = raw.map((p) => ({ ...p }));
     await hydrateFeedPosts(posts, userId);
     return { posts, hasMore: false };
+  },
+
+  // ─── Ranked "For you" feed (engagement + recency, diversity cap) ─────────
+  async rankedFeedCursor({ cursor, seed, limit, latest }, viewerId) {
+    const lim = Math.max(1, Math.min(50, Number(limit)));
+    if (latest === "1") {
+      const raw = await Post.find(NOT_ANON)
+        .select("-body")
+        .sort({ createdAt: -1, _id: -1 })
+        .limit(Math.max(lim, 5))
+        .populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier streakCount isPrivate")
+        .lean();
+      const posts = await stripViewerHiddenPosts(raw.map((p) => ({ ...p })), viewerId);
+      await hydrateFeedPosts(posts.slice(0, lim), viewerId);
+      return { posts: posts.slice(0, lim), hasMore: false };
+    }
+    const state = resolveFeedState(cursor, seed);
+    const cutoff = new Date(Date.now() - 7 * 24 * 3600 * 1000);
+    const buildCandidates = async () => {
+      let rows = await Post.find({ createdAt: { $gte: cutoff }, ...NOT_ANON })
+        .sort({ createdAt: -1 })
+        .limit(FEED_CANDIDATE_CAP)
+        .select("_id createdAt likeCount replyCount repostCount viewCount")
+        .lean();
+      if (rows.length < 50) {
+        const cutoff30 = new Date(Date.now() - 30 * 24 * 3600 * 1000);
+        rows = await Post.find({ createdAt: { $gte: cutoff30 }, ...NOT_ANON })
+          .sort({ createdAt: -1 })
+          .limit(FEED_CANDIDATE_CAP)
+          .select("_id createdAt likeCount replyCount repostCount viewCount")
+          .lean();
+      }
+      return rows;
+    };
+    const order = await getRankedOrderList(CacheKeys.rankedFeedOrder(state.seed), buildCandidates);
+    let { start } = state;
+    if (state.lastId) {
+      const idx = order.indexOf(state.lastId);
+      if (idx >= 0) start = idx + 1;
+    }
+    const { posts, end } = await consumeRankedSlice(order, start, lim, 2, NOT_ANON, "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier streakCount isPrivate");
+    const visible = await stripViewerHiddenPosts(posts, viewerId);
+    await hydrateFeedPosts(visible, viewerId);
+    return cursorPageResult(state, order.length, end, visible, lim);
+  },
+
+  async rankedFeed({ page = 1, limit = 20 }, viewerId) {
+    const lim = Math.max(1, Math.min(50, Number(limit)));
+    const skip = (Math.max(1, Number(page)) - 1) * lim;
+    const cutoff = new Date(Date.now() - 7 * 24 * 3600 * 1000);
+    let rows = await Post.find({ createdAt: { $gte: cutoff }, ...NOT_ANON })
+      .select("_id createdAt likeCount replyCount repostCount viewCount")
+      .lean();
+    if (rows.length < 50) {
+      const cutoff30 = new Date(Date.now() - 30 * 24 * 3600 * 1000);
+      rows = await Post.find({ createdAt: { $gte: cutoff30 }, ...NOT_ANON })
+        .select("_id createdAt likeCount replyCount repostCount viewCount")
+        .lean();
+    }
+    const sorted = [...rows].sort((a, b) => {
+      const sa = rankedScore(a), sb = rankedScore(b);
+      if (sb !== sa) return sb - sa;
+      const ta = new Date(a.createdAt).getTime(), tb = new Date(b.createdAt).getTime();
+      if (tb !== ta) return tb - ta;
+      return String(b._id) < String(a._id) ? -1 : 1;
+    });
+    const pageIds = sorted.slice(skip, skip + lim + 20).map((d) => String(d._id));
+    // enforce diversity cap on the page
+    const pickedIds = [];
+    const perAuthor = new Map();
+    for (const id of pageIds) {
+      if (pickedIds.length >= lim) break;
+      // need author; fetch later — approximate by checking counts only here is insufficient.
+      pickedIds.push(id);
+    }
+    const raw = await Post.find({ _id: { $in: pickedIds }, ...NOT_ANON })
+      .select("-body")
+      .populate("author", "fullName username avatarUrl isEmailVerified isVerified isPro isOwner achievementTier streakCount isPrivate")
+      .lean();
+    const byId = new Map(raw.map((r) => [String(r._id), r]));
+    const ordered = pickedIds.map((id) => byId.get(id)).filter(Boolean);
+    // diversity cap enforcement
+    const finalPosts = [];
+    const cap = new Map();
+    for (const p of ordered) {
+      const aKey = String(p.author?._id || p.author);
+      const n = cap.get(aKey) || 0;
+      if (n < 2) {
+        finalPosts.push(p);
+        cap.set(aKey, n + 1);
+        if (finalPosts.length >= lim) break;
+      }
+    }
+    const posts = await stripViewerHiddenPosts(finalPosts, viewerId);
+    await hydrateFeedPosts(posts, viewerId);
+    const hasMore = skip + lim < sorted.length;
+    return { posts, page: Number(page), limit: lim, hasMore };
   },
 
   // ─── Interest Hub (v1 taxonomy — utils/interestTags.js) ─────────────────

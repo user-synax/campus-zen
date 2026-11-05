@@ -103,6 +103,7 @@ export const CacheKeys = {
   // the legacy "feed:" namespace (writes may not wipe them: session stability
   // of the seeded "For you" feeds).
   publicFeedOrder: (seed) => `orderPublic:${seed}`,
+  rankedFeedOrder: (seed) => `orderRanked:${seed}`,
   feedLatest: (userId, limit) => `feedLatest:${userId}:${limit}`,
   latestPublic: (limit) => `publicLatest:${limit}`,
   trending: (limit, hours) => `trending:${limit}:${hours}`,

@@ -574,6 +574,15 @@ export const api = {
     const q = qs.toString();
     return request(`/api/posts/public${q ? `?${q}` : ""}`, { method: "GET" });
   },
+  getRankedFeed: (params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== "")
+        qs.set(k, String(v));
+    });
+    const q = qs.toString();
+    return request(`/api/posts/ranked${q ? `?${q}` : ""}`, { method: "GET" });
+  },
   getHubFeed: (params = {}) => {
     const qs = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => {

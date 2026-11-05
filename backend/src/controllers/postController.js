@@ -208,6 +208,17 @@ export const postController = {
     res.json({ success: true, data: result });
   }),
 
+  rankedFeed: asyncHandler(async (req, res) => {
+    const { page, limit, cursor, seed, latest } = req.query;
+    const viewerId = req.user?._id || null;
+    if (cursor || seed || latest === "1" || page === undefined) {
+      const result = await postService.rankedFeedCursor({ cursor, seed, limit, latest }, viewerId);
+      return res.json({ success: true, data: result });
+    }
+    const result = await postService.rankedFeed({ page, limit }, viewerId);
+    res.json({ success: true, data: result });
+  }),
+
   hubFeed: asyncHandler(async (req, res) => {
     const { tag, cursor, limit } = req.query;
     const viewerId = req.user?._id || null;

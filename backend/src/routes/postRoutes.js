@@ -100,6 +100,8 @@ const hubQuery = z.object({
 
 // public discovery — optional auth for isLiked flags
 router.get("/public", optionalAuth, feedLimiter, validate(feedQuery, "query"), postController.publicFeed);
+// ranked "For you" feed — engagement + recency score, diversity cap, cursor-paginated
+router.get("/ranked", optionalAuth, feedLimiter, validate(feedQuery, "query"), postController.rankedFeed);
 
 // interest hub — chronological topic feeds, cursor-paginated
 router.get("/hub", optionalAuth, feedLimiter, validate(hubQuery, "query"), postController.hubFeed);
