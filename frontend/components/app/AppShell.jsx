@@ -64,6 +64,8 @@ export function AppShell({ children, requireAuth = false }) {
   // /app/a/<username>/<slug> — the long-form reader. On xl the right rail
   // unmounts and the main column grows to fill the freed width.
   const isArticleReader = Boolean(pathname?.startsWith("/app/a/"));
+  const isMessages =
+    pathname === "/app/messages" || pathname?.startsWith("/app/messages/");
 
   // One live-notification stream for the whole shell.
   useSSE(!suspended);
@@ -163,20 +165,25 @@ export function AppShell({ children, requireAuth = false }) {
 
       <div
         className={cn(
-          "mx-auto grid w-full max-w-[1275px] md:grid-cols-[72px_minmax(0,1fr)] lg:grid-cols-[275px_minmax(0,1fr)]",
-          isArticleReader
-            ? "xl:grid-cols-[275px_minmax(0,1fr)]"
-            : "xl:grid-cols-[275px_minmax(0,1fr)_350px]",
+          "mx-auto grid w-full max-w-[1275px]",
+          isMessages
+            ? "md:grid-cols-[72px_minmax(0,1fr)]"
+            : "md:grid-cols-[72px_minmax(0,1fr)] lg:grid-cols-[275px_minmax(0,1fr)]",
+          !isMessages &&
+            (isArticleReader
+              ? "xl:grid-cols-[275px_minmax(0,1fr)]"
+              : "xl:grid-cols-[275px_minmax(0,1fr)_350px]"),
         )}
       >
         <aside className="sticky top-0 hidden h-[100dvh] min-h-0 flex-col border-r border-[var(--cz-border)] md:flex">
-          <LeftNav user={user} />
+          <LeftNav user={user} compact={isMessages} />
         </aside>
 
         <main
           className={cn(
             "min-w-0",
-            !isArticleReader && "xl:border-r xl:border-[var(--cz-border)]",
+            !(isArticleReader || isMessages) &&
+              "xl:border-r xl:border-[var(--cz-border)]",
           )}
         >
           {/* room for the mobile tab bar */}
@@ -189,7 +196,7 @@ export function AppShell({ children, requireAuth = false }) {
           </div>
         </main>
 
-        {isArticleReader ? null : (
+        {isArticleReader || isMessages ? null : (
           /* Rail scrolls on its own — cz-scrollbar keeps the same thin bar
              as the page instead of the native-width default. */
           <aside className="cz-scrollbar sticky top-0 hidden h-[100dvh] min-h-0 overflow-y-auto xl:block">

@@ -15,9 +15,14 @@ const pagination = z.object({
 const createSchema = z.object({ participantId: z.string().regex(/^[a-f\d]{24}$/i, "Invalid participant id") });
 const messageSchema = z.object({ text: z.string().trim().min(1).max(2000) });
 const typingSchema = z.object({ isTyping: z.boolean() });
+const participantSearchQuery = z.object({
+  q: z.string().trim().min(2).max(100),
+  limit: z.coerce.number().int().min(1).max(20).optional().default(8),
+});
 const limiter = rateLimit({ windowMs: 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false });
 
 router.use(protect);
+router.get("/participants", limiter, validate(participantSearchQuery, "query"), chatController.searchParticipants);
 router.get("/", limiter, validate(pagination, "query"), chatController.list);
 router.post("/", limiter, validate(createSchema), chatController.create);
 router.get("/:id/messages", limiter, validate(idParam, "params"), validate(pagination, "query"), chatController.messages);

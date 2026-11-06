@@ -5,6 +5,7 @@ import {
   Loader2,
   MessageCircle,
   MoreVertical,
+  Search,
   Send,
   Trash2,
 } from "lucide-react";
@@ -51,8 +52,12 @@ export default function MessagesPage() {
   const [typing, setTyping] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [search, setSearch] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
   const typingTimer = useRef(null);
   const endRef = useRef(null);
+  const searchTimer = useRef(null);
 
   const selected = useMemo(
     () =>
@@ -106,6 +111,55 @@ export default function MessagesPage() {
       cancelled = true;
     };
   }, [requestedUserId]);
+
+  useEffect(() => {
+    const query = search.trim();
+    clearTimeout(searchTimer.current);
+    if (query.length < 2) {
+      setSearchResults([]);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    searchTimer.current = setTimeout(async () => {
+      try {
+        const response = await api.searchChatParticipants({ q: query });
+        setSearchResults(response.data?.users || []);
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 250);
+    return () => clearTimeout(searchTimer.current);
+  }, [search]);
+
+  const openParticipant = async (target) => {
+    try {
+      const response = await api.createConversation(target._id);
+      const conversationId = response.data?.conversation?._id;
+      const newParticipant = response.data?.participant || target;
+      if (!conversationId) return;
+      setConversations((rows) =>
+        rows.some((row) => String(row._id) === String(conversationId))
+          ? rows
+          : [
+              {
+                _id: conversationId,
+                participant: newParticipant,
+                lastMessage: null,
+                lastMessageAt: null,
+                unreadCount: 0,
+              },
+              ...rows,
+            ],
+      );
+      setSelectedId(conversationId);
+      setParticipant(newParticipant);
+      setSearch("");
+      setSearchResults([]);
+    } catch {}
+  };
 
   useEffect(() => {
     if (!user) return undefined;
@@ -244,12 +298,58 @@ export default function MessagesPage() {
   if (checking || !user) return null;
 
   return (
-    <div className="flex min-h-[calc(100dvh-1px)] flex-col md:flex-row">
+    <div className="flex h-[calc(100dvh-106px)] min-h-0 flex-col md:h-dvh md:flex-row">
       <aside
         className={`w-full border-b border-[var(--cz-border)] md:w-[320px] md:border-r md:border-b-0 ${selectedId ? "hidden md:block" : ""}`}
       >
         <div className="border-b border-[var(--cz-border)] px-4 py-4">
           <h1 className="text-xl font-extrabold">Messages</h1>
+          <div className="relative mt-3">
+            <Search
+              className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[var(--cz-text-secondary)]"
+              aria-hidden
+            />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search students to chat"
+              aria-label="Search students to chat"
+              className="pl-9"
+            />
+            {search.trim().length >= 2 ? (
+              <div className="absolute inset-x-0 top-[calc(100%+6px)] z-20 overflow-hidden rounded-xl border border-[var(--cz-border)] bg-[var(--cz-elevated)] shadow-[var(--shadow-sm)]">
+                {searching ? (
+                  <div className="flex items-center gap-2 px-3 py-3 text-sm text-[var(--cz-text-secondary)]">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Searching…
+                  </div>
+                ) : searchResults.length ? (
+                  searchResults.map((result) => (
+                    <button
+                      type="button"
+                      key={result._id}
+                      onClick={() => openParticipant(result)}
+                      className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-[var(--cz-surface-strong)]"
+                    >
+                      <Avatar user={result} size={34} />
+                      <span className="min-w-0">
+                        <span className="block truncate font-bold">
+                          {result.fullName || result.username}
+                        </span>
+                        <span className="block truncate text-sm text-[var(--cz-text-secondary)]">
+                          @{result.username}
+                        </span>
+                      </span>
+                    </button>
+                  ))
+                ) : (
+                  <p className="px-3 py-3 text-sm text-[var(--cz-text-secondary)]">
+                    No students found.
+                  </p>
+                )}
+              </div>
+            ) : null}
+          </div>
         </div>
         {loading ? (
           <div className="grid place-items-center p-8">
@@ -289,7 +389,7 @@ export default function MessagesPage() {
       </aside>
 
       <section
-        className={`flex min-h-[calc(100dvh-1px)] min-w-0 flex-1 flex-col ${selectedId ? "" : "hidden md:flex"}`}
+        className={`flex min-h-0 min-w-0 flex-1 flex-col ${selectedId ? "" : "hidden md:flex"}`}
       >
         {selectedId && participant ? (
           <>
@@ -313,7 +413,7 @@ export default function MessagesPage() {
                 </p>
               </div>
             </header>
-            <div className="flex-1 space-y-2 overflow-y-auto px-4 py-5">
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 py-5">
               {messages.map((message) => (
                 <div
                   key={message._id}
@@ -357,7 +457,7 @@ export default function MessagesPage() {
             </div>
             <form
               onSubmit={send}
-              className="flex gap-2 border-t border-[var(--cz-border)] p-3"
+              className="flex shrink-0 gap-2 border-t border-[var(--cz-border)] bg-[var(--cz-bg)] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
             >
               <Input
                 value={draft}

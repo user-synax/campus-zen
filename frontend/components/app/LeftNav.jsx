@@ -18,9 +18,9 @@ import { usePathname } from "next/navigation";
 import { AnimatedNumber } from "@/components/app/AnimatedNumber";
 import { CzImage } from "@/components/app/CzImage";
 import { BrandMark } from "@/components/BrandLogo";
-import { useUnreadCount } from "@/lib/hooks/queries";
-import { withAvatarRing } from "@/lib/avatar";
 import { UserBadge } from "@/components/ui/verified-badge";
+import { withAvatarRing } from "@/lib/avatar";
+import { useUnreadCount } from "@/lib/hooks/queries";
 import { cn } from "@/lib/utils";
 
 /**
@@ -47,7 +47,7 @@ const items = [
   { href: "/app/profile", label: "Profile", icon: User },
 ];
 
-export function LeftNav({ user }) {
+export function LeftNav({ user, compact = false }) {
   const pathname = usePathname();
   const { data } = useUnreadCount();
   const unread = data?.data?.count ?? 0;
@@ -56,7 +56,9 @@ export function LeftNav({ user }) {
     it.exact ? pathname === it.href : pathname.startsWith(it.href);
 
   return (
-    <div className="flex h-full min-h-0 flex-col px-2 lg:px-3">
+    <div
+      className={cn("flex h-full min-h-0 flex-col px-2", !compact && "lg:px-3")}
+    >
       <Link
         href="/app"
         aria-label="CampusZen home"
@@ -76,7 +78,10 @@ export function LeftNav({ user }) {
                   aria-label={it.label}
                   aria-current={on ? "page" : undefined}
                   className={cn(
-                    "group flex h-[50px] cursor-pointer items-center gap-5 rounded-full px-4 transition-colors duration-150",
+                    cn(
+                      "group flex h-[50px] cursor-pointer items-center gap-5 rounded-full px-4 transition-colors duration-150",
+                      compact && "justify-center px-0",
+                    ),
                     on
                       ? "font-bold text-[var(--cz-accent)]"
                       : "text-[var(--cz-text-primary)] hover:bg-[var(--cz-surface-strong)]",
@@ -97,7 +102,12 @@ export function LeftNav({ user }) {
                       </span>
                     ) : null}
                   </span>
-                  <span className="hidden truncate text-[20px] leading-none lg:inline">
+                  <span
+                    className={cn(
+                      "hidden truncate text-[20px] leading-none",
+                      !compact && "lg:inline",
+                    )}
+                  >
                     {it.label}
                   </span>
                 </Link>
@@ -111,20 +121,23 @@ export function LeftNav({ user }) {
         <Link
           href="/app/create"
           aria-label="Create post"
-          className="mt-3 flex h-[52px] shrink-0 cursor-pointer items-center justify-center gap-2 rounded-full bg-[var(--cz-text-primary)] px-6 text-[17px] font-extrabold text-[var(--cz-brand-contrast)] transition-opacity hover:opacity-90"
+          className={cn(
+            "mt-3 flex h-[52px] shrink-0 cursor-pointer items-center justify-center gap-2 rounded-full bg-[var(--cz-text-primary)] text-[17px] font-extrabold text-[var(--cz-brand-contrast)] transition-opacity hover:opacity-90",
+            compact ? "w-[50px] px-0" : "px-6",
+          )}
         >
           <Plus
             className="h-[22px] w-[22px] shrink-0"
             strokeWidth={2.4}
             aria-hidden
           />
-          <span className="hidden lg:inline">Post</span>
+          <span className={cn("hidden", !compact && "lg:inline")}>Post</span>
         </Link>
       </nav>
 
       {/* theme + account sit at the very bottom, like X */}
       <div className="flex shrink-0 flex-col gap-0.5 pb-2">
-        {user ? <LeftUserCard user={user} /> : null}
+        {user ? <LeftUserCard user={user} compact={compact} /> : null}
       </div>
     </div>
   );
@@ -137,7 +150,10 @@ function Avatar({ user, size = 40 }) {
     .toUpperCase();
   return (
     <span
-      className={withAvatarRing(user, "grid shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] font-bold text-[var(--cz-text-primary)]")}
+      className={withAvatarRing(
+        user,
+        "grid shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--cz-border-strong)] font-bold text-[var(--cz-text-primary)]",
+      )}
       style={{ height: size, width: size, fontSize: size * 0.36 }}
     >
       {user.avatarUrl ? (
@@ -154,7 +170,7 @@ function Avatar({ user, size = 40 }) {
   );
 }
 
-export function LeftUserCard({ user }) {
+export function LeftUserCard({ user, compact = false }) {
   if (!user) return null;
   return (
     <div className="flex items-center gap-3 rounded-full px-2 py-1.5 transition-colors hover:bg-[var(--cz-surface-strong)] lg:px-3">
@@ -164,7 +180,7 @@ export function LeftUserCard({ user }) {
         className="flex min-w-0 flex-1 items-center gap-3"
       >
         <Avatar user={user} />
-        <span className="hidden min-w-0 lg:block">
+        <span className={cn("hidden min-w-0", !compact && "lg:block")}>
           <span className="flex items-center gap-1 text-[15px] leading-tight font-bold text-[var(--cz-text-primary)]">
             <span className="truncate">{user.fullName || user.username}</span>
             <UserBadge user={user} size="sm" />

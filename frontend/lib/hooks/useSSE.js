@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { api } from "../api";
 
@@ -22,13 +22,6 @@ let consumers = 0;
 let reconnectTimer = null;
 let lastEventId = null;
 
-function getToken() {
-  return document.cookie
-    .split("; ")
-    .find((row) => row.startsWith("accessToken="))
-    ?.split("=")[1];
-}
-
 export function useSSE(enabled = true) {
   const queryClient = useQueryClient();
   const clientRef = useRef(queryClient);
@@ -43,13 +36,9 @@ export function useSSE(enabled = true) {
 
     function connect() {
       if (source) return;
-      const token = getToken();
-      if (!token) return;
-
-      const evtSource = new EventSource(
-        `${api.base}/api/events?token=${encodeURIComponent(token)}`,
-        // withCredentials lets same-origin deployments also send cookies
-      );
+      const evtSource = new EventSource(`${api.base}/api/events`, {
+        withCredentials: true,
+      });
       source = evtSource;
 
       evtSource.addEventListener("connected", () => {});
@@ -65,14 +54,17 @@ export function useSSE(enabled = true) {
             if (newPages.length > 0) {
               const firstPage = newPages[0];
               const existingIds = new Set(
-                (firstPage.data?.notifications || []).map((n) => n._id)
+                (firstPage.data?.notifications || []).map((n) => n._id),
               );
               if (!existingIds.has(data._id)) {
                 newPages[0] = {
                   ...firstPage,
                   data: {
                     ...firstPage.data,
-                    notifications: [data, ...(firstPage.data?.notifications || [])],
+                    notifications: [
+                      data,
+                      ...(firstPage.data?.notifications || []),
+                    ],
                   },
                 };
               }
@@ -121,7 +113,8 @@ export function useSSE(enabled = true) {
           if (!data?.userId) return;
           const { patchUserEverywhere } = await import("../optimistic.js");
           const patch = {};
-          if (data.followersCount != null) patch.followersCount = data.followersCount;
+          if (data.followersCount != null)
+            patch.followersCount = data.followersCount;
           if (data.isFollowing != null) patch.isFollowing = data.isFollowing;
           if (Object.keys(patch).length === 0) return;
           patchUserEverywhere(clientRef.current, data.userId, patch);
@@ -148,7 +141,9 @@ export function useSSE(enabled = true) {
           try {
             lastEventId = e.lastEventId || lastEventId;
             window.dispatchEvent(
-              new CustomEvent(`cz:${eventName}`, { detail: JSON.parse(e.data) }),
+              new CustomEvent(`cz:${eventName}`, {
+                detail: JSON.parse(e.data),
+              }),
             );
           } catch {}
         });

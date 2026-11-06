@@ -2,6 +2,11 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { chatService } from "../services/chatService.js";
 
 export const chatController = {
+  searchParticipants: asyncHandler(async (req, res) => {
+    const users = await chatService.searchParticipants(req.user._id, req.query.q, req.query.limit);
+    res.json({ success: true, data: { users } });
+  }),
+
   list: asyncHandler(async (req, res) => {
     const data = await chatService.listConversations(req.user._id, req.query);
     res.json({ success: true, data });

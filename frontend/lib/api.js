@@ -177,6 +177,13 @@ export const api = {
     const query = qs.toString();
     return request(`/api/conversations${query ? `?${query}` : ""}`);
   },
+  searchChatParticipants: (params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) qs.set(key, String(value));
+    });
+    return request(`/api/conversations/participants?${qs.toString()}`);
+  },
   createConversation: (participantId) =>
     request("/api/conversations", {
       method: "POST",
@@ -193,10 +200,13 @@ export const api = {
     );
   },
   sendMessage: (conversationId, text) =>
-    request(`/api/conversations/${encodeURIComponent(conversationId)}/messages`, {
-      method: "POST",
-      body: { text },
-    }),
+    request(
+      `/api/conversations/${encodeURIComponent(conversationId)}/messages`,
+      {
+        method: "POST",
+        body: { text },
+      },
+    ),
   markConversationRead: (conversationId) =>
     request(`/api/conversations/${encodeURIComponent(conversationId)}/read`, {
       method: "PATCH",
@@ -233,7 +243,10 @@ export const api = {
   recordConsent: (payload) =>
     request("/api/users/me/consent", { method: "POST", body: payload }),
   withdrawConsent: (payload = {}) =>
-    request("/api/users/me/consent/withdraw", { method: "POST", body: payload }),
+    request("/api/users/me/consent/withdraw", {
+      method: "POST",
+      body: payload,
+    }),
   resendGuardianConsent: (payload = {}) =>
     request("/api/users/me/guardian-consent/resend", {
       method: "POST",
@@ -762,13 +775,19 @@ export const api = {
   // The viewer's effective role + switches on this college — the page uses
   // it to decide which management tools to render.
   getCollegeMyCaps: (slug) =>
-    request(`/api/colleges/${encodeURIComponent(slug)}/my-caps`, { method: "GET" }),
+    request(`/api/colleges/${encodeURIComponent(slug)}/my-caps`, {
+      method: "GET",
+    }),
   // live "online now" snapshot (SSE `presence` events keep it updated after)
   getCollegeActiveNow: (slug) =>
-    request(`/api/colleges/${encodeURIComponent(slug)}/active-now`, { method: "GET" }),
+    request(`/api/colleges/${encodeURIComponent(slug)}/active-now`, {
+      method: "GET",
+    }),
   // owner-only team management for this college
   getCollegeAdmins: (slug) =>
-    request(`/api/colleges/${encodeURIComponent(slug)}/admins`, { method: "GET" }),
+    request(`/api/colleges/${encodeURIComponent(slug)}/admins`, {
+      method: "GET",
+    }),
   addCollegeAdmin: (slug, username) =>
     request(`/api/colleges/${encodeURIComponent(slug)}/admins`, {
       method: "POST",

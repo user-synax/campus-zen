@@ -46,6 +46,27 @@ function conversationForViewer(conversation, viewerId, otherUser, lastMessage) {
 }
 
 export const chatService = {
+  async searchParticipants(viewerId, query, limit = 8) {
+    const text = String(query || "").trim();
+    if (text.length < 2) return [];
+    const blockedIds = await blockService.blockedIdsFor(viewerId);
+    const escaped = text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const users = await User.find({
+      _id: { $nin: [viewerId, ...blockedIds] },
+      isDeactivated: { $ne: true },
+      isBanned: { $ne: true },
+      $or: [
+        { username: new RegExp(escaped, "i") },
+        { fullName: new RegExp(escaped, "i") },
+      ],
+    })
+      .select("fullName username avatarUrl")
+      .sort({ fullName: 1 })
+      .limit(Math.min(20, Math.max(1, Number(limit))))
+      .lean();
+    return users.map((user) => publicUser(user));
+  },
+
   async listConversations(viewerId, { page = 1, limit = 30 } = {}) {
     const pg = Math.max(1, Number(page));
     const lim = Math.min(50, Math.max(1, Number(limit)));
