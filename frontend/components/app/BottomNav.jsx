@@ -1,24 +1,29 @@
 "use client";
 
-import { Bell, Home, Menu, Plus, Search } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Bell, Home, Menu, MessageCircle, Search } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { AnimatedNumber } from "@/components/app/AnimatedNumber";
 import { api } from "@/lib/api";
 import { feedPage, useUnreadCount } from "@/lib/hooks/queries";
 import { cn } from "@/lib/utils";
 
 // Mobile tab bar — exactly 5 tabs:
-// Home · Search · Post · Notifications · Settings
+// Home · Search · Messages · Notifications · Settings
 // Profile lives under Settings → Account, so the bar stays thumb-sized.
 // Settings stays lit across its own /app/menu/* sub-pages.
 const items = [
   { href: "/app", label: "Home", icon: Home, exact: true },
   { href: "/app/search", label: "Search", icon: Search },
-  { href: "/app/create", label: "Post", icon: Plus, isCreate: true },
-  { href: "/app/notifications", label: "Notifications", icon: Bell, badge: true },
+  { href: "/app/messages", label: "Messages", icon: MessageCircle },
+  {
+    href: "/app/notifications",
+    label: "Notifications",
+    icon: Bell,
+    badge: true,
+  },
   { href: "/app/menu", label: "Settings", icon: Menu },
 ];
 
@@ -49,7 +54,11 @@ export function BottomNav() {
           queryClient.prefetchInfiniteQuery({
             queryKey: ["notifications", "all", "all"],
             queryFn: ({ pageParam = 1 }) =>
-              api.getNotifications({ page: pageParam, filter: "all", type: "all" }),
+              api.getNotifications({
+                page: pageParam,
+                filter: "all",
+                type: "all",
+              }),
             initialPageParam: 1,
             staleTime: 10_000,
           });
@@ -148,7 +157,10 @@ export function BottomNav() {
             >
               <span className="relative grid place-items-center">
                 <it.icon
-                  className={cn("h-[24px] w-[24px]", it.isCreate && "h-[26px] w-[26px]")}
+                  className={cn(
+                    "h-[24px] w-[24px]",
+                    it.isCreate && "h-[26px] w-[26px]",
+                  )}
                   strokeWidth={active || it.isCreate ? 2.2 : 1.9}
                   aria-hidden
                 />
