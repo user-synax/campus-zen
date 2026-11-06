@@ -18,6 +18,7 @@ import reportRoutes from "./routes/reportRoutes.js";
 import collegeRoutes from "./routes/collegeRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import verificationRoutes from "./routes/verificationRoutes.js";
+import chatRoutes from "./routes/chatRoutes.js";
 import { notFound, errorHandler } from "./middleware/errorHandler.js";
 import { requireTrustedOrigin } from "./middleware/originGuard.js";
 
@@ -107,6 +108,7 @@ app.use("/api/colleges", collegeRoutes);
 app.use("/api/admin", requireTrustedOrigin);
 app.use("/api/admin", adminRoutes);
 app.use("/api/verifications", verificationRoutes);
+app.use("/api/conversations", chatRoutes);
 
 // 404
 app.use(notFound);

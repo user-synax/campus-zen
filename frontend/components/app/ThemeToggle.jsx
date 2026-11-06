@@ -1,7 +1,7 @@
 "use client";
 
 import { Moon, Sun } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { applyTheme, persistTheme, readTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
@@ -11,8 +11,13 @@ import { cn } from "@/lib/utils";
  * already stamped the right class on <html> from the cookie, so this only
  * has to flip it and record the choice.
  */
-export function ThemeToggle({ className, side = "right" }) {
+export function ThemeToggle({ className }) {
   const [theme, setTheme] = useState(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const toggle = () => {
     const next = readTheme() === "dark" ? "light" : "dark";
@@ -21,7 +26,7 @@ export function ThemeToggle({ className, side = "right" }) {
     persistTheme(next);
   };
 
-  const isDark = readTheme() === "dark";
+  const isDark = mounted && readTheme() === "dark";
 
   return (
     <button

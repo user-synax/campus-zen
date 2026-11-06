@@ -1,4 +1,5 @@
 import { Inter } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { PushRegistrar } from "@/components/app/PushRegistrar";
 import { ConsentAwareAnalytics } from "@/components/ConsentAwareAnalytics";
@@ -112,9 +113,18 @@ export default function RootLayout({ children }) {
       className={`${inter.variable} h-full antialiased`}
     >
       <body className="min-h-dvh flex flex-col">
-        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: trusted constant, theme bootstrap */}
-        <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
-        <script type="application/ld+json">{JSON.stringify(orgJsonLd)}</script>
+        <Script
+          id="theme-bootstrap"
+          strategy="beforeInteractive"
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: trusted constant, theme bootstrap
+          dangerouslySetInnerHTML={{ __html: themeBootstrapScript }}
+        />
+        <Script
+          id="organization-jsonld"
+          type="application/ld+json"
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: trusted static schema data
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }}
+        />
         <PushRegistrar />
         <QueryProvider>{children}</QueryProvider>
         <CzToaster />

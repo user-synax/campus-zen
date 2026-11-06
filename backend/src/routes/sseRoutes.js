@@ -93,7 +93,8 @@ async function protectSSE(req, res, next) {
 /**
  * SSE endpoint for real-time updates.
  * Client connects with: new EventSource(`/api/events?token=${accessToken}`, { withCredentials: true })
- * Server pushes events: notification, unread-count, post:update, follow:update
+ * Server pushes events: notification, unread-count, post:update, follow:update,
+ * chat:message, chat:read, chat:typing
  * Supports Last-Event-ID replay for reconnects (in-memory, last 100/user).
  */
 async function handleSSE(req, res) {
@@ -195,6 +196,18 @@ export function pushFollowUpdate(userId, data) {
   broadcast(userId, "follow:update", data);
 }
 
+export function pushChatMessage(userId, data) {
+  broadcast(userId, "chat:message", data);
+}
+
+export function pushChatRead(userId, data) {
+  broadcast(userId, "chat:read", data);
+}
+
+export function pushChatTyping(userId, data) {
+  broadcast(userId, "chat:typing", data);
+}
+
 /**
  * Get stats about active SSE connections (for monitoring).
  */
@@ -202,6 +215,11 @@ export function getSseStats() {
   let connections = 0;
   for (const s of sseClients.values()) connections += s.size;
   return { activeUsers: sseClients.size, activeConnections: connections };
+}
+
+export function isUserOnline(userId) {
+  const clients = sseClients.get(String(userId));
+  return Boolean(clients && clients.size > 0);
 }
 
 export default router;

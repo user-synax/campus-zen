@@ -5,7 +5,7 @@ import {
   Bell,
   Bookmark,
   Home,
-  MoreHorizontal,
+  MessageCircle,
   Plus,
   School,
   Search,
@@ -17,7 +17,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatedNumber } from "@/components/app/AnimatedNumber";
 import { CzImage } from "@/components/app/CzImage";
-import { ThemeToggle } from "@/components/app/ThemeToggle";
 import { BrandMark } from "@/components/BrandLogo";
 import { useUnreadCount } from "@/lib/hooks/queries";
 import { withAvatarRing } from "@/lib/avatar";
@@ -44,6 +43,7 @@ const items = [
     icon: Bell,
     badge: true,
   },
+  { href: "/app/messages", label: "Messages", icon: MessageCircle },
   { href: "/app/profile", label: "Profile", icon: User },
 ];
 

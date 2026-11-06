@@ -143,6 +143,17 @@ export function useSSE(enabled = true) {
         } catch {}
       });
 
+      for (const eventName of ["chat:message", "chat:read", "chat:typing"]) {
+        evtSource.addEventListener(eventName, (e) => {
+          try {
+            lastEventId = e.lastEventId || lastEventId;
+            window.dispatchEvent(
+              new CustomEvent(`cz:${eventName}`, { detail: JSON.parse(e.data) }),
+            );
+          } catch {}
+        });
+      }
+
       evtSource.onerror = () => {
         close();
         if (consumers > 0 && !reconnectTimer) {

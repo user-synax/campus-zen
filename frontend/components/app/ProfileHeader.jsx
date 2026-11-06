@@ -7,6 +7,7 @@ import {
   GraduationCap,
   Link2,
   Lock,
+  MessageCircle,
   MoreHorizontal,
 } from "lucide-react";
 import { memo, useMemo, useState } from "react";
@@ -112,6 +113,7 @@ export function ProfileHeader({
   onFollowingClick,
   onReportUser,
   onBlockToggle,
+  onMessage,
   isBlocked,
   blockLoading,
 }) {
@@ -289,6 +291,12 @@ export function ProfileHeader({
                 ) : (
                   "Follow"
                 )}
+              </Button>
+            ) : null}
+            {!isOwn && onMessage ? (
+              <Button variant="secondary" onClick={onMessage} aria-label={`Message @${user.username}`}>
+                <MessageCircle className="h-4 w-4" aria-hidden />
+                <span className="hidden sm:inline">Message</span>
               </Button>
             ) : null}
             {!isOwn && onReportUser ? (

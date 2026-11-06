@@ -169,6 +169,47 @@ export const api = {
     request("/api/auth/reset-password", { method: "POST", body: payload }),
   getUser: (username) =>
     request(`/api/users/${encodeURIComponent(username)}`, { method: "GET" }),
+  listConversations: (params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) qs.set(key, String(value));
+    });
+    const query = qs.toString();
+    return request(`/api/conversations${query ? `?${query}` : ""}`);
+  },
+  createConversation: (participantId) =>
+    request("/api/conversations", {
+      method: "POST",
+      body: { participantId },
+    }),
+  getConversationMessages: (conversationId, params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) qs.set(key, String(value));
+    });
+    const query = qs.toString();
+    return request(
+      `/api/conversations/${encodeURIComponent(conversationId)}/messages${query ? `?${query}` : ""}`,
+    );
+  },
+  sendMessage: (conversationId, text) =>
+    request(`/api/conversations/${encodeURIComponent(conversationId)}/messages`, {
+      method: "POST",
+      body: { text },
+    }),
+  markConversationRead: (conversationId) =>
+    request(`/api/conversations/${encodeURIComponent(conversationId)}/read`, {
+      method: "PATCH",
+    }),
+  setConversationTyping: (conversationId, isTyping) =>
+    request(`/api/conversations/${encodeURIComponent(conversationId)}/typing`, {
+      method: "POST",
+      body: { isTyping },
+    }),
+  deleteMessage: (messageId) =>
+    request(`/api/conversations/messages/${encodeURIComponent(messageId)}`, {
+      method: "DELETE",
+    }),
   listUsers: (params = {}) => {
     const qs = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => {

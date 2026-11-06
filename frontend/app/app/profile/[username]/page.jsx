@@ -1,7 +1,7 @@
 "use client";
 
 import { FileText, Loader2, UserX } from "lucide-react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { BlockedProfile } from "@/components/app/BlockedProfile";
 import { EditProfileModal } from "@/components/app/EditProfileModal";
@@ -23,6 +23,7 @@ import { api } from "@/lib/api";
 
 export default function UserProfilePage() {
   const { username } = useParams();
+  const router = useRouter();
   const [user, setUser] = useState(null);
   const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -198,6 +199,7 @@ export default function UserProfilePage() {
         followLoading={followLoading}
         onEdit={() => setEditOpen(true)}
         onFollow={handleFollow}
+        onMessage={() => router.push(`/app/messages?userId=${encodeURIComponent(user._id)}`)}
         onFollowersClick={() =>
           setFollowModal({ open: true, type: "followers" })
         }
