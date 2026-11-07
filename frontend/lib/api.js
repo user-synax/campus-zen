@@ -738,6 +738,10 @@ export const api = {
   unpinPost: () => request("/api/users/me/pin", { method: "DELETE" }),
   getCollege: (slug) =>
     request(`/api/colleges/${encodeURIComponent(slug)}`, { method: "GET" }),
+  claimCollege: (slug) =>
+    request(`/api/colleges/${encodeURIComponent(slug)}/claim`, { method: "POST" }),
+  unclaimCollege: (slug) =>
+    request(`/api/colleges/${encodeURIComponent(slug)}/claim`, { method: "DELETE" }),
   listColleges: (params = {}) => {
     const qs = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => {

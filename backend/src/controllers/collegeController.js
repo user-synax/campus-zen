@@ -92,4 +92,17 @@ export const collegeController = {
     await collegeAdminService.moderatePost(req.params.slug, req.params.postId, req.user);
     res.json({ success: true, message: "Post removed" });
   }),
+
+  // ── Self-service membership ─────────────────────────────────────────────
+  // Join/Leave the college from the page itself. The profile-edit path
+  // remains the fallback; both share the same counters and ban enforcement.
+  claim: asyncHandler(async (req, res) => {
+    const data = await collegeService.claim(req.user._id, req.params.slug);
+    res.json({ success: true, message: "You're in", data });
+  }),
+
+  unclaim: asyncHandler(async (req, res) => {
+    const data = await collegeService.unclaim(req.user._id, req.params.slug);
+    res.json({ success: true, message: "You left the college", data });
+  }),
 };

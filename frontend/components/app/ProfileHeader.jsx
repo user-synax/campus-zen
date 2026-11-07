@@ -11,12 +11,14 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import { memo, useMemo, useState } from "react";
+import Link from "next/link";
 import { AnimatedNumber } from "@/components/app/AnimatedNumber";
 import { CzImage } from "@/components/app/CzImage";
 import { Button } from "@/components/ui/button";
 import { UserBadge } from "@/components/ui/verified-badge";
 import { HighestAchievementBadge } from "@/components/ui/achievement-badge";
 import { StreakFlame } from "@/components/ui/streak-flame";
+import { collegeHrefFor } from "@/lib/college";
 import { avatarRingClass, isOwnerUser } from "@/lib/avatar";
 import { normalizeHttpsUrl } from "@/lib/links";
 import {
@@ -138,6 +140,7 @@ export function ProfileHeader({
   ]
     .filter(Boolean)
     .join(" · ");
+  const collegeHref = collegeHrefFor(user);
 
   const socialEntries = useMemo(() => {
     // Treat null/empty/"null"/"undefined" (legacy rows saved as the string
@@ -388,13 +391,22 @@ export function ProfileHeader({
 
         {/* metadata row — Graphite, 15px */}
         <div className="mt-3 flex flex-col gap-1 text-[15px] leading-[20px] text-[var(--cz-text-secondary)]">
-          {collegeLine && user.college !== collegeLine ? (
-            <span className="flex items-center gap-1.5">
+          {collegeLine ? (
+            <span className="flex min-w-0 items-center gap-1.5">
               <GraduationCap
                 className="h-[17px] w-[17px] shrink-0"
                 aria-hidden
               />
-              {collegeLine}
+              {collegeHref ? (
+                <Link
+                  href={collegeHref}
+                  className="min-w-0 truncate transition-colors hover:text-[var(--cz-text-primary)] hover:underline"
+                >
+                  {collegeLine}
+                </Link>
+              ) : (
+                collegeLine
+              )}
             </span>
           ) : null}
           <span className="flex items-center gap-1.5">

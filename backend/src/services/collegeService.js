@@ -7,6 +7,8 @@ import { Bookmark } from "../models/Bookmark.js";
 import { blockService } from "./blockService.js";
 import { cleanCollegeName, slugifyCollege } from "../utils/college.js";
 import { AppError } from "../utils/AppError.js";
+import { cache, CacheKeys } from "../utils/cache.js";
+import { presenceService } from "./presenceService.js";
 
 async function attachFlags(posts, viewerId) {
   if (!posts.length || !viewerId) return;
@@ -24,6 +26,56 @@ async function attachFlags(posts, viewerId) {
     p.isReposted = repostSet.has(String(p._id));
     p.isBookmarked = saveSet.has(String(p._id));
   });
+}
+
+// Self-service claim/unclaim shared by the Join button on college pages.
+// Mirrors the college bookkeeping in userService.updateProfile (ban check,
+// College doc, memberCount counters) without the profile-save detour.
+async function setMembership(userId, slug, join) {
+  const clean = String(slug || "").toLowerCase().trim().slice(0, 80);
+  if (!clean) throw new AppError("Invalid college", 400, "INVALID_COLLEGE");
+  // Materialize the College doc (derives from member data when missing).
+  const college = await collegeService.getBySlug(clean);
+  const user = await User.findById(userId).select("username collegeSlug").lean();
+  if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+  const prevSlug = user.collegeSlug || null;
+
+  if (join) {
+    if ((college.bannedUserIds || []).some((b) => String(b) === String(userId))) {
+      throw new AppError(
+        "You are banned from this college. Contact the college admin if this is a mistake.",
+        403,
+        "COLLEGE_BANNED",
+      );
+    }
+    if (prevSlug === clean) return { joined: true, memberCount: college.memberCount };
+    await User.updateOne(
+      { _id: userId },
+      { $set: { college: college.name, collegeSlug: clean } },
+    );
+    await College.updateOne({ slug: clean }, { $inc: { memberCount: 1 } });
+  } else {
+    if (prevSlug !== clean) return { joined: false, memberCount: college.memberCount };
+    await User.updateOne({ _id: userId }, { $set: { college: null, collegeSlug: null } });
+    await College.updateOne({ slug: clean }, { $inc: { memberCount: -1 } });
+    await College.updateOne({ slug: clean, memberCount: { $lt: 0 } }, { $set: { memberCount: 0 } });
+    try {
+      await presenceService.dropUser(userId, clean);
+    } catch {}
+  }
+  if (join && prevSlug) {
+    await College.updateOne({ slug: prevSlug }, { $inc: { memberCount: -1 } });
+    await College.updateOne({ slug: prevSlug, memberCount: { $lt: 0 } }, { $set: { memberCount: 0 } });
+  }
+  cache.del(CacheKeys.userProfile(user.username));
+  cache.delPattern("user:*");
+  cache.delPattern("publicFeed:*");
+  cache.delPattern("feed:*");
+  import("./achievementService.js")
+    .then(({ achievementService }) => achievementService.evaluate(userId))
+    .catch(() => {});
+  const fresh = await College.findOne({ slug: clean }).select("memberCount").lean();
+  return { joined: join, memberCount: fresh?.memberCount ?? college.memberCount };
 }
 
 export const collegeService = {
@@ -257,5 +309,13 @@ export const collegeService = {
     ]);
     await attachFlags(posts, viewerId);
     return { posts, total, page: pg, limit: lim, hasMore: skip + lim < total };
+  },
+
+  // Self-service membership (Join/Leave button on the college page).
+  claim(userId, slug) {
+    return setMembership(userId, slug, true);
+  },
+  unclaim(userId, slug) {
+    return setMembership(userId, slug, false);
   },
 };

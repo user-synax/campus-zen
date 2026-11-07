@@ -87,6 +87,23 @@ router.get(
   collegeController.activeNow,
 );
 
+// self-service Join/Leave — members manage their own membership from the page
+router.post(
+  "/:slug/claim",
+  modLimiter,
+  protect,
+  validate(slugParam, "params"),
+  collegeController.claim,
+);
+
+router.delete(
+  "/:slug/claim",
+  modLimiter,
+  protect,
+  validate(slugParam, "params"),
+  collegeController.unclaim,
+);
+
 // owner console for this college's team
 router.get(
   "/:slug/admins",

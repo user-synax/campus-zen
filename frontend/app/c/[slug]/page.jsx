@@ -2,6 +2,7 @@
 
 import {
   Ban,
+  Check,
   FileText,
   Loader2,
   School,
@@ -10,11 +11,13 @@ import {
   Trash2,
   UserMinus,
   Users,
+  UserPlus,
 } from "lucide-react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 import { EmptyState } from "@/components/app/EmptyState";
 import { CzImage } from "@/components/app/CzImage";
 import { PostCard } from "@/components/app/PostCard";
@@ -46,6 +49,9 @@ export default function CollegePage() {
 
   const { user: me, loading: checking } = useCurrentUser();
   const isGuest = !me;
+  const queryClient = useQueryClient();
+  const [claiming, setClaiming] = useState(false);
+  const isMember = Boolean(me?.collegeSlug && me.collegeSlug === slug);
   // { role: "guest" | "user" | "admin" | "owner", caps } — null until resolved.
   const [caps, setCaps] = useState(null);
   // Live "online now" for this college — REST initial, then SSE events.
@@ -156,6 +162,49 @@ export default function CollegePage() {
     setPage(1);
     if (tab !== "manage") fetchTab(tab, 1, false);
   }, [tab, slug, fetchTab]);
+
+  // ── Self-service membership ─────────────────────────────────────────────
+  const joinCollege = async () => {
+    if (claiming) return;
+    setClaiming(true);
+    try {
+      const res = await api.claimCollege(slug);
+      const mc = res?.data?.memberCount;
+      setCollege((prev) => prev && { ...prev, memberCount: mc ?? (prev.memberCount || 0) + 1 });
+      await queryClient.invalidateQueries({ queryKey: ["me"] });
+      toast.success(`Welcome to ${college?.name || "the college"}`);
+      if (tab === "members") fetchTab("members", 1, false);
+    } catch (e) {
+      toast.error(e?.data?.message || "Couldn't join right now. Try again.");
+    } finally {
+      setClaiming(false);
+    }
+  };
+
+  const confirmLeave = () => {
+    toast(`Leave ${college.name}?`, {
+      description: "Your posts stay up. You can join again anytime.",
+      action: {
+        label: "Leave",
+        onClick: async () => {
+          setClaiming(true);
+          try {
+            const res = await api.unclaimCollege(slug);
+            const mc = res?.data?.memberCount;
+            setCollege((prev) => prev && { ...prev, memberCount: mc ?? Math.max(0, (prev.memberCount || 1) - 1) });
+            await queryClient.invalidateQueries({ queryKey: ["me"] });
+            toast.success("You left the college");
+            if (tab === "members") fetchTab("members", 1, false);
+          } catch (e) {
+            toast.error(e?.data?.message || "Couldn't leave right now. Try again.");
+          } finally {
+            setClaiming(false);
+          }
+        },
+      },
+      cancel: { label: "Stay", onClick: () => {} },
+    });
+  };
 
   // ── Moderator actions ────────────────────────────────────────────────────
   // Confirm-first via toast action, matching the PostCard delete flow.
@@ -302,15 +351,46 @@ export default function CollegePage() {
             ) : null}
           </p>
         </div>
+        {/* Join/Leave — the page is the join funnel, so the CTA lives here. */}
+        <div className="shrink-0">
+          {isGuest ? (
+            <Link href="/signup">
+              <Button>Join</Button>
+            </Link>
+          ) : isMember ? (
+            <Button variant="secondary" onClick={confirmLeave} disabled={claiming}>
+              {claiming ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              ) : (
+                <Check className="h-4 w-4" aria-hidden />
+              )}
+              Joined
+            </Button>
+          ) : (
+            <Button onClick={joinCollege} disabled={claiming}>
+              {claiming ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              ) : (
+                <UserPlus className="h-4 w-4" aria-hidden />
+              )}
+              Join
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Active now strip — live via SSE. Count is everyone connected;
           avatars are public profiles (max 5) plus a +N bubble. */}
       {active?.count > 0 ? (
         <div className="flex items-center gap-3 border-y border-[var(--cz-border)] px-4 py-3">
-          <span className="text-[18px]" aria-hidden>
-            🔥
-          </span>
+          <img
+            src="/Streak-flames/20-day-streak.svg"
+            alt=""
+            width={22}
+            height={22}
+            className="h-[22px] w-[22px] shrink-0 object-contain"
+            loading="lazy"
+          />
           <p className="min-w-0 flex-1 truncate text-[15px] text-[var(--cz-text-secondary)]">
             <b className="font-extrabold text-[var(--cz-text-primary)]">
               {active.count}
